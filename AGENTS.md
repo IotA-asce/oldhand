@@ -4,15 +4,21 @@ This file is the portable entry point for all coding agents in this workspace.
 
 ## Ownership
 
-Define owned repositories explicitly here.
+This section is optional and ships empty on purpose. Fill it in only if this
+workspace contains repositories an agent must never write to.
 
 Owned repositories:
-- `<OWNED_REPOSITORY_1>`
-- `<OWNED_REPOSITORY_2>`
+- (none listed, so no ownership restriction is in force)
 
-Everything else is read-only reference unless explicitly designated otherwise.
+While that list is empty, ownership imposes no restriction and normal
+judgement applies. Once it names even one repository, everything absent from
+it is read-only reference, and a non-owned repository must never be modified.
 
-Never modify a non-owned repository.
+Do not leave placeholder names here. An agent reading an unfilled list can
+reasonably conclude that it owns nothing, that every path is therefore
+read-only, and that it should decline to edit the code it was asked to
+change. That failure surfaces a session or two after setup and does not look
+like a configuration problem.
 
 ## Canonical operating policies
 

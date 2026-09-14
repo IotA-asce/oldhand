@@ -21,7 +21,15 @@ python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
 python tools/lore/lore.py usage
 python tools/lore/lore.py new --title "..." --type <type> --importance <level> [...]
+python tools/lore/lore.py doctor [--limit N]
+python tools/lore/lore.py conflicts
+python tools/lore/lore.py eval [--save <name>] [--against <name>]
+python tools/lore/lore.py metrics [--full] [--export <path>]
+python tools/lore/lore.py obsidian
 ```
+
+Each has its own section below. `lore --help` is authoritative if this list
+and the parser ever disagree.
 
 ## Root resolution
 
@@ -78,7 +86,7 @@ record that matches the query but ranks below the pool cut would never be
 considered at all.
 
 BM25 relevance is normalised across the merged candidate set onto a 0 to 60
-range. Metadata contributes at most 52 on top, and that ceiling is deliberate:
+range. Metadata contributes at most 44 on top, and that ceiling is deliberate:
 **metadata breaks ties between comparable matches, it never decides the
 ranking.** Criticality is a scoring weight and a display marker (`!`), not a
 sort key.
@@ -88,8 +96,15 @@ importance, risk and durability sum to 60, the entire text range, so a single
 `critical` label was worth as much as a perfect textual match. On a
 117-record archive, recall@5 fell from 92% to 33% once a quarter of records
 carried that label, and nothing in the design resists label inflation: every
-agent believes its own finding is critical. With the current weights the same
-corpus and queries hold between 83% and 75% across the same range.
+agent believes its own finding is critical.
+
+Rebalancing fixed the collapse. Measured on the build that capped metadata at
+52, the same corpus and queries held 83% to 67% across that range instead of
+falling to 17%. The cap is 44 today, lowered when sweeping the importance
+contribution from 12 to 4 raised findability from 92% to 95% and changed eval
+recall and MRR by nothing at all. That sweep was measured; the full inflation
+curve has not been re-run since, so read 83% to 67% as the figure for the 52
+build rather than for this one.
 
 `lore selftest` asserts these invariants. Run it after changing any scoring
 constant; a single hand-checked query will not catch this class of regression,

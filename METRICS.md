@@ -23,7 +23,7 @@ lore metrics --full   # plus findability and eval, several hundred searches
 ```
 
 ```
-lore 0.4.0   2026-09-15T00:59:42+05:30
+lore 0.4.1   2026-09-15T00:59:42+05:30
 
   records            293 across 4 collection(s)
   index rows         3751 (12.8 per record)
