@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="286" viewBox="0 0 880 286" role="img" aria-label="Metadata breaks ties. It never decides the ranking.">
+<rect x="0.5" y="0.5" width="879" height="285" rx="10" fill="#0d1117" stroke="#21262d"/>
+<text x="30" y="34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" fill="#e6edf3" font-weight="600" text-anchor="start">Metadata breaks ties. It never decides the ranking.</text>
+<text x="30" y="54" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8b949e" font-weight="400" text-anchor="start">Every positive label combined, against the text-relevance range.</text>
+<line x1="126.0" y1="96" x2="126.0" y2="196" stroke="#1c2128" stroke-width="1"/>
+<text x="126.0" y="214" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10" fill="#6e7681" font-weight="400" text-anchor="middle">0</text>
+<line x1="243.3" y1="96" x2="243.3" y2="196" stroke="#1c2128" stroke-width="1"/>
+<text x="243.33333333333331" y="214" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10" fill="#6e7681" font-weight="400" text-anchor="middle">10</text>
+<line x1="360.7" y1="96" x2="360.7" y2="196" stroke="#1c2128" stroke-width="1"/>
+<text x="360.66666666666663" y="214" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10" fill="#6e7681" font-weight="400" text-anchor="middle">20</text>
+<line x1="478.0" y1="96" x2="478.0" y2="196" stroke="#1c2128" stroke-width="1"/>
+<text x="478.0" y="214" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10" fill="#6e7681" font-weight="400" text-anchor="middle">30</text>
+<line x1="595.3" y1="96" x2="595.3" y2="196" stroke="#1c2128" stroke-width="1"/>
+<text x="595.3333333333333" y="214" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10" fill="#6e7681" font-weight="400" text-anchor="middle">40</text>
+<line x1="712.7" y1="96" x2="712.7" y2="196" stroke="#1c2128" stroke-width="1"/>
+<text x="712.6666666666666" y="214" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10" fill="#6e7681" font-weight="400" text-anchor="middle">50</text>
+<line x1="830.0" y1="96" x2="830.0" y2="196" stroke="#1c2128" stroke-width="1"/>
+<text x="830.0" y="214" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10" fill="#6e7681" font-weight="400" text-anchor="middle">60</text>
+<text x="30" y="124" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#e6edf3" font-weight="600" text-anchor="start">text</text>
+<rect x="126" y="106" width="704.0" height="28" rx="4" fill="#3fb950" opacity="0.85"/>
+<text x="820.0" y="125" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#0d1117" font-weight="700" text-anchor="end">60</text>
+<text x="30" y="172" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#e6edf3" font-weight="600" text-anchor="start">metadata</text>
+<rect x="126.0" y="154" width="140.8" height="28" rx="3" fill="#58a6ff" opacity="0.85"/>
+<text x="196.39999999999998" y="173" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#0d1117" font-weight="700" text-anchor="middle">12</text>
+<rect x="268.3" y="154" width="70.4" height="28" rx="3" fill="#bc8cff" opacity="0.85"/>
+<text x="303.49999999999994" y="173" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#0d1117" font-weight="700" text-anchor="middle">6</text>
+<rect x="340.2" y="154" width="70.4" height="28" rx="3" fill="#39c5cf" opacity="0.85"/>
+<text x="375.3999999999999" y="173" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#0d1117" font-weight="700" text-anchor="middle">6</text>
+<rect x="412.1" y="154" width="70.4" height="28" rx="3" fill="#3fb950" opacity="0.85"/>
+<text x="447.2999999999999" y="173" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#0d1117" font-weight="700" text-anchor="middle">6</text>
+<rect x="484.0" y="154" width="58.7" height="28" rx="3" fill="#d29922" opacity="0.85"/>
+<text x="513.3333333333333" y="173" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#0d1117" font-weight="700" text-anchor="middle">5</text>
+<rect x="544.2" y="154" width="58.7" height="28" rx="3" fill="#f778ba" opacity="0.85"/>
+<text x="573.4999999999999" y="173" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#0d1117" font-weight="700" text-anchor="middle">5</text>
+<rect x="604.3" y="154" width="46.9" height="28" rx="3" fill="#f85149" opacity="0.85"/>
+<line x1="652.8" y1="148" x2="652.8" y2="196" stroke="#8b949e" stroke-width="1" stroke-dasharray="3 3"/>
+<text x="660.7666666666664" y="192" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">44 total</text>
+<rect x="126" y="236" width="9" height="9" rx="2" fill="#58a6ff" opacity="0.85"/>
+<text x="140" y="245" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10.5" fill="#8b949e" font-weight="400" text-anchor="start">topic overlap</text>
+<rect x="220.8" y="236" width="9" height="9" rx="2" fill="#bc8cff" opacity="0.85"/>
+<text x="234.8" y="245" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10.5" fill="#8b949e" font-weight="400" text-anchor="start">risk</text>
+<rect x="265.2" y="236" width="9" height="9" rx="2" fill="#39c5cf" opacity="0.85"/>
+<text x="279.2" y="245" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10.5" fill="#8b949e" font-weight="400" text-anchor="start">durability</text>
+<rect x="343.2" y="236" width="9" height="9" rx="2" fill="#3fb950" opacity="0.85"/>
+<text x="357.2" y="245" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10.5" fill="#8b949e" font-weight="400" text-anchor="start">status</text>
+<rect x="398.79999999999995" y="236" width="9" height="9" rx="2" fill="#d29922" opacity="0.85"/>
+<text x="412.79999999999995" y="245" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10.5" fill="#8b949e" font-weight="400" text-anchor="start">evidence</text>
+<rect x="465.59999999999997" y="236" width="9" height="9" rx="2" fill="#f778ba" opacity="0.85"/>
+<text x="479.59999999999997" y="245" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10.5" fill="#8b949e" font-weight="400" text-anchor="start">scope</text>
+<rect x="515.5999999999999" y="236" width="9" height="9" rx="2" fill="#f85149" opacity="0.85"/>
+<text x="529.5999999999999" y="245" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10.5" fill="#8b949e" font-weight="400" text-anchor="start">importance</text>
+<text x="30" y="268" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#6e7681" font-weight="400" text-anchor="start">lore selftest fails the build if the metadata ceiling ever reaches the text weight.</text>
+</svg>

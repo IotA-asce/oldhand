@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="332" viewBox="0 0 880 332" role="img" aria-label="Read the collections, not the average">
+<rect x="0.5" y="0.5" width="879" height="331" rx="10" fill="#0d1117" stroke="#21262d"/>
+<text x="30" y="34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" fill="#e6edf3" font-weight="600" text-anchor="start">Read the collections, not the average</text>
+<text x="30" y="54" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8b949e" font-weight="400" text-anchor="start">The same archive, broken out. The aggregate is 80% recall@1.</text>
+<text x="30" y="108" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13" fill="#e6edf3" font-weight="600" text-anchor="start">S3</text>
+<text x="64" y="108" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#6e7681" font-weight="400" text-anchor="start">8 queries</text>
+<rect x="146" y="96" width="586" height="20" rx="4" fill="#1c2128"/>
+<rect x="146" y="96" width="586.0" height="20" rx="4" fill="#58a6ff" opacity="0.28"/>
+<rect x="146" y="96" width="586.0" height="20" rx="4" fill="#3fb950" opacity="0.9"/>
+<text x="744" y="111" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11.5" fill="#3fb950" font-weight="600" text-anchor="start">r@1 100%</text>
+<text x="806" y="111" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11.5" fill="#58a6ff" font-weight="500" text-anchor="start">r@3 100%</text>
+<text x="30" y="150" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13" fill="#e6edf3" font-weight="600" text-anchor="start">S1</text>
+<text x="64" y="150" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#6e7681" font-weight="400" text-anchor="start">7 queries</text>
+<rect x="146" y="138" width="586" height="20" rx="4" fill="#1c2128"/>
+<rect x="146" y="138" width="586.0" height="20" rx="4" fill="#58a6ff" opacity="0.28"/>
+<rect x="146" y="138" width="586.0" height="20" rx="4" fill="#3fb950" opacity="0.9"/>
+<text x="744" y="153" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11.5" fill="#3fb950" font-weight="600" text-anchor="start">r@1 100%</text>
+<text x="806" y="153" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11.5" fill="#58a6ff" font-weight="500" text-anchor="start">r@3 100%</text>
+<text x="30" y="192" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13" fill="#e6edf3" font-weight="600" text-anchor="start">W</text>
+<text x="64" y="192" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#6e7681" font-weight="400" text-anchor="start">23 queries</text>
+<rect x="146" y="180" width="586" height="20" rx="4" fill="#1c2128"/>
+<rect x="146" y="180" width="562.6" height="20" rx="4" fill="#58a6ff" opacity="0.28"/>
+<rect x="146" y="180" width="457.1" height="20" rx="4" fill="#d29922" opacity="0.9"/>
+<text x="744" y="195" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11.5" fill="#d29922" font-weight="600" text-anchor="start">r@1 78%</text>
+<text x="806" y="195" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11.5" fill="#58a6ff" font-weight="500" text-anchor="start">r@3 96%</text>
+<text x="30" y="234" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13" fill="#e6edf3" font-weight="600" text-anchor="start">S2</text>
+<text x="64" y="234" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#6e7681" font-weight="400" text-anchor="start">8 queries</text>
+<rect x="146" y="222" width="586" height="20" rx="4" fill="#1c2128"/>
+<rect x="146" y="222" width="586.0" height="20" rx="4" fill="#58a6ff" opacity="0.28"/>
+<rect x="146" y="222" width="293.0" height="20" rx="4" fill="#f85149" opacity="0.9"/>
+<text x="744" y="237" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11.5" fill="#f85149" font-weight="600" text-anchor="start">r@1 50%</text>
+<text x="806" y="237" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11.5" fill="#58a6ff" font-weight="500" text-anchor="start">r@3 100%</text>
+<line x1="30" y1="264" x2="850" y2="264" stroke="#21262d"/>
+<text x="30" y="286" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">S2 sits at 50% recall@1 and 100% recall@3. Three rounds of rewriting moved recall@1 by zero,</text>
+<text x="30" y="302" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">because the displacing records are genuine neighbours losing by two points out of eighty.</text>
+
+</svg>

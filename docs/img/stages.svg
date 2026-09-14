@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="228" viewBox="0 0 880 228" role="img" aria-label="Every number here came from one archive">
+<rect x="0.5" y="0.5" width="879" height="227" rx="10" fill="#0d1117" stroke="#21262d"/>
+<text x="30" y="34" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" fill="#e6edf3" font-weight="600" text-anchor="start">Every number here came from one archive</text>
+<text x="30" y="54" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" fill="#8b949e" font-weight="400" text-anchor="start">That cannot be fixed by working on that archive, so this is now a measurement programme.</text>
+<line x1="44" y1="108" x2="836" y2="108" stroke="#21262d" stroke-width="2"/>
+<line x1="44" y1="108" x2="317" y2="108" stroke="#3fb950" stroke-width="2"/>
+<circle cx="44" cy="108" r="9" fill="#3fb950"/>
+<path d="M40 108 l3 3.5 l5.5 -6" fill="none" stroke="#0d1117" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="30.0" y="82" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10" fill="#3fb950" font-weight="700" text-anchor="start" letter-spacing="1.3">STAGE ONE</text>
+<text x="30.0" y="144" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#e6edf3" font-weight="600" text-anchor="start">Complete</text>
+<text x="30.0" y="166" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">one archive, 293 records</text>
+<text x="30.0" y="183" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">every number in this repository</text>
+<text x="30.0" y="200" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">written up as a paper</text>
+<circle cx="317" cy="108" r="13" fill="#d29922" opacity="0.18"/>
+<circle cx="317" cy="108" r="9" fill="#0d1117" stroke="#d29922" stroke-width="3"/>
+<circle cx="317" cy="108" r="3.5" fill="#d29922"/>
+<text x="303.3333333333333" y="82" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10" fill="#d29922" font-weight="700" text-anchor="start" letter-spacing="1.3">STAGE TWO</text>
+<text x="303.3333333333333" y="144" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#e6edf3" font-weight="600" text-anchor="start">Running now</text>
+<text x="303.3333333333333" y="166" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">five independent archives</text>
+<text x="303.3333333333333" y="183" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">pinned at v0.4.0</text>
+<text x="303.3333333333333" y="200" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">exports in about two weeks</text>
+<circle cx="591" cy="108" r="9" fill="#0d1117" stroke="#21262d" stroke-width="2"/>
+<text x="576.6666666666666" y="82" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="10" fill="#6e7681" font-weight="700" text-anchor="start" letter-spacing="1.3">STAGE THREE</text>
+<text x="576.6666666666666" y="144" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" fill="#8b949e" font-weight="600" text-anchor="start">The goal</text>
+<text x="576.6666666666666" y="166" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">findings that survive</text>
+<text x="576.6666666666666" y="183" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">an archive nobody here wrote</text>
+<text x="576.6666666666666" y="200" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" fill="#8b949e" font-weight="400" text-anchor="start">starting with: does anyone search unprompted?</text>
+
+</svg>
