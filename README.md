@@ -9,7 +9,7 @@ The reason something surprising is the way it is.
 
 <br/>
 
-[![version](https://img.shields.io/badge/version-0.4.2-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
+[![version](https://img.shields.io/badge/version-0.4.3-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
 [![license](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square&labelColor=0d1117)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
 [![dependencies](https://img.shields.io/badge/dependencies-1-8b949e?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)

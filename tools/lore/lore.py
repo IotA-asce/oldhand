@@ -33,7 +33,7 @@ except ImportError:
 
 # Bumped when indexing or scoring changes in a way that moves retrieval, so
 # metrics from different archives can be compared like with like.
-LORE_VERSION = "0.4.2"
+LORE_VERSION = "0.4.3"
 
 ENTRY_TYPES = {
     "topic_summary", "decision", "constraint", "fix",
@@ -130,6 +130,23 @@ MAX_METADATA_BOOST = (
 # large enough to help eval can undo the reason sections are indexed at all.
 # 3.0 was best on all three at once (r@1 78->80%, findability 98->99%, reach
 # unchanged at 82%); 14.0 was worse than no penalty on every measure.
+#
+# That sweep ran while search collapsed candidate rows by bm25 before scoring,
+# so this penalty could land on a record that also matched as a whole, and a
+# large value could drop such a record out of the results entirely. 0.4.3
+# collapses rows after scoring instead, so a record now scores at least as well
+# as its whole-record row whatever this value is: raising it can no longer
+# evict anything, only decline to promote a section-only match. Measured on a
+# 216-record corpus, recall@3 and recall@5 held at 100% across 0.0 to 14.0
+# after the change, where before it they fell to 31% and 25% at 10.0 and 14.0.
+#
+# 3.0 is therefore retained rather than re-derived. It was calibrated partly
+# against collateral damage that no longer exists, so there is headroom above
+# it, but nothing available here can say how much. Settling that needs an
+# archive whose records genuinely mention each other's subjects in passing;
+# a synthetic corpus cannot, because whichever text is written closer to the
+# query wins, and the same hand writes both. Re-sweep when a real archive with
+# section rows is available.
 SECTION_PENALTY = 3.0
 
 # Token appended to a section row's topics column to mark it. Never a real
@@ -915,10 +932,11 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
             tuple(params),
         ).fetchall()
 
-        merged: dict[str, sqlite3.Row] = {}
-        for row in (*relevance, *safety):
-            merged.setdefault(str(row["id"]), row)
-        rows = list(merged.values())
+        # Every candidate row, not one per record. A record indexed both whole
+        # and by section contributes several rows here and they do not score
+        # alike, so the choice between them is deferred until after scoring.
+        # Duplicates are harmless: the collapse below keeps the best.
+        rows = [*relevance, *safety]
 
         if not rows:
             # An empty result must not read like "this knowledge does not
@@ -985,6 +1003,20 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                 or (row["risk"] == "critical" and row["durability"] == "invariant")
             )
             ranked.append((score, hard, row))
+
+        # Collapse to one entry per record only now that scores exist. A record
+        # can be indexed both whole and by section, and those two rows do not
+        # score alike: the section row pays SECTION_PENALTY. Choosing the
+        # survivor by bm25 alone discarded the whole-record row whenever a
+        # section merely tied it, and the record then paid a penalty it had not
+        # earned. On tied bm25 values that choice came down to SQLite row
+        # order, so a record could fall out of the results on a coin flip.
+        best: dict[str, tuple] = {}
+        for item in ranked:
+            rid = str(item[2]["id"])
+            if rid not in best or item[0] > best[rid][0]:
+                best[rid] = item
+        ranked = list(best.values())
 
         ranked.sort(key=lambda x: (-x[0], x[2]["title"].lower()))
         ranked = ranked[:limit]
