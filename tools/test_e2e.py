@@ -1,4 +1,5 @@
 import contextlib
+import json
 import os
 from pathlib import Path
 import sqlite3
@@ -122,6 +123,14 @@ class CoreCliTests(E2ETestCase):
         meta = yaml.safe_load(text.split("---\n")[1])
         self.assertEqual(meta["topics"],
                          ["on", "null", "api: gateway", "*backend"])
+
+    def test_search_json_output(self):
+        self.record("good")
+        result = self.lore("search", "database", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["id"], "good")
 
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")

@@ -929,7 +929,8 @@ def fts_query(text: str) -> tuple[str, set[str]]:
 
 def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
            collection: str | None, log: bool = True,
-           entry_type: str | None = None, topic: str | None = None) -> int:
+           entry_type: str | None = None, topic: str | None = None,
+           json_output: bool = False) -> int:
     """Ranked search. `log=False` for internal callers.
 
     The retrieval log answers which records real work retrieves. `doctor` and
@@ -1023,11 +1024,24 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
             ntopics = con.execute(
                 f"SELECT COUNT(DISTINCT t.topic_key) n {topic_base}", filter_params
             ).fetchone()["n"]
-            print(f"No matching record. Searched {total} record(s).")
-            if topics:
-                more = f", +{ntopics - len(topics)} more" if ntopics > len(topics) else ""
-                print(f"Busiest topics: {', '.join(topics)}{more}")
-                print("If the answer should exist, retry using the archive's own terms.")
+            if json_output:
+                print(json.dumps({
+                    "query": query,
+                    "filters": {
+                        "history": history, "scope": scope, "collection": collection,
+                        "type": entry_type, "topic": topic,
+                    },
+                    "count": 0,
+                    "searched": total,
+                    "suggested_topics": topics,
+                    "results": [],
+                }, ensure_ascii=False, indent=2))
+            else:
+                print(f"No matching record. Searched {total} record(s).")
+                if topics:
+                    more = f", +{ntopics - len(topics)} more" if ntopics > len(topics) else ""
+                    print(f"Busiest topics: {', '.join(topics)}{more}")
+                    print("If the answer should exist, retry using the archive's own terms.")
             if log:
                 log_retrieval(root, "search", query, [])
             return 0
@@ -1088,24 +1102,54 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
 
         multi = con.execute("SELECT COUNT(*) c FROM collections").fetchone()["c"] > 1
 
-        for i, (score, hard, r) in enumerate(ranked, 1):
-            marker = " !" if hard else ""
-            print(
-                f"{i}. [{r['importance'].upper()} | {r['status']} | {r['evidence']}]"
-                f"{marker} {r['title']}"
-            )
-            print(f"   id: {r['id']}")
-            location = f"{r['collection_name']}/{r['path']}" if multi else r["path"]
-            print(f"   path: {location}")
-            print(
-                f"   scope={r['scope']} risk={r['risk']} durability={r['durability']} "
-                f"~{r['token_estimate']} tokens score={score:.0f}"
-            )
-            summary = " ".join(str(r["summary"]).split())
-            if len(summary) > 360:
-                summary = summary[:357] + "..."
-            print(f"   {summary}")
-            print()
+        if json_output:
+            results = []
+            for score, hard, r in ranked:
+                topics = [row["display_name"] for row in con.execute(
+                    """SELECT t.display_name FROM topics t
+                       JOIN entry_topics et ON et.topic_id=t.id
+                       WHERE et.entry_id=? ORDER BY t.display_name COLLATE NOCASE""",
+                    (r["id"],),
+                ).fetchall()]
+                location = f"{r['collection_name']}/{r['path']}" if multi else r["path"]
+                results.append({
+                    "id": r["id"], "title": r["title"], "type": r["entry_type"],
+                    "status": r["status"], "importance": r["importance"],
+                    "scope": r["scope"], "risk": r["risk"],
+                    "durability": r["durability"], "evidence": r["evidence"],
+                    "topics": topics, "collection": r["collection_name"],
+                    "path": location, "token_estimate": r["token_estimate"],
+                    "score": round(score, 2), "critical": hard,
+                    "summary": " ".join(str(r["summary"]).split()),
+                })
+            print(json.dumps({
+                "query": query,
+                "filters": {
+                    "history": history, "scope": scope, "collection": collection,
+                    "type": entry_type, "topic": topic,
+                },
+                "count": len(results),
+                "results": results,
+            }, ensure_ascii=False, indent=2))
+        else:
+            for i, (score, hard, r) in enumerate(ranked, 1):
+                marker = " !" if hard else ""
+                print(
+                    f"{i}. [{r['importance'].upper()} | {r['status']} | {r['evidence']}]"
+                    f"{marker} {r['title']}"
+                )
+                print(f"   id: {r['id']}")
+                location = f"{r['collection_name']}/{r['path']}" if multi else r["path"]
+                print(f"   path: {location}")
+                print(
+                    f"   scope={r['scope']} risk={r['risk']} durability={r['durability']} "
+                    f"~{r['token_estimate']} tokens score={score:.0f}"
+                )
+                summary = " ".join(str(r["summary"]).split())
+                if len(summary) > 360:
+                    summary = summary[:357] + "..."
+                print(f"   {summary}")
+                print()
         if log:
             log_retrieval(root, "search", query, [str(r["id"]) for _, _, r in ranked])
         return 0
@@ -2442,6 +2486,8 @@ def main() -> int:
     p_search.add_argument("--type", dest="entry_type", choices=sorted(ENTRY_TYPES),
                           help="restrict to one record type")
     p_search.add_argument("--topic", help="restrict to one exact topic (case-insensitive)")
+    p_search.add_argument("--json", dest="json_output", action="store_true",
+                          help="emit one machine-readable JSON document")
 
     p_show = sub.add_parser("show")
     p_show.add_argument("id")
@@ -2473,7 +2519,8 @@ def main() -> int:
         return validate_cmd(root)
     if args.command == "search":
         return search(root, args.query, args.history, args.limit, args.scope, args.collection,
-                      entry_type=args.entry_type, topic=args.topic)
+                      entry_type=args.entry_type, topic=args.topic,
+                      json_output=args.json_output)
     if args.command == "show":
         return show(root, args.id)
     if args.command == "stats":

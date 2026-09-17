@@ -3,6 +3,7 @@ import ast
 import contextlib
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
 import sqlite3
@@ -258,6 +259,32 @@ class LoreTests(unittest.TestCase):
         output = self.output.getvalue()
         self.assertIn("   id: backend\n", output)
         self.assertNotIn("   id: frontend\n", output)
+
+    def test_search_json_is_structured_for_hits_and_misses(self):
+        self.record("decision", type="decision", topics=["API Gateway"])
+        rc = lore.search(self.root, "useful testing", history=False, limit=5,
+                         scope=None, collection=None, log=False,
+                         entry_type="decision", topic="api gateway",
+                         json_output=True)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["query"], "useful testing")
+        self.assertEqual(payload["filters"]["type"], "decision")
+        self.assertEqual(payload["filters"]["topic"], "api gateway")
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["id"], "decision")
+        self.assertEqual(payload["results"][0]["topics"], ["API Gateway"])
+
+        self.output.seek(0)
+        self.output.truncate()
+        rc = lore.search(self.root, "term-that-does-not-exist", history=False,
+                         limit=5, scope=None, collection=None, log=False,
+                         json_output=True)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["count"], 0)
+        self.assertEqual(payload["searched"], 1)
+        self.assertEqual(payload["results"], [])
 
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
