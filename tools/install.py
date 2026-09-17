@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -49,23 +50,47 @@ def pick_bin_dir() -> tuple[Path, bool]:
     return preferred[0], False
 
 
-def write_launcher(bin_dir: Path) -> Path:
-    bin_dir.mkdir(parents=True, exist_ok=True)
+def sh_quote(value) -> str:
+    value = os.fspath(value)
     if IS_WINDOWS:
-        target = bin_dir / "lore.cmd"
-        target.write_text(
+        return f'"{value}"'
+    return "'" + value.replace("'", "'\\''") + "'"
+
+
+def launcher_header() -> str:
+    if IS_WINDOWS:
+        return (
             "@echo off\r\n"
             "REM Lore launcher. Written by tools/install.py.\r\n"
-            "REM Delete this file, or run install.py --uninstall, to remove.\r\n"
-            f'"{sys.executable}" "{LORE_PY}" %*\r\n',
+            "REM Delete this file, or run install.py --uninstall, to remove.\r\n")
+    return (
+        "#!/bin/sh\n"
+        "# Lore launcher. Written by tools/install.py.\n"
+        "# Delete this file, or run install.py --uninstall, to remove.\n")
+
+
+def owns_launcher(target: Path) -> bool:
+    if target.is_symlink() or not target.is_file():
+        return False
+    try:
+        with target.open(encoding="utf-8") as fh:
+            return [fh.readline().rstrip("\r\n") for _ in range(3)] == launcher_header().splitlines()
+    except (OSError, UnicodeError):
+        return False
+
+
+def write_launcher(bin_dir: Path) -> Path:
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    target = bin_dir / ("lore.cmd" if IS_WINDOWS else "lore")
+    if (target.exists() or target.is_symlink()) and not owns_launcher(target):
+        raise FileExistsError(f"Refusing to overwrite unowned launcher: {target}")
+    if IS_WINDOWS:
+        target.write_text(
+            launcher_header() + f'{sh_quote(sys.executable)} {sh_quote(LORE_PY)} %*\r\n',
             encoding="utf-8")
     else:
-        target = bin_dir / "lore"
         target.write_text(
-            "#!/bin/sh\n"
-            "# Lore launcher. Written by tools/install.py.\n"
-            "# Delete this file, or run install.py --uninstall, to remove.\n"
-            f'exec "{sys.executable}" "{LORE_PY}" "$@"\n',
+            launcher_header() + f'exec {sh_quote(sys.executable)} {sh_quote(LORE_PY)} "$@"\n',
             encoding="utf-8")
         target.chmod(0o755)
         # A filesystem that drops the executable bit (a FAT or NTFS mount, a
@@ -103,6 +128,10 @@ def shell_rc() -> Path | None:
 
 
 MARKER = "# added by lore tools/install.py"
+PROFILE_ASSIGNMENT = re.compile(
+    r"^export LORE_ROOT=(?:\"(?:[^\"\\]|\\[\s\S])*\"|'[^']*'(?:\\''[^']*')*)"
+    r"[ \t]{2,}" + re.escape(MARKER) + r"(?:\r?\n|\Z)",
+    re.MULTILINE)
 
 
 def main() -> int:
@@ -116,7 +145,7 @@ def main() -> int:
 
     if uninstall:
         removed = []
-        if launcher.exists():
+        if owns_launcher(launcher):
             launcher.unlink()
             removed.append(str(launcher))
         if IS_WINDOWS:
@@ -125,10 +154,12 @@ def main() -> int:
         else:
             rc = shell_rc()
             if rc and rc.exists() and MARKER in rc.read_text(encoding="utf-8"):
-                kept = [l for l in rc.read_text(encoding="utf-8").splitlines()
-                        if MARKER not in l and "LORE_ROOT" not in l]
-                rc.write_text("\n".join(kept) + "\n", encoding="utf-8")
-                removed.append(f"LORE_ROOT line in {rc}")
+                with rc.open(encoding="utf-8", newline="") as fh:
+                    text = fh.read()
+                if PROFILE_ASSIGNMENT.search(text):
+                    with rc.open("w", encoding="utf-8", newline="") as fh:
+                        fh.write(PROFILE_ASSIGNMENT.sub("", text))
+                    removed.append(f"LORE_ROOT line in {rc}")
         print("removed:" if removed else "nothing to remove.")
         for r in removed:
             print(f"  {r}")
@@ -153,7 +184,11 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
-    target = write_launcher(bin_dir)
+    try:
+        target = write_launcher(bin_dir)
+    except FileExistsError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     print(f"launcher   {target}")
 
     if IS_WINDOWS:
@@ -161,15 +196,24 @@ def main() -> int:
         os.environ["LORE_ROOT"] = str(archive)
         print(f"LORE_ROOT  {archive}   (user environment)")
     else:
-        line = f'export LORE_ROOT="{archive}"  {MARKER}'
+        line = f'export LORE_ROOT={sh_quote(str(archive))}  {MARKER}'
         rc = shell_rc()
         if write_rc and rc:
             rc.parent.mkdir(parents=True, exist_ok=True)
-            existing = rc.read_text(encoding="utf-8") if rc.exists() else ""
-            if MARKER not in existing:
-                with rc.open("a", encoding="utf-8") as fh:
+            if rc.exists():
+                with rc.open(encoding="utf-8", newline="") as fh:
+                    existing = fh.read()
+            else:
+                existing = ""
+            if PROFILE_ASSIGNMENT.search(existing):
+                with rc.open("w", encoding="utf-8", newline="") as fh:
+                    fh.write(PROFILE_ASSIGNMENT.sub(
+                        lambda m: line + ("\r\n" if m.group(0).endswith("\r\n") else "\n"),
+                        existing))
+            else:
+                with rc.open("a", encoding="utf-8", newline="") as fh:
                     fh.write("\n" + line + "\n")
-            print(f"LORE_ROOT  appended to {rc}")
+            print(f"LORE_ROOT  written to {rc}")
         else:
             print(f"LORE_ROOT  add this line to your shell profile"
                   f"{f' ({rc})' if rc else ''}:")

@@ -9,7 +9,7 @@ The reason something surprising is the way it is.
 
 <br/>
 
-[![version](https://img.shields.io/badge/version-0.4.3-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
+[![version](https://img.shields.io/badge/version-0.4.4-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
 [![license](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square&labelColor=0d1117)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
 [![dependencies](https://img.shields.io/badge/dependencies-1-8b949e?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
@@ -241,6 +241,61 @@ lore metrics       # is this archive earning its keep?
 
 Nothing is installed system-wide, nothing needs administrator rights, and
 there is no server, no account and no network access at any point.
+
+<br/>
+
+## What's new in 0.4.4
+
+Twenty practical reliability fixes, without changing the metadata scoring
+weights or adding dependencies:
+
+- **Index reliability:** content-based change detection catches renames and
+  edits even when timestamps stay unchanged. Missing or outdated index metadata
+  triggers a rebuild. Rebuilds use unique temporary databases and publish
+  atomically, preserving the previous database when a build fails.
+- **Record correctness:** malformed schema versions and relations are rejected;
+  duplicate IDs no longer let file order choose which record survives. Valid
+  records remain searchable when other records fail validation.
+- **Everyday CLI use:** Unicode queries preserve accented and non-Latin words,
+  `new` safely serializes special topic values, and full metrics handle archives
+  with no active records. The CLI parses on the documented Python 3.10 minimum.
+- **Safer installation:** unrelated launchers and symlinks are not overwritten
+  or removed. Uninstall preserves unowned profile lines; reinstall updates the
+  owned archive assignment. POSIX paths are quoted literally.
+- **Migration fidelity:** YAML block summaries and full-line frontmatter
+  delimiters are preserved, unresolved Claude notes stay current, repeated
+  repository event names retain distinct identities, and resync reports rebuild
+  failures instead of hiding them behind successful validation.
+
+These are correctness improvements, not new retrieval-quality measurements.
+The historical results above retain their original measurement context.
+
+## Development checks
+
+After installing `tools/lore/requirements.txt`, run the full suite:
+
+```bash
+python -B tools/verify.py
+```
+
+The runner checks Python 3.10 syntax compatibility, runs all regression and
+end-to-end tests, and checks Lore's ranking invariants. The current **76 tests**
+pass on Python 3.10 and 3.14. Tests use temporary archives and fake home
+folders; the POSIX integration test executes the installed launcher after
+sourcing its generated profile. Windows installer branches are mocked, not
+verified on a native Windows installation.
+
+To test the current changes in an isolated checkout without stashing or
+resetting your working tree:
+
+```bash
+python -B tools/verify.py --clean-checkout
+```
+
+This clones the local repository into a temporary directory, applies the
+tracked diff and copies the test runner and suites, then runs the same checks.
+It does not contact a remote. No separate lint or typecheck configuration is
+currently provided.
 
 <br/>
 

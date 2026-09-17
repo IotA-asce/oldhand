@@ -41,6 +41,16 @@ def fingerprint(root: Path) -> str:
     return h.hexdigest()[:16]
 
 
+def report(step: str, result: subprocess.CompletedProcess) -> None:
+    text = result.stdout.strip()
+    lines = [line for line in text.splitlines() if line.strip()] if text else []
+    if not lines and result.stderr.strip():
+        text = result.stderr.strip()
+        lines = [line for line in text.splitlines() if line.strip()]
+    status = "ok" if result.returncode == 0 else f"failed (exit {result.returncode})"
+    print(f"{step:<10} {status}: {lines[-1] if lines else '(no output)'}")
+
+
 def main() -> int:
     archive = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
     manifest = archive / "sources.jsonl"
@@ -96,10 +106,10 @@ def main() -> int:
 
     rebuild = subprocess.run([sys.executable, str(LORE_CLI), "--root", str(archive), "rebuild"],
                              capture_output=True, text=True)
-    print((rebuild.stdout or rebuild.stderr).strip().splitlines()[-1])
+    report("rebuild", rebuild)
     validate = subprocess.run([sys.executable, str(LORE_CLI), "--root", str(archive), "validate"],
                               capture_output=True, text=True)
-    print((validate.stdout or validate.stderr).strip().splitlines()[-1])
+    report("validate", validate)
 
     if failures:
         print(f"\n{len(failures)} source(s) did not sync. The collections they feed still hold",
@@ -107,7 +117,7 @@ def main() -> int:
         print("their previous contents, which is stale, not empty. Fix before trusting a search.",
               file=sys.stderr)
         return 1
-    return 0 if validate.returncode == 0 else 1
+    return 0 if rebuild.returncode == validate.returncode == 0 else 1
 
 
 if __name__ == "__main__":

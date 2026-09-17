@@ -37,6 +37,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _overrides import load_overrides, apply_status, extra_relations
+from from_markdown import parse_frontmatter
 
 # Their `metadata.type` to Lore's entry type.
 TYPE_MAP = {
@@ -131,22 +132,11 @@ def build_summary(hook: str, description: str) -> str:
 
 def parse_source(text: str) -> tuple[dict, str]:
     """Split frontmatter from body. Returns (fields, body)."""
-    fields: dict[str, str] = {}
-    body = text
-    if text.startswith("---"):
-        parts = text.split("---", 2)
-        if len(parts) >= 3:
-            body = parts[2]
-            for line in parts[1].splitlines():
-                m = re.match(r"^(\w+):\s*(.*)$", line)
-                if m and m.group(2).strip():
-                    val = m.group(2).strip()
-                    if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"'":
-                        val = val[1:-1]
-                    fields[m.group(1)] = val
-                m2 = re.match(r"^\s+(\w+):\s*(.+)$", line)
-                if m2:
-                    fields[m2.group(1)] = m2.group(2).strip()
+    fields, body = parse_frontmatter(text)
+    metadata = fields.get("metadata")
+    if isinstance(metadata, dict):
+        for key, value in metadata.items():
+            fields.setdefault(key, value)
     return fields, body.strip()
 
 
@@ -160,7 +150,9 @@ def pick_status(description: str) -> str:
     d = description.upper()
     if d.startswith("SUPERSEDED") or "SUPERSEDED " in d[:60]:
         return "superseded"
-    if "RESOLVED" in d[:60]:
+    if re.search(r"\b(?:UNRESOLVED|NOT\s+RESOLVED)\b", d[:60]):
+        return "current"
+    if re.search(r"\bRESOLVED\b", d[:60]):
         return "resolved"
     return "current"
 
@@ -190,7 +182,7 @@ def to_iso(value: str | None, fallback_file: Path | None = None) -> str:
     """
     if value:
         try:
-            return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone().isoformat()
+            return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone().isoformat()
         except ValueError:
             pass
     if fallback_file is not None:
@@ -221,8 +213,8 @@ def main() -> int:
     records = []
     for f in files:
         fields, body = parse_source(f.read_text(encoding="utf-8", errors="replace"))
-        slug = fields.get("name") or f.stem
-        description = fields.get("description", "").strip()
+        slug = str(fields.get("name") or f.stem)
+        description = str(fields.get("description") or "").strip()
         title = slug.replace("-", " ")
         title = title[0].upper() + title[1:] if title else slug
 
@@ -237,7 +229,7 @@ def main() -> int:
             "title": title,
             "summary": build_summary(hooks.get(slug, ""), description) or title,
             "body": body,
-            "type": TYPE_MAP.get(fields.get("type", ""), "lesson"),
+            "type": TYPE_MAP.get(str(fields.get("type") or ""), "lesson"),
             "status": pick_status(description),
             "id": "lore_" + slug.replace("-", "_"),
             "importance": "critical" if slug in CRITICAL else "normal",

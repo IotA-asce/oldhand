@@ -35,6 +35,8 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _overrides import (apply_status, extra_relations, load_overrides,  # noqa: E402
                         render_relations)
@@ -53,38 +55,31 @@ TYPE_HINTS = [
     ("feature", ("feature", "added", "implement", "built", "shipped")),
 ]
 
-FM = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.S)
+FM = re.compile(r"\A---[^\S\r\n]*\r?\n(.*?)^---[^\S\r\n]*(?:\r?\n|\Z)", re.S | re.M)
 STRUCTURAL = re.compile(
     r"^(summary|context|background|overview|notes?|contents?|toc)\b", re.I)
 
 
 def parse_frontmatter(text: str) -> tuple[dict, str]:
-    """Shallow YAML: scalars and simple lists. No dependency, no surprises."""
     m = FM.match(text)
     if not m:
         return {}, text
-    fields: dict[str, object] = {}
-    key = None
-    for line in m.group(1).splitlines():
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        item = re.match(r"^\s*-\s+(.*)$", line)
-        if item and key:
-            fields.setdefault(key, [])
-            if isinstance(fields[key], list):
-                fields[key].append(item.group(1).strip().strip("\"'"))
-            continue
-        kv = re.match(r"^([A-Za-z_][\w\-]*)\s*:\s*(.*)$", line)
-        if kv:
-            key = kv.group(1).lower()
-            value = kv.group(2).strip()
-            if value.startswith("[") and value.endswith("]"):
-                fields[key] = [v.strip().strip("\"'") for v in
-                               value[1:-1].split(",") if v.strip()]
-            elif value:
-                fields[key] = value.strip("\"'")
-            else:
-                fields[key] = []
+    try:
+        fields = yaml.safe_load(m.group(1))
+        nodes = yaml.compose(m.group(1), Loader=yaml.SafeLoader)
+    except yaml.YAMLError:
+        return {}, text
+    if fields is None:
+        fields = {}
+    if not isinstance(fields, dict):
+        return {}, text
+    fields = {str(key).lower(): value for key, value in fields.items()}
+    text_fields = {"name", "title", "description", "summary", "excerpt", "abstract", "type", "kind"}
+    if isinstance(nodes, yaml.MappingNode):
+        for key, value in nodes.value:
+            if isinstance(key, yaml.ScalarNode) and isinstance(value, yaml.ScalarNode):
+                if key.value.lower() in text_fields:
+                    fields[key.value.lower()] = value.value
     return fields, text[m.end():]
 
 

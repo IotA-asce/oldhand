@@ -32,6 +32,7 @@ entry `auth-fix` is not a hypothetical.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 import sys
 from datetime import datetime, timezone
@@ -40,6 +41,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _overrides import (load_overrides, apply_status, extra_relations,
                         render_relations)
+from from_markdown import parse_frontmatter
 
 CATEGORY_TO_TYPE = {
     "fixes": "fix",
@@ -287,6 +289,75 @@ def entry_date(name: str, fallback: Path) -> str:
         return datetime.now(timezone.utc).astimezone().replace(microsecond=0).isoformat()
 
 
+def entry_identities(entries: list[Path], src: Path, dst: Path,
+                     name: str) -> dict[Path, tuple[str, Path]]:
+    prefix = f"lore_{slugify(name)}_".replace("-", "_")
+    legacy = {}
+    for entry in entries:
+        relative = entry.relative_to(src)
+        stem = slugify(re.sub(r"^\d{4}-\d{2}-\d{2}-", "", entry.name))
+        path = dst / "memory" / relative.parts[0] / f"{stem}.md"
+        legacy.setdefault(path, []).append(entry)
+
+    existing = {}
+    used_ids = set()
+    used_paths = set()
+    by_source = {entry.relative_to(src).as_posix(): entry for entry in entries}
+    for path in sorted((dst / "memory").rglob("*.md")):
+        used_paths.add(path)
+        text = read(path)
+        fields, body = parse_frontmatter(text)
+        rid = fields.get("id")
+        if not isinstance(rid, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", rid):
+            rid = None
+        if rid:
+            used_ids.add(rid)
+        provenance = re.search(r"(?:\A|\n)Source entry: `([^`]+)`\s*\Z", body)
+        entry = by_source.get(provenance.group(1)) if provenance else None
+        if not provenance and path in legacy and rid:
+            candidates = legacy[path]
+            stem = path.stem.replace("-", "_")
+            if rid == prefix + stem:
+                entry = candidates[-1]
+        if entry is not None and rid and entry not in existing:
+            existing[entry] = (rid, path)
+
+    result = {}
+    claimed_ids = set()
+    claimed_paths = set()
+    for entry, (rid, path) in existing.items():
+        if path not in claimed_paths:
+            result[entry] = (rid if rid not in claimed_ids else None, path)
+            claimed_ids.add(rid)
+            claimed_paths.add(path)
+
+    for entry in entries:
+        relative = entry.relative_to(src)
+        stem = slugify(re.sub(r"^\d{4}-\d{2}-\d{2}-", "", entry.name))
+        base_id = prefix + stem.replace("-", "_")
+        out_dir = dst / "memory" / relative.parts[0]
+        rid, path = result.get(entry, (None, None))
+        digest = hashlib.sha256(relative.as_posix().encode("utf-8")).hexdigest()[:12]
+        if rid is None:
+            rid = base_id
+            suffix = 1
+            while rid in used_ids:
+                ending = digest if suffix == 1 else f"{digest}_{suffix}"
+                rid = f"{base_id}_{ending}"
+                suffix += 1
+        if path is None:
+            path = out_dir / f"{stem}.md"
+            suffix = 1
+            while path in used_paths:
+                ending = digest if suffix == 1 else f"{digest}-{suffix}"
+                path = out_dir / f"{stem}-{ending}.md"
+                suffix += 1
+        used_ids.add(rid)
+        used_paths.add(path)
+        result[entry] = (rid, path)
+    return result
+
+
 def main() -> int:
     if len(sys.argv) < 4:
         print("usage: from_repo_memory.py <repo-memory-dir> <collection-dir> <collection-name>")
@@ -306,6 +377,7 @@ def main() -> int:
 
     from collections import Counter
     kinds = Counter()
+    identities = entry_identities(entries, src, dst, name)
     written = 0
     for d in entries:
         rel = d.relative_to(src)
@@ -351,9 +423,8 @@ def main() -> int:
         when = entry_date(d.name, d / "SUMMARY.md")
         hay = f"{title} {summary_body} {' '.join(rel.parts)}"
 
-        rid = f"lore_{slugify(name)}_{slugify(dir_name)}".replace("-", "_")
-        out_dir = dst / "memory" / category
-        out_dir.mkdir(parents=True, exist_ok=True)
+        rid, out_path = identities[d]
+        out_path.parent.mkdir(parents=True, exist_ok=True)
 
         lines = ["---", "schema_version: 1", f"id: {rid}", f"type: {etype}",
                  f"status: {apply_status(rid, 'current', overrides)}",
@@ -371,10 +442,12 @@ def main() -> int:
         lines += ["", "## Verification", ""]
         lines.append("\n\n".join(verification) if verification else "Not recorded.")
         lines += ["", "## References", ""]
-        lines.append(references or f"Source entry: `{rel.as_posix()}`")
+        if references:
+            lines.extend([references, ""])
+        lines.append(f"Source entry: `{rel.as_posix()}`")
         lines.append("")
 
-        (out_dir / f"{slugify(dir_name)}.md").write_text("\n".join(lines), encoding="utf-8")
+        out_path.write_text("\n".join(lines), encoding="utf-8")
         written += 1
 
     print(f"{name}: {written} entr(y/ies) from {len(list(src.rglob('*.md')))} source file(s)")

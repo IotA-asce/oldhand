@@ -21,6 +21,7 @@ import os
 import re
 import sqlite3
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -33,7 +34,7 @@ except ImportError:
 
 # Bumped when indexing or scoring changes in a way that moves retrieval, so
 # metrics from different archives can be compared like with like.
-LORE_VERSION = "0.4.3"
+LORE_VERSION = "0.4.4"
 
 ENTRY_TYPES = {
     "topic_summary", "decision", "constraint", "fix",
@@ -173,7 +174,7 @@ PRUNE_DIRS = {
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.S)
 HEADING_RE = re.compile(r"^#\s+(.+?)\s*$", re.M)
 SECTION_RE = re.compile(r"^##\s+(.+?)\s*$", re.M)
-QUERY_WORD_RE = re.compile(r"[A-Za-z0-9_.:/+-]+")
+QUERY_WORD_RE = re.compile(r"[\w.:/+-]+")
 SLUG_STRIP_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -309,14 +310,20 @@ def parse_sections(body: str) -> dict[str, str]:
 
 
 def normalize_relations(value: Any) -> dict[str, list[str]]:
-    if not value or not isinstance(value, dict):
+    if value is None:
         return {}
+    if not isinstance(value, dict):
+        raise ValueError("relations must be a mapping")
     out: dict[str, list[str]] = {}
     for k, v in value.items():
-        if isinstance(v, str):
-            out[str(k)] = [v]
-        elif isinstance(v, list):
-            out[str(k)] = [str(x) for x in v]
+        if k not in RELATION_TYPES:
+            raise ValueError(f"invalid relation type '{k}'")
+        targets = [v] if isinstance(v, str) else v
+        if not isinstance(targets, list) or any(
+            not isinstance(target, str) or not target.strip() for target in targets
+        ):
+            raise ValueError(f"relation '{k}' must contain nonempty string targets")
+        out[k] = targets
     return out
 
 
@@ -379,7 +386,7 @@ def validate_records(root: Path) -> tuple[list[dict[str, Any]], list[str], list[
     records: list[dict[str, Any]] = []
     errors: list[str] = []
     warnings: list[str] = []
-    seen_ids: dict[str, Path] = {}
+    seen_ids: dict[str, list[Path]] = {}
     rejected: set[Path] = set()
 
     def reject(path: Path, message: str) -> None:
@@ -404,6 +411,10 @@ def validate_records(root: Path) -> tuple[list[dict[str, Any]], list[str], list[
                 if field not in meta or meta[field] in (None, ""):
                     reject(p, f"missing required field '{field}'")
 
+            version = meta.get("schema_version")
+            if type(version) is not int or version != 1:
+                reject(p, "schema_version must be the integer 1")
+
             checks = [
                 ("type", ENTRY_TYPES),
                 ("status", STATUSES),
@@ -420,10 +431,7 @@ def validate_records(root: Path) -> tuple[list[dict[str, Any]], list[str], list[
 
             rid = str(meta.get("id", ""))
             if rid:
-                if rid in seen_ids:
-                    reject(p, f"duplicate id '{rid}' also in {display_path(root, seen_ids[rid])}")
-                else:
-                    seen_ids[rid] = p
+                seen_ids.setdefault(rid, []).append(p)
 
             if not r["summary"]:
                 reject(p, "missing or empty '## Summary' section")
@@ -438,20 +446,27 @@ def validate_records(root: Path) -> tuple[list[dict[str, Any]], list[str], list[
 
             records.append({"path": p, "collection_root": collection_root, **r})
 
-    by_id = {str(r["meta"].get("id")): r for r in records if r["meta"].get("id")}
+    for rid, paths in seen_ids.items():
+        if len(paths) > 1:
+            named = ", ".join(display_path(root, path) for path in paths)
+            for path in paths:
+                reject(path, f"duplicate id '{rid}' also in {named}")
+
+    records_by_path = {r["path"]: r for r in records}
 
     for r in records:
         rid = str(r["meta"].get("id", ""))
         for rtype, targets in r["relations"].items():
             for target in targets:
-                if target not in by_id:
+                if target not in seen_ids:
                     reject(r["path"], f"relation '{rtype}' targets unknown id '{target}'")
                     continue
                 # Supersession is only real once the target is actually retired.
                 # Without this check the replaced record keeps outranking the
                 # record that replaced it, and nothing ever says so.
                 if rtype == "supersedes":
-                    target_status = str(by_id[target]["meta"].get("status", ""))
+                    target_status = str(
+                        records_by_path[seen_ids[target][0]]["meta"].get("status", ""))
                     if target_status not in RETIRED_STATUSES:
                         reject(
                             r["path"],
@@ -467,7 +482,9 @@ def validate_records(root: Path) -> tuple[list[dict[str, Any]], list[str], list[
                     f"declares 'supersedes: {rid}'"
                 )
 
-    valid = [r for r in records if r["path"] not in rejected]
+    duplicate_ids = {rid for rid, paths in seen_ids.items() if len(paths) > 1}
+    valid = [r for r in records
+             if r["path"] not in rejected and str(r["meta"].get("id", "")) not in duplicate_ids]
     return valid, errors, warnings
 
 
@@ -562,17 +579,20 @@ def content_hash(text: str) -> str:
 
 
 def archive_fingerprint(root: Path) -> str:
-    """Cheap staleness signal: record count plus newest mtime."""
-    newest = 0.0
+    """Cheap staleness signal: which files exist and what each contains."""
+    digest = hashlib.sha256()
     count = 0
     for collection_root in discover_collections(root):
         for p in record_files(collection_root):
             count += 1
+            digest.update(str(p.relative_to(root)).encode("utf-8"))
+            digest.update(b"\0")
             try:
-                newest = max(newest, p.stat().st_mtime)
+                digest.update(p.read_bytes())
             except OSError:
                 pass
-    return f"{count}:{newest:.0f}"
+            digest.update(b"\0")
+    return f"{count}:{digest.hexdigest()[:16]}"
 
 
 def rebuild(root: Path, strict: bool = False, quiet: bool = False) -> int:
@@ -585,12 +605,16 @@ def rebuild(root: Path, strict: bool = False, quiet: bool = False) -> int:
     records, errors, warnings = validate_records(root)
 
     db = db_path(root)
-    if db.exists():
-        db.unlink()
+    db.parent.mkdir(parents=True, exist_ok=True)
+    fd, staging_name = tempfile.mkstemp(prefix=db.name + ".building.", dir=db.parent)
+    os.close(fd)
+    staging = Path(staging_name)
 
     collections = discover_collections(root)
-    con = connect(root)
+    con = None
     try:
+        con = sqlite3.connect(staging)
+        con.row_factory = sqlite3.Row
         con.executescript(schema_path().read_text(encoding="utf-8"))
 
         multi = len(collections) > 1
@@ -707,6 +731,8 @@ def rebuild(root: Path, strict: bool = False, quiet: bool = False) -> int:
                 )
 
         for key, value in (
+            ("schema", "1"),
+            ("lore_version", LORE_VERSION),
             ("skipped_count", str(len(errors))),
             ("indexed_count", str(len(records))),
             ("fingerprint", archive_fingerprint(root)),
@@ -717,8 +743,16 @@ def rebuild(root: Path, strict: bool = False, quiet: bool = False) -> int:
         con.commit()
         for collection_root in collections:
             generate_index(root, con, col_ids[collection_root], collection_root)
-    finally:
         con.close()
+        os.replace(staging, db)
+    except BaseException:
+        if con is not None:
+            con.close()
+        try:
+            staging.unlink()
+        except OSError:
+            pass
+        raise
 
     if not quiet:
         print(f"Rebuilt {display_path(root, db_path(root))} from {len(records)} "
@@ -813,9 +847,17 @@ def ensure_db(root: Path) -> sqlite3.Connection:
 
     con = connect(root)
     stored = read_meta(con, "fingerprint")
-    if stored and stored != archive_fingerprint(root):
+    schema = read_meta(con, "schema")
+    lore_version = read_meta(con, "lore_version")
+    current = archive_fingerprint(root)
+    if schema != "1" or lore_version != LORE_VERSION or not stored or stored != current:
         con.close()
-        print("note: memory Markdown changed since the last build; reindexing.", file=sys.stderr)
+        if stored and stored != current:
+            print("note: memory Markdown changed since the last build; reindexing.",
+                  file=sys.stderr)
+        elif lore_version and lore_version != LORE_VERSION:
+            print(f"note: index was built by lore {lore_version}; reindexing.",
+                  file=sys.stderr)
         rebuild(root, strict=False, quiet=True)
         return connect(root)
     return con
@@ -2022,8 +2064,8 @@ def metrics(root: Path, full: bool, export: str | None) -> int:
         out = Path(export)
         out.write_text(json.dumps(bundle, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"wrote {out}  ({len(history)} daily snapshot(s))")
-        print(f"audited: {len(offenders) == 0 and 'every string value is a version, date, '
-                          'platform name or schema value'}")
+        print("audited: every string value is a version, date, "
+              "platform name or schema value")
         print()
         print("Read it before you send it. It is plain JSON and deliberately")
         print("short: every value is a count, a rate or a score. If you find")
@@ -2055,7 +2097,10 @@ def metrics(root: Path, full: bool, export: str | None) -> int:
         print("  searches           none yet")
     if "findability" in m:
         print()
-        print(f"  findability        {m['findability']:.0%}")
+        if m["findability"] is None:
+            print("  findability        N/A (no current records to query)")
+        else:
+            print(f"  findability        {m['findability']:.0%}")
     if "eval" in m:
         e = m["eval"]
         print(f"  eval               r@1 {e['recall@1']:.0%}  r@3 {e['recall@3']:.0%}  "
@@ -2255,7 +2300,9 @@ def new_record(root: Path, args: argparse.Namespace) -> int:
         print(f"Refusing to overwrite existing file: {display_path(root, path)}", file=sys.stderr)
         return 1
 
-    topic_lines = "\n".join(f"  - {t}" for t in (topics or ["untriaged"]))
+    topic_lines = yaml.safe_dump(
+        topics or ["untriaged"], default_flow_style=False,
+        allow_unicode=True).strip()
     summary = args.summary or "One or two sentences a future agent can rank on."
     knowledge = args.knowledge or (
         "What a future engineer or agent needs to know. Leave out anything that code,\n"
