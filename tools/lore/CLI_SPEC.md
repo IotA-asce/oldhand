@@ -18,7 +18,7 @@ python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
 python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --importance <level> --limit N [--json]
 python tools/lore/lore.py show <id> [--json]
-python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--collection <name>] [--limit N] [--json]
+python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--importance <level>] [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py topics [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py collections [--json]
 python tools/lore/lore.py stats
@@ -126,6 +126,7 @@ default; pass `--history` to include them. Exact type, topic, and collection
 filters can be combined, and `--limit` bounds the output (50 by default).
 An explicit `--status` selects that state exactly and overrides the active-only
 default, including for retired states.
+Use `--importance` to inventory one importance tier without a text query.
 
 Human output is a compact catalog with metadata, topics, and summaries.
 `--json` returns the matching count separately from the number returned, so a

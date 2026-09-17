@@ -223,6 +223,14 @@ class CoreCliTests(E2ETestCase):
         payload = json.loads(result.stdout)
         self.assertEqual([record["id"] for record in payload["records"]], ["old"])
 
+    def test_list_selects_importance(self):
+        self.record("normal", importance="normal")
+        self.record("critical", importance="critical")
+        result = self.lore("list", "--importance", "critical", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual([item["id"] for item in payload["records"]], ["critical"])
+
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")
 class InstallerTests(E2ETestCase):

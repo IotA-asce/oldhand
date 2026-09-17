@@ -1225,7 +1225,8 @@ def show(root: Path, rid: str, json_output: bool = False) -> int:
 
 def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
                  topic: str | None, collection: str | None,
-                 json_output: bool = False, status: str | None = None) -> int:
+                 json_output: bool = False, status: str | None = None,
+                 importance: str | None = None) -> int:
     """Browse record metadata without requiring a full-text query."""
     con = ensure_db(root)
     try:
@@ -1240,6 +1241,9 @@ def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
         if entry_type:
             clauses.append("e.entry_type = ?")
             params.append(entry_type)
+        if importance:
+            clauses.append("e.importance = ?")
+            params.append(importance)
         if topic:
             clauses.append("""EXISTS (
                 SELECT 1 FROM entry_topics et_filter
@@ -1283,6 +1287,7 @@ def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
                 "filters": {
                     "history": history, "type": entry_type,
                     "topic": topic, "collection": collection, "status": status,
+                    "importance": importance,
                 },
                 "count": total, "returned": len(records), "records": records,
             }, ensure_ascii=False, indent=2))
@@ -2997,6 +3002,8 @@ def main() -> int:
     p_list.add_argument("--collection", help="restrict to one collection by name")
     p_list.add_argument("--status", choices=sorted(STATUSES),
                         help="restrict to one exact status")
+    p_list.add_argument("--importance", choices=sorted(IMPORTANCE),
+                        help="restrict to one exact importance level")
     p_list.add_argument("--json", dest="json_output", action="store_true",
                         help="emit one machine-readable JSON document")
 
@@ -3070,7 +3077,8 @@ def main() -> int:
         return show(root, args.id, json_output=args.json_output)
     if args.command == "list":
         return list_records(root, args.history, args.limit, args.entry_type,
-                            args.topic, args.collection, args.json_output, args.status)
+                            args.topic, args.collection, args.json_output, args.status,
+                            args.importance)
     if args.command == "topics":
         return list_topics(root, args.limit, args.collection, args.json_output)
     if args.command == "collections":

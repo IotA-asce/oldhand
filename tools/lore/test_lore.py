@@ -359,6 +359,18 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["records"][0]["id"], "retired")
         self.assertEqual(payload["filters"]["status"], "deprecated")
 
+    def test_list_filters_by_exact_importance(self):
+        self.record("normal", importance="normal")
+        self.record("critical", importance="critical")
+        rc = lore.list_records(self.root, history=False, limit=10,
+                               entry_type=None, topic=None, collection=None,
+                               json_output=True, importance="critical")
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["records"][0]["id"], "critical")
+        self.assertEqual(payload["filters"]["importance"], "critical")
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])
