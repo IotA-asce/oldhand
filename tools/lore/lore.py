@@ -1312,6 +1312,47 @@ def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
         con.close()
 
 
+def backlinks(root: Path, record_id: str, json_output: bool = False) -> int:
+    """Show every indexed edge touching a record."""
+    con = ensure_db(root)
+    try:
+        record = con.execute(
+            "SELECT id, title FROM entries WHERE id=?", (record_id,)
+        ).fetchone()
+        if record is None:
+            print(f"Unknown record id: {record_id}", file=sys.stderr)
+            return 1
+        incoming = [dict(row) for row in con.execute(
+            """SELECT r.relation_type AS type, e.id, e.title, e.status
+               FROM relations r JOIN entries e ON e.id=r.source_entry_id
+               WHERE r.target_entry_id=? ORDER BY r.relation_type, e.id""",
+            (record_id,),
+        ).fetchall()]
+        outgoing = [dict(row) for row in con.execute(
+            """SELECT r.relation_type AS type, e.id, e.title, e.status
+               FROM relations r JOIN entries e ON e.id=r.target_entry_id
+               WHERE r.source_entry_id=? ORDER BY r.relation_type, e.id""",
+            (record_id,),
+        ).fetchall()]
+        payload = {
+            "id": record_id, "title": record["title"],
+            "incoming": incoming, "outgoing": outgoing,
+        }
+        if json_output:
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print(f"{record['title']} ({record_id})")
+            for label, edges in (("Incoming", incoming), ("Outgoing", outgoing)):
+                print(f"\n{label} ({len(edges)}):")
+                if not edges:
+                    print("  none")
+                for edge in edges:
+                    print(f"  {edge['type']}: {edge['id']} — {edge['title']} [{edge['status']}]")
+        return 0
+    finally:
+        con.close()
+
+
 def list_topics(root: Path, limit: int, collection: str | None,
                 json_output: bool = False) -> int:
     """Browse the active topic vocabulary, busiest first."""
@@ -2993,6 +3034,11 @@ def main() -> int:
     p_show.add_argument("--json", dest="json_output", action="store_true",
                         help="emit one machine-readable JSON document")
 
+    p_backlinks = sub.add_parser("backlinks", help="show incoming and outgoing relations")
+    p_backlinks.add_argument("id")
+    p_backlinks.add_argument("--json", dest="json_output", action="store_true",
+                             help="emit one machine-readable JSON document")
+
     p_list = sub.add_parser("list", help="browse record metadata without a query")
     p_list.add_argument("--history", action="store_true",
                         help="include superseded and deprecated records")
@@ -3075,6 +3121,8 @@ def main() -> int:
                       importance=args.importance)
     if args.command == "show":
         return show(root, args.id, json_output=args.json_output)
+    if args.command == "backlinks":
+        return backlinks(root, args.id, args.json_output)
     if args.command == "list":
         return list_records(root, args.history, args.limit, args.entry_type,
                             args.topic, args.collection, args.json_output, args.status,

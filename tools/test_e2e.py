@@ -231,6 +231,14 @@ class CoreCliTests(E2ETestCase):
         payload = json.loads(result.stdout)
         self.assertEqual([item["id"] for item in payload["records"]], ["critical"])
 
+    def test_backlinks_json(self):
+        self.record("source", relations={"depends_on": ["target"]})
+        self.record("target")
+        result = self.lore("backlinks", "target", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["incoming"][0]["id"], "source")
+
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")
 class InstallerTests(E2ETestCase):

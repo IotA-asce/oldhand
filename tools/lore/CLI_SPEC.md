@@ -18,6 +18,7 @@ python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
 python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --importance <level> --limit N [--json]
 python tools/lore/lore.py show <id> [--json]
+python tools/lore/lore.py backlinks <id> [--json]
 python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--importance <level>] [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py topics [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py collections [--json]
@@ -117,6 +118,10 @@ emits one structured object containing every indexed frontmatter field,
 topics, outgoing relations, collection, path, token estimate, summary, and
 body. The JSON mode is read-only and records the same retrieval event as the
 Markdown mode.
+
+`backlinks <id>` inspects the record graph from both directions. It reports
+each incoming and outgoing relation with the other record's title and status;
+`--json` emits stable `incoming` and `outgoing` arrays for automation.
 
 ## List and browse
 

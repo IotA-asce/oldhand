@@ -371,6 +371,17 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["records"][0]["id"], "critical")
         self.assertEqual(payload["filters"]["importance"], "critical")
 
+    def test_backlinks_reports_both_directions(self):
+        self.record("center", relations={"depends_on": ["target"]})
+        self.record("source", relations={"related_to": ["center"]})
+        self.record("target")
+        self.assertEqual(lore.backlinks(self.root, "center", json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual([(e["type"], e["id"]) for e in payload["incoming"]],
+                         [("related_to", "source")])
+        self.assertEqual([(e["type"], e["id"]) for e in payload["outgoing"]],
+                         [("depends_on", "target")])
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])
