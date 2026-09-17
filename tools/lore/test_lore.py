@@ -249,6 +249,17 @@ class LoreTests(unittest.TestCase):
         self.assertIn("   id: decision\n", output)
         self.assertNotIn("   id: lesson\n", output)
 
+    def test_search_filters_by_exact_status(self):
+        self.record("current", status="current")
+        self.record("resolved", status="resolved")
+        rc = lore.search(self.root, "useful testing", history=False, limit=5,
+                         scope=None, collection=None, log=False,
+                         status="resolved")
+        self.assertEqual(rc, 0)
+        output = self.output.getvalue()
+        self.assertIn("   id: resolved\n", output)
+        self.assertNotIn("   id: current\n", output)
+
     def test_search_filters_by_exact_topic(self):
         self.record("backend", topics=["API Gateway"])
         self.record("frontend", topics=["interface"])
@@ -325,6 +336,99 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["returned"], 1)
         self.assertEqual(len(payload["records"]), 1)
 
+    def test_list_filters_by_exact_status(self):
+        self.record("current", status="current")
+        self.record("retired", status="deprecated")
+        rc = lore.list_records(self.root, history=False, limit=10,
+                               entry_type=None, topic=None, collection=None,
+                               json_output=True, status="deprecated")
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["records"][0]["id"], "retired")
+        self.assertEqual(payload["filters"]["status"], "deprecated")
+
+    def test_topics_lists_active_topic_counts_as_json(self):
+        self.record("one", topics=["Backend", "testing"])
+        self.record("two", topics=["Backend"])
+        self.record("old", status="deprecated", topics=["retired-only"])
+        rc = lore.list_topics(self.root, limit=1, collection=None, json_output=True)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["count"], 2)
+        self.assertEqual(payload["returned"], 1)
+        self.assertEqual(payload["topics"][0]["key"], "backend")
+        self.assertEqual(payload["topics"][0]["record_count"], 2)
+
+    def test_collections_reports_record_and_topic_counts(self):
+        self.record("active", topics=["backend", "testing"])
+        self.record("old", status="deprecated", topics=["legacy"])
+        rc = lore.list_collections(self.root, json_output=True)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["count"], 1)
+        collection = payload["collections"][0]
+        self.assertEqual(collection["record_count"], 2)
+        self.assertEqual(collection["active_record_count"], 1)
+        self.assertEqual(collection["topic_count"], 3)
+
+    def test_relate_adds_one_valid_relationship(self):
+        source = self.record("source")
+        self.record("target")
+        self.assertEqual(lore.relate(self.root, "source", "depends_on", "target"), 0)
+        meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["relations"], {"depends_on": ["target"]})
+        self.assertNotEqual(str(meta["updated_at"]), "2026-09-17 00:00:00+00:00")
+
+        self.assertEqual(lore.relate(self.root, "source", "depends_on", "target"), 0)
+        meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["relations"], {"depends_on": ["target"]})
+
+    def test_relate_rejects_unknown_and_self_targets(self):
+        source = self.record("source")
+        before = source.read_bytes()
+        self.assertEqual(lore.relate(self.root, "source", "depends_on", "missing"), 1)
+        self.assertEqual(lore.relate(self.root, "source", "depends_on", "source"), 1)
+        self.assertEqual(source.read_bytes(), before)
+
+    def test_unrelate_removes_relationship_and_rejects_missing(self):
+        source = self.record("source", relations={"depends_on": ["target"]})
+        self.record("target")
+        self.assertEqual(lore.unrelate(self.root, "source", "depends_on", "target"), 0)
+        meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["relations"], {})
+        after = source.read_bytes()
+        self.assertEqual(lore.unrelate(self.root, "source", "depends_on", "target"), 1)
+        self.assertEqual(source.read_bytes(), after)
+
+    def test_supersede_updates_both_records_atomically(self):
+        old = self.record("old")
+        new = self.record("new")
+        self.assertEqual(lore.supersede_record(self.root, "old", "new"), 0)
+        old_meta = yaml.safe_load(old.read_text(encoding="utf-8").split("---\n")[1])
+        new_meta = yaml.safe_load(new.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(old_meta["status"], "superseded")
+        self.assertEqual(new_meta["relations"], {"supersedes": ["old"]})
+        valid, errors, _ = lore.validate_records(self.root)
+        self.assertEqual(len(valid), 2)
+        self.assertEqual(errors, [])
+
+    def test_supersede_unknown_id_changes_nothing(self):
+        old = self.record("old")
+        before = old.read_bytes()
+        self.assertEqual(lore.supersede_record(self.root, "old", "missing"), 1)
+        self.assertEqual(old.read_bytes(), before)
+
+    def test_status_command_manages_non_supersession_states(self):
+        path = self.record("record")
+        for status in ("resolved", "historical", "deprecated", "current"):
+            self.assertEqual(lore.set_record_status(self.root, "record", status), 0)
+            meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+            self.assertEqual(meta["status"], status)
+        before = path.read_bytes()
+        self.assertEqual(lore.set_record_status(self.root, "record", "superseded"), 1)
+        self.assertEqual(path.read_bytes(), before)
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",
@@ -343,6 +447,36 @@ class LoreTests(unittest.TestCase):
         valid, errors, _ = lore.validate_records(self.root)
         self.assertEqual(len(valid), 1)
         self.assertEqual(errors, [])
+
+    def test_new_record_json_output(self):
+        args = argparse.Namespace(
+            title="JSON creation", type="lesson", importance="normal",
+            topics="automation", status="current", scope="subsystem", risk="low",
+            durability="situational", evidence="documented", summary=None,
+            knowledge=None, verification=None, collection=None,
+            json_output=True, dry_run=False)
+        rc = lore.new_record(self.root, args)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertTrue(payload["created"])
+        self.assertFalse(payload["dry_run"])
+        self.assertEqual(payload["id"], "lore_json_creation")
+        self.assertEqual(payload["path"], "memory/lessons/json-creation.md")
+
+    def test_new_record_dry_run_writes_nothing(self):
+        args = argparse.Namespace(
+            title="Preview only", type="lesson", importance="normal",
+            topics="automation", status="current", scope="subsystem", risk="low",
+            durability="situational", evidence="documented", summary="Preview summary.",
+            knowledge="Preview knowledge.", verification="Preview verification.",
+            collection=None, json_output=False, dry_run=True)
+        rc = lore.new_record(self.root, args)
+        self.assertEqual(rc, 0)
+        self.assertFalse((self.root / "memory" / "lessons" / "preview-only.md").exists())
+        output = self.output.getvalue()
+        self.assertTrue(output.startswith("---\n"))
+        self.assertIn("id: lore_preview_only", output)
+        self.assertIn("Preview summary.", output)
 
     def test_metrics_full_on_empty_and_retired_archives(self):
         for seed in (None, "retired"):

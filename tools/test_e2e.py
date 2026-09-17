@@ -124,6 +124,53 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(meta["topics"],
                          ["on", "null", "api: gateway", "*backend"])
 
+    def test_new_json_output(self):
+        result = self.lore("new", "--title", "JSON record", "--type", "lesson",
+                           "--importance", "normal", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["created"])
+        self.assertEqual(payload["id"], "lore_json_record")
+
+    def test_new_dry_run_json_writes_nothing(self):
+        result = self.lore("new", "--title", "Preview record", "--type", "lesson",
+                           "--importance", "normal", "--dry-run", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertFalse(payload["created"])
+        self.assertTrue(payload["dry_run"])
+        self.assertIn("# Preview record", payload["content"])
+        self.assertFalse((self.archive / "memory" / "lessons" / "preview-record.md").exists())
+
+    def test_relate_command_updates_canonical_record(self):
+        source = self.record("source")
+        self.record("target")
+        result = self.lore("relate", "source", "depends_on", "target")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["relations"], {"depends_on": ["target"]})
+
+    def test_supersede_command_updates_old_and_new_records(self):
+        old = self.record("old")
+        new = self.record("new")
+        result = self.lore("supersede", "old", "--by", "new")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        old_meta = yaml.safe_load(old.read_text(encoding="utf-8").split("---\n")[1])
+        new_meta = yaml.safe_load(new.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(old_meta["status"], "superseded")
+        self.assertEqual(new_meta["relations"]["supersedes"], ["old"])
+
+    def test_status_command_updates_record(self):
+        path = self.record("record")
+        result = self.lore("status", "record", "resolved")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["status"], "resolved")
+
+        result = self.lore("status", "record", "superseded")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("invalid choice", result.stderr)
+
     def test_search_json_output(self):
         self.record("good")
         result = self.lore("search", "database", "--json")
@@ -152,6 +199,13 @@ class CoreCliTests(E2ETestCase):
         result = self.lore("list", "--limit", "0")
         self.assertEqual(result.returncode, 2)
         self.assertIn("positive integer", result.stderr)
+
+    def test_list_selects_retired_status(self):
+        self.record("old", status="deprecated")
+        result = self.lore("list", "--status", "deprecated", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual([record["id"] for record in payload["records"]], ["old"])
 
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")

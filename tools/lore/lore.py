@@ -54,6 +54,7 @@ RELATION_TYPES = {"supersedes", "depends_on", "related_to", "caused_by", "contra
 
 # A record is retired once it carries one of these statuses.
 RETIRED_STATUSES = {"superseded", "deprecated"}
+DIRECT_STATUSES = STATUSES - {"superseded"}
 
 # Directory each entry type is filed under by `lore new`.
 TYPE_DIRS = {
@@ -930,7 +931,7 @@ def fts_query(text: str) -> tuple[str, set[str]]:
 def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
            collection: str | None, log: bool = True,
            entry_type: str | None = None, topic: str | None = None,
-           json_output: bool = False) -> int:
+           json_output: bool = False, status: str | None = None) -> int:
     """Ranked search. `log=False` for internal callers.
 
     The retrieval log answers which records real work retrieves. `doctor` and
@@ -946,9 +947,13 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
             print(str(e), file=sys.stderr)
             return 2
 
-        status_clause = "" if history else "AND e.status NOT IN ('superseded','deprecated')"
-        collection_clause = ""
         params: list[Any] = [fq]
+        if status:
+            status_clause = "AND e.status = ?"
+            params.append(status)
+        else:
+            status_clause = "" if history else "AND e.status NOT IN ('superseded','deprecated')"
+        collection_clause = ""
         if collection:
             collection_clause = "AND c.name = ?"
             params.append(collection)
@@ -1029,7 +1034,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                     "query": query,
                     "filters": {
                         "history": history, "scope": scope, "collection": collection,
-                        "type": entry_type, "topic": topic,
+                        "type": entry_type, "topic": topic, "status": status,
                     },
                     "count": 0,
                     "searched": total,
@@ -1126,7 +1131,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                 "query": query,
                 "filters": {
                     "history": history, "scope": scope, "collection": collection,
-                    "type": entry_type, "topic": topic,
+                    "type": entry_type, "topic": topic, "status": status,
                 },
                 "count": len(results),
                 "results": results,
@@ -1208,14 +1213,17 @@ def show(root: Path, rid: str, json_output: bool = False) -> int:
 
 def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
                  topic: str | None, collection: str | None,
-                 json_output: bool = False) -> int:
+                 json_output: bool = False, status: str | None = None) -> int:
     """Browse record metadata without requiring a full-text query."""
     con = ensure_db(root)
     try:
         warn_index_state(root, con)
         clauses = []
         params: list[Any] = []
-        if not history:
+        if status:
+            clauses.append("e.status = ?")
+            params.append(status)
+        elif not history:
             clauses.append("e.status NOT IN ('superseded','deprecated')")
         if entry_type:
             clauses.append("e.entry_type = ?")
@@ -1262,7 +1270,7 @@ def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
             print(json.dumps({
                 "filters": {
                     "history": history, "type": entry_type,
-                    "topic": topic, "collection": collection,
+                    "topic": topic, "collection": collection, "status": status,
                 },
                 "count": total, "returned": len(records), "records": records,
             }, ensure_ascii=False, indent=2))
@@ -1282,6 +1290,99 @@ def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
                     print(f"   topics: {', '.join(record['topics'])}")
                 print(f"   {' '.join(str(record['summary']).split())}")
                 print()
+        return 0
+    finally:
+        con.close()
+
+
+def list_topics(root: Path, limit: int, collection: str | None,
+                json_output: bool = False) -> int:
+    """Browse the active topic vocabulary, busiest first."""
+    con = ensure_db(root)
+    try:
+        warn_index_state(root, con)
+        collection_clause = "AND c.name = ?" if collection else ""
+        params: tuple[Any, ...] = (collection,) if collection else ()
+        base = f"""FROM topics t
+            JOIN collections c ON c.id=t.collection_id
+            JOIN entry_topics et ON et.topic_id=t.id
+            JOIN entries e ON e.id=et.entry_id
+            WHERE e.status NOT IN ('superseded','deprecated') {collection_clause}"""
+        total = con.execute(
+            f"""SELECT COUNT(*) n FROM (
+                SELECT t.id {base} GROUP BY t.id
+            )""", params,
+        ).fetchone()["n"]
+        rows = con.execute(
+            f"""SELECT t.topic_key, t.display_name, c.name AS collection_name,
+                       COUNT(et.entry_id) AS record_count
+                {base}
+                GROUP BY t.id
+                ORDER BY record_count DESC, t.display_name COLLATE NOCASE,
+                         c.name COLLATE NOCASE
+                LIMIT ?""",
+            (*params, limit),
+        ).fetchall()
+        topics = [{
+            "key": row["topic_key"], "name": row["display_name"],
+            "collection": row["collection_name"], "record_count": row["record_count"],
+        } for row in rows]
+        if json_output:
+            print(json.dumps({
+                "collection": collection, "count": total,
+                "returned": len(topics), "topics": topics,
+            }, ensure_ascii=False, indent=2))
+        else:
+            print(f"{total} active topic(s); showing {len(topics)}.")
+            multi = con.execute("SELECT COUNT(*) c FROM collections").fetchone()["c"] > 1
+            for index, topic_row in enumerate(topics, 1):
+                location = (f" [{topic_row['collection']}]" if multi else "")
+                print(
+                    f"{index}. {topic_row['name']}{location} — "
+                    f"{topic_row['record_count']} record(s)"
+                )
+        return 0
+    finally:
+        con.close()
+
+
+def list_collections(root: Path, json_output: bool = False) -> int:
+    """Describe every indexed collection and its archive footprint."""
+    con = ensure_db(root)
+    try:
+        warn_index_state(root, con)
+        rows = con.execute(
+            """SELECT c.name, c.kind,
+                      (SELECT COUNT(*) FROM entries e
+                       WHERE e.collection_id=c.id) AS record_count,
+                      (SELECT COUNT(*) FROM entries e
+                       WHERE e.collection_id=c.id
+                         AND e.status NOT IN ('superseded','deprecated'))
+                         AS active_record_count,
+                      (SELECT COUNT(*) FROM topics t
+                       WHERE t.collection_id=c.id) AS topic_count
+               FROM collections c
+               ORDER BY c.name COLLATE NOCASE"""
+        ).fetchall()
+        collections = [{
+            "name": row["name"], "kind": row["kind"],
+            "record_count": row["record_count"],
+            "active_record_count": row["active_record_count"],
+            "topic_count": row["topic_count"],
+        } for row in rows]
+        if json_output:
+            print(json.dumps({
+                "count": len(collections), "collections": collections,
+            }, ensure_ascii=False, indent=2))
+        else:
+            print(f"{len(collections)} collection(s).")
+            for index, item in enumerate(collections, 1):
+                print(f"{index}. {item['name']} [{item['kind']}]")
+                print(
+                    f"   {item['active_record_count']} active / "
+                    f"{item['record_count']} total record(s); "
+                    f"{item['topic_count']} topic(s)"
+                )
         return 0
     finally:
         con.close()
@@ -2417,6 +2518,201 @@ def validate_cmd(root: Path) -> int:
 # Record creation
 # --------------------------------------------------------------------------
 
+def _records_for_mutation(root: Path) -> dict[str, dict[str, Any]] | None:
+    records, errors, _ = validate_records(root)
+    if errors:
+        print("Refusing to modify an invalid archive. Run `lore validate`:", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        return None
+    return {str(record["meta"]["id"]): record for record in records}
+
+
+def _render_record(record: dict[str, Any], meta: dict[str, Any]) -> str:
+    frontmatter = yaml.safe_dump(
+        meta, sort_keys=False, allow_unicode=True, default_flow_style=False
+    ).rstrip()
+    return f"---\n{frontmatter}\n---\n\n{record['body'].rstrip()}\n"
+
+
+def _atomic_write(path: Path, data: bytes) -> None:
+    fd, temporary_name = tempfile.mkstemp(prefix=path.name + ".updating.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def _publish_record_updates(root: Path, records: dict[str, dict[str, Any]],
+                            updates: dict[str, dict[str, Any]]) -> bool:
+    originals = {rid: records[rid]["path"].read_bytes() for rid in updates}
+    try:
+        for rid, meta in updates.items():
+            rendered = _render_record(records[rid], meta).encode("utf-8")
+            _atomic_write(records[rid]["path"], rendered)
+        _, errors, _ = validate_records(root)
+        if errors:
+            raise ValueError("; ".join(errors))
+    except BaseException as error:
+        for rid, data in originals.items():
+            _atomic_write(records[rid]["path"], data)
+        print(f"Record update failed and was rolled back: {error}", file=sys.stderr)
+        return False
+    rebuild(root, strict=True, quiet=True)
+    return True
+
+
+def relate(root: Path, source_id: str, relation_type: str, target_id: str) -> int:
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if source_id not in records:
+        print(f"Unknown source record id: {source_id}", file=sys.stderr)
+        return 1
+    if target_id not in records:
+        print(f"Unknown target record id: {target_id}", file=sys.stderr)
+        return 1
+    if source_id == target_id:
+        print("A record cannot relate to itself.", file=sys.stderr)
+        return 1
+    if relation_type == "supersedes" and str(
+        records[target_id]["meta"].get("status")
+    ) not in RETIRED_STATUSES:
+        print(
+            f"Cannot supersede active record '{target_id}'; use `lore supersede`.",
+            file=sys.stderr,
+        )
+        return 1
+
+    meta = dict(records[source_id]["meta"])
+    relations = {key: list(values) for key, values in records[source_id]["relations"].items()}
+    targets = relations.setdefault(relation_type, [])
+    if target_id in targets:
+        print(f"Relation already exists: {source_id} {relation_type} {target_id}")
+        return 0
+    targets.append(target_id)
+    targets.sort()
+    meta["relations"] = relations
+    meta["updated_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    if not _publish_record_updates(root, records, {source_id: meta}):
+        return 1
+    print(f"Related {source_id} {relation_type} {target_id}")
+    return 0
+
+
+def unrelate(root: Path, source_id: str, relation_type: str, target_id: str) -> int:
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if source_id not in records:
+        print(f"Unknown source record id: {source_id}", file=sys.stderr)
+        return 1
+    if target_id not in records:
+        print(f"Unknown target record id: {target_id}", file=sys.stderr)
+        return 1
+    relations = {key: list(values) for key, values in records[source_id]["relations"].items()}
+    targets = relations.get(relation_type, [])
+    if target_id not in targets:
+        print(
+            f"Relation does not exist: {source_id} {relation_type} {target_id}",
+            file=sys.stderr,
+        )
+        return 1
+    targets.remove(target_id)
+    if targets:
+        relations[relation_type] = targets
+    else:
+        relations.pop(relation_type, None)
+    meta = dict(records[source_id]["meta"])
+    meta["relations"] = relations
+    meta["updated_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    if not _publish_record_updates(root, records, {source_id: meta}):
+        return 1
+    print(f"Removed relation {source_id} {relation_type} {target_id}")
+    return 0
+
+
+def supersede_record(root: Path, old_id: str, new_id: str) -> int:
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if old_id not in records:
+        print(f"Unknown old record id: {old_id}", file=sys.stderr)
+        return 1
+    if new_id not in records:
+        print(f"Unknown replacement record id: {new_id}", file=sys.stderr)
+        return 1
+    if old_id == new_id:
+        print("A record cannot supersede itself.", file=sys.stderr)
+        return 1
+    if str(records[new_id]["meta"].get("status")) in RETIRED_STATUSES:
+        print(f"Replacement record '{new_id}' is retired.", file=sys.stderr)
+        return 1
+
+    new_relations = {
+        key: list(values) for key, values in records[new_id]["relations"].items()
+    }
+    superseded = new_relations.setdefault("supersedes", [])
+    already_complete = (
+        str(records[old_id]["meta"].get("status")) == "superseded"
+        and old_id in superseded
+    )
+    if already_complete:
+        print(f"Supersession already exists: {new_id} supersedes {old_id}")
+        return 0
+    if old_id not in superseded:
+        superseded.append(old_id)
+        superseded.sort()
+
+    now = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    old_meta = dict(records[old_id]["meta"])
+    old_meta["status"] = "superseded"
+    old_meta["updated_at"] = now
+    new_meta = dict(records[new_id]["meta"])
+    new_meta["relations"] = new_relations
+    new_meta["updated_at"] = now
+    if not _publish_record_updates(
+        root, records, {old_id: old_meta, new_id: new_meta}
+    ):
+        return 1
+    print(f"Superseded {old_id} with {new_id}")
+    return 0
+
+
+def set_record_status(root: Path, record_id: str, status: str) -> int:
+    if status not in DIRECT_STATUSES:
+        print(
+            "Status 'superseded' requires `lore supersede OLD --by NEW`.",
+            file=sys.stderr,
+        )
+        return 1
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if record_id not in records:
+        print(f"Unknown record id: {record_id}", file=sys.stderr)
+        return 1
+    current = str(records[record_id]["meta"].get("status"))
+    if current == status:
+        print(f"Record {record_id} already has status {status}")
+        return 0
+    meta = dict(records[record_id]["meta"])
+    meta["status"] = status
+    meta["updated_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    if not _publish_record_updates(root, records, {record_id: meta}):
+        return 1
+    print(f"Changed {record_id}: {current} -> {status}")
+    return 0
+
 def slugify(text: str, max_len: int = 48) -> str:
     s = SLUG_STRIP_RE.sub("-", text.lower()).strip("-")
     if len(s) > max_len:
@@ -2524,13 +2820,32 @@ relations: {{}}
 
 -
 """
+    if getattr(args, "dry_run", False):
+        if getattr(args, "json_output", False):
+            print(json.dumps({
+                "created": False, "dry_run": True, "id": rid,
+                "path": display_path(root, path),
+                "collection": collection_name(root, target_root),
+                "content": content,
+            }, ensure_ascii=False, indent=2))
+        else:
+            print(content, end="")
+        return 0
+
     directory.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
-    print(f"Created {display_path(root, path)}")
-    print(f"id: {rid}")
-    print("Fill in Summary, Knowledge, Verification and References,")
-    print("then run: lore rebuild")
+    if getattr(args, "json_output", False):
+        print(json.dumps({
+            "created": True, "dry_run": False, "id": rid,
+            "path": display_path(root, path),
+            "collection": collection_name(root, target_root),
+        }, ensure_ascii=False, indent=2))
+    else:
+        print(f"Created {display_path(root, path)}")
+        print(f"id: {rid}")
+        print("Fill in Summary, Knowledge, Verification and References,")
+        print("then run: lore rebuild")
     return 0
 
 
@@ -2604,6 +2919,8 @@ def main() -> int:
     p_search.add_argument("--type", dest="entry_type", choices=sorted(ENTRY_TYPES),
                           help="restrict to one record type")
     p_search.add_argument("--topic", help="restrict to one exact topic (case-insensitive)")
+    p_search.add_argument("--status", choices=sorted(STATUSES),
+                          help="restrict to one exact status")
     p_search.add_argument("--json", dest="json_output", action="store_true",
                           help="emit one machine-readable JSON document")
 
@@ -2619,8 +2936,20 @@ def main() -> int:
     p_list.add_argument("--type", dest="entry_type", choices=sorted(ENTRY_TYPES))
     p_list.add_argument("--topic", help="restrict to one exact topic (case-insensitive)")
     p_list.add_argument("--collection", help="restrict to one collection by name")
+    p_list.add_argument("--status", choices=sorted(STATUSES),
+                        help="restrict to one exact status")
     p_list.add_argument("--json", dest="json_output", action="store_true",
                         help="emit one machine-readable JSON document")
+
+    p_topics = sub.add_parser("topics", help="browse active topic vocabulary")
+    p_topics.add_argument("--collection", help="restrict to one collection by name")
+    p_topics.add_argument("--limit", type=positive_int, default=50)
+    p_topics.add_argument("--json", dest="json_output", action="store_true",
+                          help="emit one machine-readable JSON document")
+
+    p_collections = sub.add_parser("collections", help="describe indexed collections")
+    p_collections.add_argument("--json", dest="json_output", action="store_true",
+                               help="emit one machine-readable JSON document")
 
     p_new = sub.add_parser("new", help="create a well-formed record skeleton")
     p_new.add_argument("--title", required=True)
@@ -2636,6 +2965,29 @@ def main() -> int:
     p_new.add_argument("--knowledge")
     p_new.add_argument("--verification")
     p_new.add_argument("--collection", help="target collection name (default: workspace root)")
+    p_new.add_argument("--json", dest="json_output", action="store_true",
+                       help="emit one machine-readable JSON document")
+    p_new.add_argument("--dry-run", action="store_true",
+                       help="preview the exact record without writing it")
+
+    p_relate = sub.add_parser("relate", help="add a relationship between records")
+    p_relate.add_argument("source")
+    p_relate.add_argument("relation_type", choices=sorted(RELATION_TYPES))
+    p_relate.add_argument("target")
+
+    p_unrelate = sub.add_parser("unrelate", help="remove a relationship between records")
+    p_unrelate.add_argument("source")
+    p_unrelate.add_argument("relation_type", choices=sorted(RELATION_TYPES))
+    p_unrelate.add_argument("target")
+
+    p_supersede = sub.add_parser("supersede", help="retire a record with its replacement")
+    p_supersede.add_argument("old_id")
+    p_supersede.add_argument("--by", dest="new_id", required=True,
+                             help="id of the replacement record")
+
+    p_status = sub.add_parser("status", help="change a record lifecycle status")
+    p_status.add_argument("id")
+    p_status.add_argument("new_status", choices=sorted(DIRECT_STATUSES))
 
     args = parser.parse_args()
     _force_utf8_output()
@@ -2650,12 +3002,16 @@ def main() -> int:
     if args.command == "search":
         return search(root, args.query, args.history, args.limit, args.scope, args.collection,
                       entry_type=args.entry_type, topic=args.topic,
-                      json_output=args.json_output)
+                      json_output=args.json_output, status=args.status)
     if args.command == "show":
         return show(root, args.id, json_output=args.json_output)
     if args.command == "list":
         return list_records(root, args.history, args.limit, args.entry_type,
-                            args.topic, args.collection, args.json_output)
+                            args.topic, args.collection, args.json_output, args.status)
+    if args.command == "topics":
+        return list_topics(root, args.limit, args.collection, args.json_output)
+    if args.command == "collections":
+        return list_collections(root, args.json_output)
     if args.command == "stats":
         return stats(root)
     if args.command == "selftest":
@@ -2674,6 +3030,14 @@ def main() -> int:
         return evaluate(root, args.save, args.against)
     if args.command == "new":
         return new_record(root, args)
+    if args.command == "relate":
+        return relate(root, args.source, args.relation_type, args.target)
+    if args.command == "unrelate":
+        return unrelate(root, args.source, args.relation_type, args.target)
+    if args.command == "supersede":
+        return supersede_record(root, args.old_id, args.new_id)
+    if args.command == "status":
+        return set_record_status(root, args.id, args.new_status)
     return 2
 
 

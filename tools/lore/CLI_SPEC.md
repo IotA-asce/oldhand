@@ -15,13 +15,19 @@ python tools/lore/lore.py validate
 python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
-python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --limit N [--json]
+python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --limit N [--json]
 python tools/lore/lore.py show <id> [--json]
-python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--collection <name>] [--limit N] [--json]
+python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--collection <name>] [--limit N] [--json]
+python tools/lore/lore.py topics [--collection <name>] [--limit N] [--json]
+python tools/lore/lore.py collections [--json]
 python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
 python tools/lore/lore.py usage
 python tools/lore/lore.py new --title "..." --type <type> --importance <level> [...]
+python tools/lore/lore.py relate <source-id> <relation-type> <target-id>
+python tools/lore/lore.py unrelate <source-id> <relation-type> <target-id>
+python tools/lore/lore.py supersede <old-id> --by <replacement-id>
+python tools/lore/lore.py status <id> <current|resolved|deprecated|historical>
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -84,6 +90,10 @@ the topic words to the query, this is a true filter: records without that topic
 never enter the ranking pool. Type, topic, collection, and history filters can
 be combined.
 
+Use `--status <status>` to select one lifecycle state exactly. An explicit
+status overrides the default active-only behavior and `--history`, so
+`--status superseded` returns only superseded records.
+
 Pass `--json` when another tool or agent will consume the results. Lore emits
 one JSON document with the query, active filters, result count, and result
 objects. Each result includes its score, metadata, topics, collection, path,
@@ -103,12 +113,25 @@ Markdown mode.
 inventing a full-text query. It excludes superseded and deprecated records by
 default; pass `--history` to include them. Exact type, topic, and collection
 filters can be combined, and `--limit` bounds the output (50 by default).
+An explicit `--status` selects that state exactly and overrides the active-only
+default, including for retired states.
 
 Human output is a compact catalog with metadata, topics, and summaries.
 `--json` returns the matching count separately from the number returned, so a
 caller can detect truncation. Listing is not written to the retrieval log:
 that log measures intentional searches and record opens, not archive
 administration.
+
+`lore topics` discovers the vocabulary needed by exact topic filters. It lists
+topics attached to active records, ordered by record count and then name.
+Repeated topic names remain separate across collections. Use `--collection`
+to narrow the catalog, `--limit` to bound it, and `--json` for a document that
+separates the total matching count from the number returned.
+
+`lore collections` lists every indexed collection with its kind, active and
+total record counts, and topic count. The command is the discovery companion
+to `--collection`: its names are the exact values accepted by search, list,
+topics, and new. Pass `--json` for one structured document.
 
 Ranking runs in **two passes**:
 
@@ -438,12 +461,43 @@ Fill in `## Knowledge`, `## Verification` and `## References`, then run
 `rebuild`. Hand-written frontmatter was the main source of records that failed
 validation, which is why this is the intended write path.
 
+Pass `--json` to receive a single object containing `created`, `dry_run`, id,
+path, and collection instead of the human follow-up instructions. Pass
+`--dry-run` to print the exact proposed Markdown without creating directories
+or files. Combining both returns the Markdown in the JSON object's `content`
+field with `created: false`.
+
+## Relationship maintenance
+
+`lore relate SOURCE TYPE TARGET` adds one typed relationship to the canonical
+source record. Both ids must exist, self-relations are rejected, duplicates
+are idempotent, and `supersedes` is reserved for the atomic lifecycle command
+unless the target is already retired. Lore refuses to mutate an archive that
+does not currently validate, updates `updated_at`, validates the proposed
+state, publishes with rollback protection, and rebuilds the derived index.
+
+`lore unrelate SOURCE TYPE TARGET` removes one existing relationship and
+prunes the relation type when its final target is removed. Missing ids and
+missing relationships are errors; successful changes use the same validation,
+rollback, timestamp, and rebuild path as `relate`.
+
+`lore supersede OLD --by NEW` performs the two sides of supersession together:
+it changes `OLD` to `status: superseded` and adds `NEW supersedes OLD`. Both
+ids and the replacement's active status are checked before anything is
+written. Both files receive the same timestamp, validation sees the complete
+transition, and any publication failure restores both originals.
+
+`lore status ID STATUS` changes ordinary lifecycle states with the same safe
+mutation path. It accepts `current`, `resolved`, `deprecated`, and `historical`.
+`superseded` is intentionally excluded: that state is only valid together
+with a replacement's `supersedes` relationship, so use the atomic command.
+An idempotent status request succeeds without rewriting the file.
+
 ## Intentionally deferred
 
-These operations are specified but not implemented:
+This operation remains specified but not implemented:
 
 ```bash
-lore supersede
 lore compact
 ```
 
