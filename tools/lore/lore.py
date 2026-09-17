@@ -2559,8 +2559,15 @@ def stats(root: Path) -> int:
         con.close()
 
 
-def validate_cmd(root: Path) -> int:
+def validate_cmd(root: Path, json_output: bool = False) -> int:
     records, errors, warnings = validate_records(root)
+    if json_output:
+        print(json.dumps({
+            "valid": not errors, "record_count": len(records),
+            "error_count": len(errors), "warning_count": len(warnings),
+            "errors": errors, "warnings": warnings,
+        }, ensure_ascii=False, indent=2))
+        return 1 if errors else 0
     for w in warnings:
         print(f"  warning: {w}")
     if errors:
@@ -3165,7 +3172,9 @@ def main() -> int:
     p_rebuild = sub.add_parser("rebuild")
     p_rebuild.add_argument("--strict", action="store_true",
                            help="exit non-zero if any record was skipped")
-    sub.add_parser("validate")
+    p_validate = sub.add_parser("validate")
+    p_validate.add_argument("--json", dest="json_output", action="store_true",
+                            help="emit one machine-readable JSON document")
     sub.add_parser("stats")
     sub.add_parser("selftest", help="assert the ranking invariants hold")
     sub.add_parser("usage", help="what retrieval actually did, from the log")
@@ -3308,7 +3317,7 @@ def main() -> int:
     if args.command == "rebuild":
         return rebuild(root, strict=args.strict)
     if args.command == "validate":
-        return validate_cmd(root)
+        return validate_cmd(root, args.json_output)
     if args.command == "search":
         return search(root, args.query, args.history, args.limit, args.scope, args.collection,
                       entry_type=args.entry_type, topic=args.topic,

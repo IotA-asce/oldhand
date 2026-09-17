@@ -12,7 +12,7 @@ python -m pip install -r tools/lore/requirements.txt
 
 ```bash
 python tools/lore/lore.py init <path> [--json]
-python tools/lore/lore.py validate
+python tools/lore/lore.py validate [--json]
 python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
@@ -52,6 +52,10 @@ adopts or overwrites notes implicitly. Pass `--json` for a creation receipt
 containing the resolved root, memory directory, and initial record count.
 
 ## Root resolution
+
+`lore validate --json` returns record, error, and warning counts plus the full
+diagnostic arrays. It preserves the human command's exit semantics: zero only
+when the archive is valid.
 
 The root is resolved in this order:
 

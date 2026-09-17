@@ -66,6 +66,14 @@ class CoreCliTests(E2ETestCase):
         self.assertNotIn("badver", result.stdout)
         self.assertNotIn("badrel", result.stdout)
 
+    def test_validate_json_is_machine_readable(self):
+        self.record("good")
+        result = self.lore("validate", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["valid"])
+        self.assertEqual(payload["record_count"], 1)
+
     def test_unicode_query_finds_record(self):
         self.record("good")
         self.lore("rebuild")

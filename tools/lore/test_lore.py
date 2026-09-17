@@ -63,6 +63,19 @@ class LoreTests(unittest.TestCase):
         with contextlib.closing(lore.connect(self.root)) as con:
             self.assertEqual(con.execute("SELECT count(*) FROM entries").fetchone()[0], 1)
 
+    def test_validate_json_reports_success_and_failure(self):
+        self.record("valid")
+        self.assertEqual(lore.validate_cmd(self.root, json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual((payload["valid"], payload["record_count"]), (True, 1))
+        self.output.seek(0)
+        self.output.truncate()
+        self.record("bad", schema_version="v1")
+        self.assertEqual(lore.validate_cmd(self.root, json_output=True), 1)
+        payload = json.loads(self.output.getvalue())
+        self.assertFalse(payload["valid"])
+        self.assertEqual(payload["error_count"], 1)
+
     def test_malformed_relations_rejected(self):
         self.record("valid")
         for index, relations in enumerate([123, [], "target", {"supersedes": 123},
