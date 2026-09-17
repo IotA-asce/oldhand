@@ -1157,19 +1157,49 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         con.close()
 
 
-def show(root: Path, rid: str) -> int:
+def show(root: Path, rid: str, json_output: bool = False) -> int:
     con = ensure_db(root)
     try:
         warn_index_state(root, con)
         row = con.execute(
-            """SELECT e.path, c.root_path FROM entries e
+            """SELECT e.*, c.name AS collection_name, c.root_path FROM entries e
                JOIN collections c ON c.id=e.collection_id WHERE e.id=?""",
             (rid,),
         ).fetchone()
         if not row:
             print(f"Unknown record id: {rid}", file=sys.stderr)
             return 1
-        print((Path(row["root_path"]) / row["path"]).read_text(encoding="utf-8"))
+        if json_output:
+            topics = [item["display_name"] for item in con.execute(
+                """SELECT t.display_name FROM topics t
+                   JOIN entry_topics et ON et.topic_id=t.id
+                   WHERE et.entry_id=? ORDER BY t.display_name COLLATE NOCASE""",
+                (rid,),
+            ).fetchall()]
+            relations: dict[str, list[str]] = {}
+            for item in con.execute(
+                """SELECT relation_type, target_entry_id FROM relations
+                   WHERE source_entry_id=? ORDER BY relation_type, target_entry_id""",
+                (rid,),
+            ).fetchall():
+                relations.setdefault(str(item["relation_type"]), []).append(
+                    str(item["target_entry_id"])
+                )
+            payload = {
+                "schema_version": row["schema_version"], "id": row["id"],
+                "title": row["title"], "type": row["entry_type"],
+                "status": row["status"], "importance": row["importance"],
+                "scope": row["scope"], "risk": row["risk"],
+                "durability": row["durability"], "evidence": row["evidence"],
+                "topics": topics, "created_at": row["created_at"],
+                "updated_at": row["updated_at"], "expires_at": row["expires_at"],
+                "relations": relations, "collection": row["collection_name"],
+                "path": row["path"], "token_estimate": row["token_estimate"],
+                "summary": row["summary"], "body": row["body"],
+            }
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print((Path(row["root_path"]) / row["path"]).read_text(encoding="utf-8"))
         log_retrieval(root, "show", rid, [rid])
         return 0
     finally:
@@ -2491,6 +2521,8 @@ def main() -> int:
 
     p_show = sub.add_parser("show")
     p_show.add_argument("id")
+    p_show.add_argument("--json", dest="json_output", action="store_true",
+                        help="emit one machine-readable JSON document")
 
     p_new = sub.add_parser("new", help="create a well-formed record skeleton")
     p_new.add_argument("--title", required=True)
@@ -2522,7 +2554,7 @@ def main() -> int:
                       entry_type=args.entry_type, topic=args.topic,
                       json_output=args.json_output)
     if args.command == "show":
-        return show(root, args.id)
+        return show(root, args.id, json_output=args.json_output)
     if args.command == "stats":
         return stats(root)
     if args.command == "selftest":

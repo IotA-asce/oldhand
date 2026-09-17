@@ -286,6 +286,20 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["searched"], 1)
         self.assertEqual(payload["results"], [])
 
+    def test_show_json_returns_record_and_relationships(self):
+        self.record("target", topics=["database"])
+        self.record("source", type="decision", topics=["API Gateway"],
+                    relations={"depends_on": ["target"]})
+        lore.rebuild(self.root, quiet=True)
+        rc = lore.show(self.root, "source", json_output=True)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["id"], "source")
+        self.assertEqual(payload["type"], "decision")
+        self.assertEqual(payload["topics"], ["API Gateway"])
+        self.assertEqual(payload["relations"], {"depends_on": ["target"]})
+        self.assertIn("Known facts.", payload["body"])
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",

@@ -16,7 +16,7 @@ python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
 python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --limit N [--json]
-python tools/lore/lore.py show <id>
+python tools/lore/lore.py show <id> [--json]
 python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
 python tools/lore/lore.py usage
@@ -89,6 +89,12 @@ objects. Each result includes its score, metadata, topics, collection, path,
 token estimate, and complete summary. A miss is also a successful JSON
 document and includes the number of records searched plus suggested topics.
 Diagnostics still go to stderr, so stdout remains directly parseable.
+
+`show <id>` prints the canonical Markdown record. With `--json`, it instead
+emits one structured object containing every indexed frontmatter field,
+topics, outgoing relations, collection, path, token estimate, summary, and
+body. The JSON mode is read-only and records the same retrieval event as the
+Markdown mode.
 
 Ranking runs in **two passes**:
 
