@@ -443,3 +443,109 @@ def show_run(root: Path, run_id: str, json_output: bool = False) -> int:
 
     render(tree, 0)
     return 0
+
+
+REPLAY_POLICIES = ("breadth", "depth", "score-greedy")
+
+
+def replay_run(run: dict[str, Any], policy: str, budget: int) -> dict[str, Any]:
+    """Reveal a recorded tree without exposing future nodes to the policy."""
+    if policy not in REPLAY_POLICIES:
+        raise ValueError(f"Unknown replay policy: {policy}")
+    if budget < 1:
+        raise ValueError("budget must be a positive integer")
+    nodes = sorted(run.get("nodes", []), key=lambda item: item["created_order"])
+    by_id = {node["id"]: node for node in nodes}
+    children: dict[str, list[str]] = {"root": []}
+    for node in nodes:
+        children.setdefault(node["parent_id"], []).append(node["id"])
+        children.setdefault(node["id"], [])
+    observed: list[str] = []
+    observed_set: set[str] = set()
+    exhausted: set[str] = set()
+    decisions: list[dict[str, Any]] = []
+
+    def depth(node_id: str) -> int:
+        if node_id == "root":
+            return -1
+        value = 0
+        parent = by_id[node_id]["parent_id"]
+        while parent != "root":
+            value += 1
+            parent = by_id[parent]["parent_id"]
+        return value
+
+    def adjusted_score(node_id: str) -> float:
+        if node_id == "root":
+            return float("-inf")
+        evaluation = by_id[node_id].get("evaluation") or {}
+        if not evaluation.get("correct"):
+            return float("-inf")
+        score = float(evaluation["score"])
+        return score if run.get("goal") == "maximize" else -score
+
+    while len(observed) < budget:
+        candidates = []
+        if "root" not in exhausted:
+            candidates.append("root")
+        for node_id in observed:
+            if node_id in exhausted:
+                continue
+            if not any(child in observed_set for child in children[node_id]):
+                candidates.append(node_id)
+        if not candidates:
+            break
+        if policy == "breadth":
+            parent = min(candidates, key=lambda item: (depth(item), item))
+        elif policy == "depth":
+            parent = max(candidates, key=lambda item: (depth(item), item != "root"))
+        else:
+            parent = max(candidates, key=lambda item: (adjusted_score(item), depth(item)))
+        child = next((item for item in children[parent] if item not in observed_set), None)
+        if child is None:
+            exhausted.add(parent)
+            decisions.append({"round": len(decisions) + 1, "parent": parent, "revealed": None})
+            continue
+        observed.append(child)
+        observed_set.add(child)
+        decisions.append({"round": len(decisions) + 1, "parent": parent, "revealed": child})
+        if not children[child]:
+            # The environment learns exhaustion after the leaf is probed once;
+            # leave it selectable now so replay preserves that stopping signal.
+            pass
+
+    evaluations = [by_id[node_id]["evaluation"] for node_id in observed
+                   if by_id[node_id].get("evaluation", {}).get("correct")]
+    scores = [float(item["score"]) for item in evaluations]
+    best_score = None
+    if scores:
+        best_score = max(scores) if run.get("goal") == "maximize" else min(scores)
+    quality = None if best_score is None else (
+        best_score if run.get("goal") == "maximize" else -best_score)
+    return {
+        "run_id": run["id"], "policy": policy, "budget": budget,
+        "revealed": observed, "attempt_count": len(observed),
+        "rounds": len(decisions), "decisions": decisions,
+        "best_score": best_score, "quality": quality,
+    }
+
+
+def replay_cmd(root: Path, run_id: str, policy: str, budget: int,
+               json_output: bool = False) -> int:
+    valid, errors = validate_runs(root, run_id)
+    if errors:
+        for error in errors:
+            print(error, file=os.sys.stderr)
+        return 1
+    run = valid[0]
+    if run.get("status") != "completed":
+        print("Replay requires a completed discovery run.", file=os.sys.stderr)
+        return 1
+    result = replay_run(run, policy, budget)
+    if json_output:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(f"Replay {run_id} with {policy}: {len(result['revealed'])} attempt(s), "
+              f"{result['rounds']} round(s), best={result['best_score']}")
+        print("revealed: " + ", ".join(result["revealed"]))
+    return 0

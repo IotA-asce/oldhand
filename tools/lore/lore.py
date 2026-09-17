@@ -3360,6 +3360,12 @@ def main() -> int:
     p_run_show.add_argument("run_id")
     p_run_show.add_argument("--json", dest="json_output", action="store_true")
 
+    p_replay = sub.add_parser("replay", help="replay an exploration policy offline")
+    p_replay.add_argument("run_id")
+    p_replay.add_argument("--policy", required=True, choices=experience.REPLAY_POLICIES)
+    p_replay.add_argument("--budget", required=True, type=positive_int)
+    p_replay.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3446,6 +3452,9 @@ def main() -> int:
         return experience.list_runs(root, args.status, args.json_output)
     if args.command == "run-show":
         return experience.show_run(root, args.run_id, args.json_output)
+    if args.command == "replay":
+        return experience.replay_cmd(
+            root, args.run_id, args.policy, args.budget, args.json_output)
     return 2
 
 

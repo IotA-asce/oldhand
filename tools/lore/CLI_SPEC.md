@@ -41,6 +41,7 @@ python tools/lore/lore.py run-finish <run-id> [--json]
 python tools/lore/lore.py run-validate [<run-id>] [--json]
 python tools/lore/lore.py runs [--status active|completed] [--json]
 python tools/lore/lore.py run-show <run-id> [--json]
+python tools/lore/lore.py replay <run-id> --policy <breadth|depth|score-greedy> --budget N [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -75,6 +76,11 @@ completion state.
 correctness, best-score, cost, and duration aggregates. `run-show` renders the
 parent/continuation tree or returns the complete trace and a nested tree as
 JSON.
+
+`lore replay` evaluates a deterministic exploration policy against a completed
+tree without executing the agent or evaluator. Only the revealed prefix is
+visible at each decision. Breadth, depth, and score-greedy baselines make the
+trade-off inspectable before user-authored policies are considered.
 
 ## Initialize
 

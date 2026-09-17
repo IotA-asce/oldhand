@@ -542,6 +542,21 @@ class LoreTests(unittest.TestCase):
         detail = json.loads(self.output.getvalue())
         self.assertEqual(detail["tree"][0]["children"][0]["id"], "b")
 
+    def test_replay_policies_reveal_only_selected_prefixes(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        for node_id, parent, score in (("a", "root", 5), ("a2", "a", 8),
+                                       ("b", "root", 7), ("b2", "b", 9)):
+            lore.experience.add_attempt(self.root, "run", node_id, parent, node_id)
+            lore.experience.evaluate_attempt(
+                self.root, "run", node_id, score, True, "success")
+        lore.experience.finish_run(self.root, "run")
+        run = lore.experience.load_run(self.root, "run")
+        breadth = lore.experience.replay_run(run, "breadth", 2)
+        depth = lore.experience.replay_run(run, "depth", 2)
+        self.assertEqual(breadth["revealed"], ["a", "b"])
+        self.assertEqual(depth["revealed"], ["a", "a2"])
+        self.assertEqual(depth["best_score"], 8)
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])
