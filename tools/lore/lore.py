@@ -3117,6 +3117,7 @@ def new_record(root: Path, args: argparse.Namespace) -> int:
         "Git, tests, or current documentation already preserve cheaply."
     )
     verification = args.verification or "How this was established, and what was not verified."
+    references = getattr(args, "references", None) or "-"
 
     content = f"""---
 schema_version: 1
@@ -3152,7 +3153,7 @@ relations: {{}}
 
 ## References
 
--
+{references}
 """
     if getattr(args, "dry_run", False):
         if getattr(args, "json_output", False):
@@ -3181,6 +3182,56 @@ relations: {{}}
         print("Fill in Summary, Knowledge, Verification and References,")
         print("then run: lore rebuild")
     return 0
+
+
+def distill_run(root: Path, args: argparse.Namespace) -> int:
+    valid, errors = experience.validate_runs(root, args.run_id)
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    run = valid[0]
+    if run.get("status") != "completed":
+        print("Distillation requires a completed discovery run.", file=sys.stderr)
+        return 1
+    node = next((item for item in run["nodes"] if item["id"] == args.node_id), None)
+    if node is None:
+        print(f"Unknown attempt: {args.node_id}", file=sys.stderr)
+        return 1
+    evaluation = node.get("evaluation")
+    if not evaluation:
+        print(f"Attempt is not evaluated: {args.node_id}", file=sys.stderr)
+        return 1
+    state = "correct" if evaluation["correct"] else "incorrect"
+    summary = args.summary or (
+        f"Discovery attempt '{node['proposal']}' evaluated {state} with score "
+        f"{evaluation['score']:g} under {run['evaluator']}."
+    )
+    knowledge = (
+        f"Proposal: {node['proposal']}\n\n"
+        f"Recorded outcome: {evaluation['outcome']}. Score: {evaluation['score']:g}. "
+        f"Recorded cost: {evaluation['cost']}."
+    )
+    if node.get("artifact_ref"):
+        knowledge += f"\n\nArtifact: {node['artifact_ref']}"
+    verification = (
+        f"Evaluator: {run['evaluator']}. Correctness: {state}. "
+        f"Duration: {evaluation['duration_ms']} ms."
+    )
+    if evaluation.get("diagnostics_ref"):
+        verification += f" Diagnostics: {evaluation['diagnostics_ref']}."
+    record_args = argparse.Namespace(
+        id=args.id, title=args.title, type=args.entry_type,
+        importance=args.importance, topics=args.topics,
+        status="current", scope=args.scope, risk=args.risk,
+        durability=args.durability,
+        evidence="verified" if evaluation["correct"] else "observed",
+        summary=summary, knowledge=knowledge, verification=verification,
+        references=f"- experience/runs/{run['id']}.json (attempt `{node['id']}`)",
+        collection=args.collection, json_output=args.json_output,
+        dry_run=args.dry_run,
+    )
+    return new_record(root, record_args)
 
 
 # --------------------------------------------------------------------------
@@ -3443,6 +3494,25 @@ def main() -> int:
     p_context.add_argument("--per-branch", type=positive_int, default=5)
     p_context.add_argument("--json", dest="json_output", action="store_true")
 
+    p_distill = sub.add_parser(
+        "run-distill", help="distill one reviewed attempt into durable memory")
+    p_distill.add_argument("run_id")
+    p_distill.add_argument("node_id")
+    p_distill.add_argument("--id")
+    p_distill.add_argument("--title", required=True)
+    p_distill.add_argument("--type", dest="entry_type", required=True,
+                           choices=sorted(ENTRY_TYPES))
+    p_distill.add_argument("--importance", required=True, choices=sorted(IMPORTANCE))
+    p_distill.add_argument("--topics", required=True)
+    p_distill.add_argument("--summary")
+    p_distill.add_argument("--scope", default="subsystem", choices=sorted(SCOPES))
+    p_distill.add_argument("--risk", default="low", choices=sorted(RISKS))
+    p_distill.add_argument("--durability", default="situational",
+                           choices=sorted(DURABILITY))
+    p_distill.add_argument("--collection")
+    p_distill.add_argument("--dry-run", action="store_true")
+    p_distill.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3542,6 +3612,8 @@ def main() -> int:
         return explore_context(root, args.query, args.workers,
                                args.history_branches, args.per_branch,
                                args.json_output)
+    if args.command == "run-distill":
+        return distill_run(root, args)
     return 2
 
 

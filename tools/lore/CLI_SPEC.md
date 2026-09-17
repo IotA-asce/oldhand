@@ -44,6 +44,7 @@ python tools/lore/lore.py run-show <run-id> [--json]
 python tools/lore/lore.py replay <run-id> --policy <breadth|depth|score-greedy> --budget N [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
 python tools/lore/lore.py policy-compare <policy>... --budget N [--incumbent <policy>] [--holdout N] [--evaluator <name>] [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
 python tools/lore/lore.py explore-context <query> --workers N [--history-branches N] [--per-branch N] [--json]
+python tools/lore/lore.py run-distill <run-id> <attempt-id> --title <text> --type <type> --importance <level> --topics <csv> [--id <id>] [--dry-run] [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -98,6 +99,13 @@ parallel branch. Query-relevant critical constraints and critical invariants
 are shared with all workers. Directional decisions and lessons go only to the
 selected history-guided branches; the remaining branches receive no
 directional records and can explore independently.
+
+`lore run-distill` closes the experience-to-memory loop. It accepts only an
+evaluated node from a completed run, reuses normal record creation and its
+dry-run/collision protections, cites the canonical trace, and derives evidence
+as `verified` for evaluator-correct outcomes or `observed` otherwise. The user
+still chooses the durable title, type, importance, topics, and whether to
+publish.
 
 ## Initialize
 

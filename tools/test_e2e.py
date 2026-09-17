@@ -241,6 +241,24 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(payload["branches"][1]["records"], [])
         self.assertEqual(payload["branches"][1]["shared_guardrail_ids"], ["guard"])
 
+    def test_run_distill_publishes_canonical_memory(self):
+        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+                  "--proposal", "Use an indexed lookup", "--artifact-ref", "git:abc")
+        self.lore("attempt-evaluate", "run", "a", "--score", "9", "--correct",
+                  "--outcome", "success", "--diagnostics-ref", "results/a.json")
+        self.lore("run-finish", "run")
+        result = self.lore("run-distill", "run", "a", "--id", "indexed-lookup",
+                           "--title", "Use indexed lookup", "--type", "lesson",
+                           "--importance", "normal", "--topics", "database,performance",
+                           "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        receipt = json.loads(result.stdout)
+        record = self.archive / receipt["path"]
+        text = record.read_text(encoding="utf-8")
+        self.assertIn("evidence: verified", text)
+        self.assertIn("experience/runs/run.json", text)
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")

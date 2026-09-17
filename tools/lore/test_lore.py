@@ -624,6 +624,27 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(winner["policy"], "depth")
         self.assertFalse(winner["incumbent"])
 
+    def test_run_distill_builds_verified_record_with_provenance(self):
+        lore.experience.start_run(self.root, "Tune", "bench-v2", "depth", run_id="run")
+        lore.experience.add_attempt(
+            self.root, "run", "a", "root", "Use an indexed lookup", "git:abc")
+        lore.experience.evaluate_attempt(
+            self.root, "run", "a", 9, True, "success", 2, 150,
+            "results/a.json")
+        lore.experience.finish_run(self.root, "run")
+        self.output.seek(0)
+        self.output.truncate()
+        args = argparse.Namespace(
+            run_id="run", node_id="a", id="indexed-lookup", title="Use indexed lookup",
+            entry_type="lesson", importance="normal", topics="database,performance",
+            summary=None, scope="subsystem", risk="low", durability="long_lived",
+            collection=None, dry_run=True, json_output=True)
+        self.assertEqual(lore.distill_run(self.root, args), 0)
+        content = json.loads(self.output.getvalue())["content"]
+        self.assertIn("evidence: verified", content)
+        self.assertIn("experience/runs/run.json (attempt `a`)", content)
+        self.assertIn("Evaluator: bench-v2", content)
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])
