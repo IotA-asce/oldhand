@@ -36,6 +36,7 @@ python tools/lore/lore.py classify <id> [--importance ...] [--scope ...] [--risk
 python tools/lore/lore.py compact --into <target-id> <source-id>... [--dry-run] [--json]
 python tools/lore/lore.py run-start --task <text> --evaluator <name> [--id <id>] [--policy <name>] [--goal maximize|minimize] [--workers N] [--workspace-ref <ref>] [--json]
 python tools/lore/lore.py attempt-add <run-id> --id <attempt-id> --parent <root|attempt-id> --proposal <text> [--artifact-ref <ref>] [--policy-version <name>] [--json]
+python tools/lore/lore.py attempt-evaluate <run-id> <attempt-id> --score N (--correct|--incorrect) --outcome <success|failure|error> [--cost N] [--duration-ms N] [--diagnostics-ref <ref>] [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -56,6 +57,10 @@ policy, score direction, worker budget, and optional workspace reference.
 `lore attempt-add` appends an immutable proposal node. Root may open several
 branches; a non-root attempt has at most one recorded continuation so offline
 replay can reveal the historical trajectory without ambiguous future choices.
+
+`lore attempt-evaluate` attaches the fixed evaluator's grounded result exactly
+once. Correctness is explicit and separate from score; cost, elapsed time, and
+diagnostic artifacts remain available to replay and later audit.
 
 ## Initialize
 

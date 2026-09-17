@@ -159,6 +159,16 @@ class CoreCliTests(E2ETestCase):
         node = json.loads(result.stdout)["node"]
         self.assertEqual((node["id"], node["parent_id"]), ("branch-a", "root"))
 
+    def test_attempt_evaluate_records_evidence(self):
+        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+                  "--proposal", "Try it")
+        result = self.lore("attempt-evaluate", "run", "a", "--score", "8.5",
+                           "--correct", "--outcome", "success", "--cost", "2", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        evaluation = json.loads(result.stdout)["evaluation"]
+        self.assertEqual((evaluation["score"], evaluation["cost"]), (8.5, 2))
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")

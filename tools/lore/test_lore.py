@@ -487,6 +487,19 @@ class LoreTests(unittest.TestCase):
         self.assertEqual([(node["id"], node["parent_id"]) for node in run["nodes"]],
                          [("branch-a", "root"), ("refine-a", "branch-a")])
 
+    def test_evaluate_attempt_records_grounded_outcome_once(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "Try it")
+        self.assertEqual(lore.experience.evaluate_attempt(
+            self.root, "run", "a", 8.5, True, "success", 2, 1500,
+            "results/a.json", True), 0)
+        evaluation = lore.experience.load_run(self.root, "run")["nodes"][0]["evaluation"]
+        self.assertEqual(evaluation["score"], 8.5)
+        self.assertTrue(evaluation["correct"])
+        self.assertEqual((evaluation["cost"], evaluation["duration_ms"]), (2, 1500))
+        self.assertEqual(lore.experience.evaluate_attempt(
+            self.root, "run", "a", 9, True, "success"), 1)
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])

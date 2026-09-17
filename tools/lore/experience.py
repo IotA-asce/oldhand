@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import tempfile
@@ -155,4 +156,52 @@ def add_attempt(root: Path, run_id: str, node_id: str, parent_id: str,
         print(json.dumps(receipt, ensure_ascii=False, indent=2))
     else:
         print(f"Added attempt {node_id} to {run_id} from {parent_id}")
+    return 0
+
+
+def evaluate_attempt(root: Path, run_id: str, node_id: str, score: float,
+                     correct: bool, outcome: str, cost: int = 1,
+                     duration_ms: int = 0, diagnostics_ref: str | None = None,
+                     json_output: bool = False) -> int:
+    if not math.isfinite(score):
+        print("score must be finite", file=os.sys.stderr)
+        return 2
+    if cost < 0 or duration_ms < 0:
+        print("cost and duration must be non-negative", file=os.sys.stderr)
+        return 2
+    try:
+        run = load_run(root, run_id)
+    except ValueError as error:
+        print(error, file=os.sys.stderr)
+        return 1
+    if run.get("status") != "active":
+        print(f"Discovery run is not active: {run_id}", file=os.sys.stderr)
+        return 1
+    node = next((item for item in run.get("nodes", []) if item.get("id") == node_id), None)
+    if node is None:
+        print(f"Unknown attempt: {node_id}", file=os.sys.stderr)
+        return 1
+    if node.get("evaluation") is not None:
+        print(f"Attempt is already evaluated: {node_id}", file=os.sys.stderr)
+        return 1
+    evaluated = now_iso()
+    evaluation = {
+        "score": score,
+        "correct": correct,
+        "outcome": outcome,
+        "cost": cost,
+        "duration_ms": duration_ms,
+        "diagnostics_ref": diagnostics_ref,
+        "evaluated_at": evaluated,
+    }
+    node["evaluation"] = evaluation
+    run["updated_at"] = evaluated
+    _atomic_json(run_path(root, run_id), run)
+    receipt = {"updated": True, "run_id": run_id, "node_id": node_id,
+               "evaluation": evaluation}
+    if json_output:
+        print(json.dumps(receipt, ensure_ascii=False, indent=2))
+    else:
+        state = "correct" if correct else "incorrect"
+        print(f"Evaluated {node_id}: score={score:g}, {state}, outcome={outcome}")
     return 0

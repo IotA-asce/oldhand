@@ -3330,6 +3330,20 @@ def main() -> int:
     p_attempt_add.add_argument("--policy-version")
     p_attempt_add.add_argument("--json", dest="json_output", action="store_true")
 
+    p_attempt_eval = sub.add_parser("attempt-evaluate", help="attach an evaluation to an attempt")
+    p_attempt_eval.add_argument("run_id")
+    p_attempt_eval.add_argument("node_id")
+    p_attempt_eval.add_argument("--score", required=True, type=float)
+    correctness = p_attempt_eval.add_mutually_exclusive_group(required=True)
+    correctness.add_argument("--correct", dest="correct", action="store_true")
+    correctness.add_argument("--incorrect", dest="correct", action="store_false")
+    p_attempt_eval.add_argument("--outcome", required=True,
+                                choices=("success", "failure", "error"))
+    p_attempt_eval.add_argument("--cost", type=int, default=1)
+    p_attempt_eval.add_argument("--duration-ms", type=int, default=0)
+    p_attempt_eval.add_argument("--diagnostics-ref")
+    p_attempt_eval.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3404,6 +3418,10 @@ def main() -> int:
         return experience.add_attempt(
             root, args.run_id, args.node_id, args.parent, args.proposal,
             args.artifact_ref, args.policy_version, args.json_output)
+    if args.command == "attempt-evaluate":
+        return experience.evaluate_attempt(
+            root, args.run_id, args.node_id, args.score, args.correct, args.outcome,
+            args.cost, args.duration_ms, args.diagnostics_ref, args.json_output)
     return 2
 
 
