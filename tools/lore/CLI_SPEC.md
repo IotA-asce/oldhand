@@ -35,6 +35,7 @@ python tools/lore/lore.py topic <id> (--add <topic> | --remove <topic>)
 python tools/lore/lore.py classify <id> [--importance ...] [--scope ...] [--risk ...] [--durability ...] [--evidence ...]
 python tools/lore/lore.py compact --into <target-id> <source-id>... [--dry-run] [--json]
 python tools/lore/lore.py run-start --task <text> --evaluator <name> [--id <id>] [--policy <name>] [--goal maximize|minimize] [--workers N] [--workspace-ref <ref>] [--json]
+python tools/lore/lore.py attempt-add <run-id> --id <attempt-id> --parent <root|attempt-id> --proposal <text> [--artifact-ref <ref>] [--policy-version <name>] [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -51,6 +52,10 @@ and the parser ever disagree.
 Traces are deliberately separate from distilled `memory/` records and from the
 disposable `.lore/` index. A run records its task, fixed evaluator, exploration
 policy, score direction, worker budget, and optional workspace reference.
+
+`lore attempt-add` appends an immutable proposal node. Root may open several
+branches; a non-root attempt has at most one recorded continuation so offline
+replay can reveal the historical trajectory without ambiguous future choices.
 
 ## Initialize
 

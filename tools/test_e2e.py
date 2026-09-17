@@ -150,6 +150,15 @@ class CoreCliTests(E2ETestCase):
         trace = json.loads((self.archive / payload["path"]).read_text(encoding="utf-8"))
         self.assertEqual((trace["id"], trace["max_workers"]), ("planner-run", 3))
 
+    def test_attempt_add_records_parent_and_proposal(self):
+        self.lore("run-start", "--id", "run", "--task", "Tune",
+                  "--evaluator", "bench")
+        result = self.lore("attempt-add", "run", "--id", "branch-a",
+                           "--parent", "root", "--proposal", "Try an index", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        node = json.loads(result.stdout)["node"]
+        self.assertEqual((node["id"], node["parent_id"]), ("branch-a", "root"))
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")

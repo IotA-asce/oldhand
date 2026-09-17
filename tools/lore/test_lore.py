@@ -473,6 +473,20 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(lore.experience.start_run(
             self.root, "Again", "bench-v2", "manual", run_id="planner-run"), 1)
 
+    def test_add_attempt_builds_a_tree_and_enforces_one_continuation(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        self.assertEqual(lore.experience.add_attempt(
+            self.root, "run", "branch-a", "root", "Try an index"), 0)
+        self.assertEqual(lore.experience.add_attempt(
+            self.root, "run", "refine-a", "branch-a", "Tune selectivity"), 0)
+        self.assertEqual(lore.experience.add_attempt(
+            self.root, "run", "other-a", "branch-a", "Duplicate continuation"), 1)
+        self.assertEqual(lore.experience.add_attempt(
+            self.root, "run", "missing", "unknown", "Bad parent"), 1)
+        run = lore.experience.load_run(self.root, "run")
+        self.assertEqual([(node["id"], node["parent_id"]) for node in run["nodes"]],
+                         [("branch-a", "root"), ("refine-a", "branch-a")])
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])

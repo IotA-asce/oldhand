@@ -3321,6 +3321,15 @@ def main() -> int:
     p_run_start.add_argument("--workspace-ref")
     p_run_start.add_argument("--json", dest="json_output", action="store_true")
 
+    p_attempt_add = sub.add_parser("attempt-add", help="add a node to a discovery run")
+    p_attempt_add.add_argument("run_id")
+    p_attempt_add.add_argument("--id", required=True, dest="node_id")
+    p_attempt_add.add_argument("--parent", required=True)
+    p_attempt_add.add_argument("--proposal", required=True)
+    p_attempt_add.add_argument("--artifact-ref")
+    p_attempt_add.add_argument("--policy-version")
+    p_attempt_add.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3391,6 +3400,10 @@ def main() -> int:
         return experience.start_run(
             root, args.task, args.evaluator, args.policy, args.goal, args.workers,
             args.id, args.workspace_ref, args.json_output)
+    if args.command == "attempt-add":
+        return experience.add_attempt(
+            root, args.run_id, args.node_id, args.parent, args.proposal,
+            args.artifact_ref, args.policy_version, args.json_output)
     return 2
 
 

@@ -51,6 +51,19 @@ def generated_run_id() -> str:
     return f"run_{stamp}"
 
 
+def load_run(root: Path, run_id: str) -> dict[str, Any]:
+    path = run_path(root, run_id)
+    if not path.is_file():
+        raise ValueError(f"Unknown discovery run: {run_id}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"Cannot read discovery run {run_id}: {error}") from error
+    if not isinstance(payload, dict):
+        raise ValueError(f"Discovery run {run_id} must be a JSON object")
+    return payload
+
+
 def start_run(root: Path, task: str, evaluator: str, policy: str,
               goal: str = "maximize", workers: int = 1,
               run_id: str | None = None, workspace_ref: str | None = None,
@@ -90,4 +103,56 @@ def start_run(root: Path, task: str, evaluator: str, policy: str,
     else:
         print(f"Started discovery run {run_id}")
         print(f"path: {receipt['path']}")
+    return 0
+
+
+def add_attempt(root: Path, run_id: str, node_id: str, parent_id: str,
+                proposal: str, artifact_ref: str | None = None,
+                policy_version: str | None = None,
+                json_output: bool = False) -> int:
+    if not TRACE_ID_RE.fullmatch(node_id):
+        print("Invalid attempt id: use 1-128 portable id characters.", file=os.sys.stderr)
+        return 2
+    if not proposal.strip():
+        print("proposal cannot be empty", file=os.sys.stderr)
+        return 2
+    try:
+        run = load_run(root, run_id)
+    except ValueError as error:
+        print(error, file=os.sys.stderr)
+        return 1
+    if run.get("status") != "active":
+        print(f"Discovery run is not active: {run_id}", file=os.sys.stderr)
+        return 1
+    nodes = run.get("nodes", [])
+    ids = {str(node.get("id")) for node in nodes if isinstance(node, dict)}
+    if node_id in ids:
+        print(f"Attempt already exists: {node_id}", file=os.sys.stderr)
+        return 1
+    if parent_id != "root" and parent_id not in ids:
+        print(f"Unknown parent attempt: {parent_id}", file=os.sys.stderr)
+        return 1
+    if parent_id != "root" and any(node.get("parent_id") == parent_id for node in nodes):
+        print(f"Non-root attempt already has a continuation: {parent_id}", file=os.sys.stderr)
+        return 1
+    created = now_iso()
+    node = {
+        "id": node_id,
+        "parent_id": parent_id,
+        "created_order": len(nodes) + 1,
+        "proposal": proposal.strip(),
+        "artifact_ref": artifact_ref,
+        "policy_version": policy_version or run.get("policy"),
+        "created_at": created,
+        "evaluation": None,
+    }
+    nodes.append(node)
+    run["nodes"] = nodes
+    run["updated_at"] = created
+    _atomic_json(run_path(root, run_id), run)
+    receipt = {"created": True, "run_id": run_id, "node": node}
+    if json_output:
+        print(json.dumps(receipt, ensure_ascii=False, indent=2))
+    else:
+        print(f"Added attempt {node_id} to {run_id} from {parent_id}")
     return 0
