@@ -1,0 +1,33 @@
+<mxGraphModel adaptiveColors="auto" grid="1" gridSize="10" page="0">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="search" value="Search first&#xa;ranked summaries" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#58a6ff;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="read" value="Open selectively&#xa;full Markdown" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#bc8cff;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="220" y="40" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="work" value="Do the work&#xa;use current truth" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#d29922;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="400" y="40" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="gate" value="Worth forgetting?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#f85149;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="580" y="30" width="140" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="write" value="Write one record&#xa;only durable knowledge" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#3fb950;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="760" y="40" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="e1" edge="1" parent="1" source="search" target="read" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e2" edge="1" parent="1" source="read" target="work" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e3" edge="1" parent="1" source="work" target="gate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e4" value="yes" edge="1" parent="1" source="gate" target="write" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;fontColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>

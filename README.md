@@ -2,341 +2,339 @@
 
 # Lore
 
-**Durable engineering memory for coding agents.**
+### Durable engineering memory for coding agents
 
-The constraint nobody wrote down. The approach that looks obvious and fails.<br/>
-The reason something surprising is the way it is.
-
-<br/>
+Keep the constraint nobody documented, the failed approach worth avoiding,
+and the reason the surprising design is correct—then retrieve it before the
+next agent pays to rediscover it.
 
 [![version](https://img.shields.io/badge/version-0.4.4-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
 [![license](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square&labelColor=0d1117)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
 [![dependencies](https://img.shields.io/badge/dependencies-1-8b949e?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
-[![network](https://img.shields.io/badge/network-none-39c5cf?style=flat-square&labelColor=0d1117)](#quickstart)
-[![findability](https://img.shields.io/badge/findability-99%25-3fb950?style=flat-square&labelColor=0d1117)](#how-records-are-written-beats-how-they-are-ranked)
+[![network](https://img.shields.io/badge/network-none-39c5cf?style=flat-square&labelColor=0d1117)](#what-lore-guarantees)
+[![storage](https://img.shields.io/badge/storage-Markdown-f0883e?style=flat-square&labelColor=0d1117)](#how-retrieval-works)
 
 </div>
 
-<br/>
-
-An agent works inside a bounded session. Whatever it determines during that
-session is discarded when the session ends, and the same determination is then
-made again, at the same cost, by the same agent with no memory of having made
-it.
-
-Lore keeps that knowledge, ranks it so the piece that matters surfaces when
-its subject comes up, and retires it when it stops being true. It is a folder
-of Markdown plus a search tool that decides which records you should see.
-
-![Architecture: Markdown is canonical, the SQLite index is derived](docs/img/architecture.svg)
-
-The dependency points one way, and that is the whole design. The Markdown is
-the archive; the index is a cache. Delete the database and you lose nothing:
-your records stay readable, editable, diffable and reviewable with ordinary
-tools, with or without Lore installed.
-
-**Recency carries no authority.** A two-year-old invariant outranks last
-week's debugging note when both match. Age is evidence of durability, not of
-irrelevance, and this is the opposite of most memory systems.
-
-### What it deliberately does not hold
-
-| Question | Answered by |
-|---|---|
-| which commit changed this | Git, CI, tickets |
-| how does it work today | `documentation/` |
-| what am I doing right now | `implement/` |
-| **what should I know before touching this** | **`memory/`, which is Lore** |
-
-Only the last one is Lore's. If Git, tests or current documentation already
-preserve something cheaply, they will do it better and stay current for free.
-A routine bug fix should produce no record at all.
-
-<br/>
-
-## The part that took measuring
-
-Everything below was measured on a real archive of 293 records across four
-collections, migrated from two memory systems in daily use at a commercial
-software organisation. Three of these findings were counter-intuitive enough
-that we got them wrong first, and only measurement exposed it.
-
-### A label on everything ranks nothing
-
-![recall@5 collapsing from 92 percent to 17 percent as importance labels inflate](docs/img/inflation.svg)
-
-Curation metadata is added to improve retrieval. Past a low threshold it
-destroys it.
-
-The cause was arithmetic rather than a tuning accident. `critical` importance
-plus `critical` risk plus `invariant` durability summed to exactly the entire
-text-relevance range, so a record carrying those labels and **no textual
-relevance whatsoever** tied a record that matched the query perfectly.
-
-Nothing in the design resisted inflation either. Labels are assigned once, at
-write time, by an author with no feedback about whether their previous labels
-were well calibrated, and there is no review, decay or quota anywhere in the
-lifecycle. Inflation is the expected steady state rather than a risk. Every
-author believes their own finding is important, which is not a failure of
-discipline but a property of the position they write from.
-
-So the budget is structural rather than advisory:
-
-![Text relevance caps at 60, all metadata combined caps at 44](docs/img/budget.svg)
-
-Damage starts well before an archive looks inflated. With only **four**
-critical records out of 293, seven unrelated records were being displaced from
-first place on queries about entirely other subjects.
-
-### Read the collections, not the average
-
-![Per-collection recall, from 100 percent down to 50 percent](docs/img/collections.svg)
-
-An archive can average 80% while one collection sits at 50% and another at
-100%. The average sends you to tune the ranker when the real problem is the
-summaries in one repository.
-
-It also shows why `recall@1` is the wrong optimisation target for an interface
-that returns five ranked summaries. A reader scanning five results is
-indifferent to whether the answer came first or second, and chasing `recall@1`
-against a finite query set is the one reliable way to make the number stop
-meaning anything.
-
-### Your first pass of any heuristic mostly measures itself
-
-![29 items flagged, 4 genuine defects, 13.8 percent precision](docs/img/precision.svg)
-
-This is not an argument against the checks. The four genuine defects included
-records whose summaries asserted claims their own bodies had explicitly
-retracted, which nothing else would have surfaced, and which is the most
-dangerous state a record can occupy: search displays the summary, so the
-retraction is invisible to anything that does not open the record, and the
-result is indistinguishable from a confident correct answer.
-
-It is an argument for treating a first-pass report as a list of things to read
-rather than a list of things to fix.
-
-> A wrong detection costs a minute of reading. A wrong resolution costs
-> knowledge, silently, and you find out months later when someone confidently
-> repeats a mistake you already solved.
-
-One cause of false positives is specific to engineering corpora: **the
-vocabulary of staleness is the domain vocabulary.** Contracts supersede one
-another, packages are deprecated, models become outdated, and
-`ContractStatus.Superseded` is an enum value. Matching the announcement form
-rather than the token took one detector from 102 false positives to 0.
-
-### How records are written beats how they are ranked
-
-| intervention | effect |
-|---|---|
-| stop admitting metadata blocks as summaries | 126 records fixed |
-| index sections as well as whole records | secondary findings 36% -> 82% |
-| split code identifiers into words | two collections to 100% recall@1 |
-| rewrite **one** weak summary | that record: unfindable -> rank 1 |
-| **three rounds of ranker tuning** | one collection's recall@1: **zero change** |
-
-Large records were never the problem. Findability by size was 98% for the
-smallest records and 94% above 4,000 tokens. What failed was reaching a
-record's *fourth* finding: a record is one indexable unit however many things
-it says, so its fourth finding competes using the whole document's vocabulary
-and loses.
-
-Splitting them would have been the wrong fix. Splitting is irreversible, and
-the grouping is information: a record gathering five findings under one
-investigation is asserting they belong together. Indexing each section
-separately, and deduplicating by record at query time, took sub-document
-reachability from 36% to 82% without touching a single record.
-
-![Before and after across recall@1, recall@3, recall@5, MRR and reachability](docs/img/beforeafter.svg)
-
-This is why `WRITING_RECORDS.md` is the document that matters most here, and
-why it is short.
-
-<br/>
-
-## What we are doing, and the end goal
-
-![Stage one complete, stage two running now, stage three the goal](docs/img/stages.svg)
-
-Every number above came from one archive, in one organisation, in one domain.
-No amount of further work on that archive can fix that, because its author
-cannot forget that it exists. So Lore measures itself, in a form that is safe
-to hand to a stranger.
-
-```
-lore 0.4.2   2026-09-15T00:59:42+05:30
-
-  records            293 across 4 collection(s)
-  index rows         3751 (12.8 per record)
-  record tokens      p50 2070  p90 5704  max 13439
-  critical share     4/293 (1%)
-
-  searches           47 over 9 day(s) (5.2/day)
-  found nothing      6%
-  archive coverage   31% of records returned at least once
-  open rate          22% of returned records were opened
-```
-
-Any command appends one snapshot per day to `metrics/daily.jsonl`, silently,
-and it can never fail a command. `lore metrics --full --export mine.json`
-bundles the history into a file you can send. It carries counts, rates,
-percentiles and scores, and never titles, ids, paths, summaries, query text,
-topic names or collection names.
-
-That is **enforced, not promised**: before writing, every string value in the
-bundle must be a version, a timestamp, a platform name or a schema value, and
-the export refuses to write and names the field if it is not. On the
-293-record archive the bundle contained eleven string values in total.
-Everything else was numbers, and a count cannot carry a sentence.
-
-### The questions a single archive cannot answer
-
-- Does the importance budget hold when the writer is not the person who
-  designed the rule?
-- Does the zero-result rate fall with archive size, or rise?
-- Is the section-match discount right for archives whose records are short?
-- What share of records does a healthy archive never retrieve? Nobody knows.
-  It might be 70% and fine.
-- **Does anything reach for search without being told to?**
-
-The last one decides whether any of this matters. An archive that is never
-queried is irrelevant however good its ranking is, and it is exactly the
-question the author of an archive can never answer about their own.
-
-If you are trying Lore, two weeks of ordinary use and one export is the most
-useful thing you can do for it. Not a clean archive, not a demonstration: the
-real one, including the days you forgot it existed.
-
-<br/>
-
-## Quickstart
-
-```bash
-python -m pip install -r tools/lore/requirements.txt
-python tools/lore/lore.py rebuild
-python tools/lore/lore.py search "my consumer test passed but nothing ran"
-```
-
-That last command returns a record whose title shares almost no words with the
-question. That is the whole product.
-
-Then make it a real command, because the gap between `lore search` and a
-forty-character invocation is most of what decides whether anyone searches on
-a hunch, and searching on a hunch is the behaviour the whole system depends
-on:
-
-```bash
-python tools/install.py /path/to/your/archive
-```
+Lore is a local-first memory layer for software work. Records are ordinary
+Markdown, a disposable SQLite FTS5 index makes them searchable, and the CLI
+returns a few ranked summaries instead of asking an agent to scan an archive.
 
 ```bash
 lore search "why did the consumer test pass without running"
-lore new --type constraint --importance high --title "..."
-lore doctor        # can every record be found by its own subject?
-lore conflicts     # does anything contradict itself?
-lore metrics       # is this archive earning its keep?
+lore show a-green-test-that-never-ran
 ```
 
-Nothing is installed system-wide, nothing needs administrator rights, and
-there is no server, no account and no network access at any point.
+![Markdown records flow through a disposable SQLite index into ranked summaries](docs/img/architecture.svg)
 
-<br/>
+The dependency points one way. Markdown is canonical; SQLite is a cache.
+Delete `.lore/lore.db` and Lore rebuilds it without losing a record.
 
-## What's new in 0.4.4
+## Why Lore exists
 
-Twenty practical reliability fixes, without changing the metadata scoring
-weights or adding dependencies:
+An agent works inside a bounded session. When the session ends, expensive
+context disappears: undocumented constraints, rejected approaches, failure
+mechanisms, and rationale. Git can say *what changed* and documentation can
+say *how the system works now*. Neither reliably answers:
 
-- **Index reliability:** content-based change detection catches renames and
-  edits even when timestamps stay unchanged. Missing or outdated index metadata
-  triggers a rebuild. Rebuilds use unique temporary databases and publish
-  atomically, preserving the previous database when a build fails.
-- **Record correctness:** malformed schema versions and relations are rejected;
-  duplicate IDs no longer let file order choose which record survives. Valid
-  records remain searchable when other records fail validation.
-- **Everyday CLI use:** Unicode queries preserve accented and non-Latin words,
-  `new` safely serializes special topic values, and full metrics handle archives
-  with no active records. The CLI parses on the documented Python 3.10 minimum.
-- **Safer installation:** unrelated launchers and symlinks are not overwritten
-  or removed. Uninstall preserves unowned profile lines; reinstall updates the
-  owned archive assignment. POSIX paths are quoted literally.
-- **Migration fidelity:** YAML block summaries and full-line frontmatter
-  delimiters are preserved, unresolved Claude notes stay current, repeated
-  repository event names retain distinct identities, and resync reports rebuild
-  failures instead of hiding them behind successful validation.
+> What should I know before I touch this again?
 
-These are correctness improvements, not new retrieval-quality measurements.
-The historical results above retain their original measurement context.
+Lore owns only that question.
 
-## Development checks
-
-After installing `tools/lore/requirements.txt`, run the full suite:
-
-```bash
-python -B tools/verify.py
-```
-
-The runner checks Python 3.10 syntax compatibility, runs all regression and
-end-to-end tests, and checks Lore's ranking invariants. The current **76 tests**
-pass on Python 3.10 and 3.14. Tests use temporary archives and fake home
-folders; the POSIX integration test executes the installed launcher after
-sourcing its generated profile. Windows installer branches are mocked, not
-verified on a native Windows installation.
-
-To test the current changes in an isolated checkout without stashing or
-resetting your working tree:
-
-```bash
-python -B tools/verify.py --clean-checkout
-```
-
-This clones the local repository into a temporary directory, applies the
-tracked diff and copies the test runner and suites, then runs the same checks.
-It does not contact a remote. No separate lint or typecheck configuration is
-currently provided.
-
-<br/>
-
-## Two honest caveats
-
-**Nothing makes anything search.** Retrieval depends on something choosing to
-run it. Give your agent a concrete trigger rather than a judgement call:
-*search before non-trivial work, and whenever something is surprising or looks
-like it has been hit before.* Asking someone to search "when history might
-matter" asks them to suspect the trap before looking, and the traps worth
-recording are the ones nobody suspects.
-
-**`compact` and `supersede` are not implemented.** Nothing yet stops an
-archive accumulating stale records at scale. `validate` catches a half-finished
-retirement and `conflicts` finds contradictions, so the manual path works, but
-this is the known gap.
-
-<br/>
-
-## Where to go next
-
-| file | what it answers |
+| Knowledge | Canonical home |
 |---|---|
-| `START_HERE.md` | the five-minute version |
-| `WRITING_RECORDS.md` | **read this second.** How to write a record people can find |
-| `INSTALL.md` | getting `lore` onto your PATH, and undoing it |
-| `RECONCILING_AN_EXISTING_ARCHIVE.md` | merging notes you already have |
-| `LESSONS.md` | what building this taught us, and what it cost to learn |
-| `METRICS.md` | what is measured, and what is shared |
-| `tools/lore/CLI_SPEC.md` | every command, and why it behaves as it does |
-| `memory/SCHEMA.md` | the record format |
+| Which commit changed this? | Git, CI, tickets |
+| How does it work today? | Current documentation |
+| What am I doing right now? | Temporary task state |
+| **What is expensive or dangerous to forget?** | **Lore records** |
 
-Lore is tool-agnostic. `AGENTS.md` is the portable entry point and `CLAUDE.md`
-is a thin Claude Code adapter; other harnesses need only the smallest adapter
-that makes them discover the canonical rules.
+Routine changes should produce no Lore record. If code, tests, Git, or current
+documentation preserve a fact cheaply, they will keep it current better.
 
-The figures above are generated from the measured numbers by
-`docs/charts.py`, so a figure cannot drift away from the result it shows.
+## Five-minute start
 
-<div align="center"><br/>
+Lore needs Python 3.10+, SQLite (included with Python), and PyYAML.
 
-MIT licensed.
+```bash
+git clone https://github.com/IotA-asce/lore.git
+cd lore
+python3 -m pip install -r tools/lore/requirements.txt
+python3 tools/install.py /path/to/your/archive
+```
+
+An archive is simply a directory containing `memory/`. To start empty:
+
+```bash
+mkdir -p ~/knowledge/memory
+python3 tools/install.py ~/knowledge
+```
+
+Open a new terminal, then verify the resolved archive and create a record:
+
+```bash
+lore stats
+lore new \
+  --title "Config files replace instead of merge" \
+  --type constraint \
+  --importance high \
+  --topics "configuration,deployment"
+lore search "why did one new setting remove the old ones"
+```
+
+Nothing is installed system-wide, no administrator access is needed, and no
+server, account, or network connection participates in retrieval. See
+[INSTALL.md](INSTALL.md) for PATH setup, Windows notes, and uninstalling.
+
+## The everyday loop
+
+![Search, open selectively, work, and only write durable knowledge](docs/img/workflow.svg)
+
+1. Search before non-trivial work and whenever something looks familiar or
+   surprising.
+2. Read summaries first; open the full record only when one earns attention.
+3. Use current code and documentation to do the work.
+4. Write a record only if forgetting the result would repeat expensive
+   discovery, violate a non-obvious constraint, or lose important rationale.
+
+This keeps retrieval cheap and prevents the archive from becoming a second,
+stale copy of the repository.
+
+## The CLI at a glance
+
+![Lore serves concise terminal output and stable JSON through one local interface](docs/img/cli-tour.svg)
+
+### Retrieve
+
+```bash
+lore search "gateway retries"                         # ranked active records
+lore search "gateway retries" --type decision        # exact record type
+lore search "gateway retries" --topic "API Gateway"  # exact topic
+lore search "old auth" --history                     # include retired records
+lore search "gateway retries" --json                 # one JSON document
+lore show <record-id>                                 # canonical Markdown
+lore show <record-id> --json                          # structured full record
+```
+
+Search filters run before ranking and can be combined with `--collection`,
+`--scope`, and `--limit`. JSON is written as one document to stdout;
+diagnostics remain on stderr so agents and scripts can parse it directly.
+
+### Browse
+
+```bash
+lore list
+lore list --type constraint --topic deployment
+lore list --history --collection services/catalog --limit 100
+lore list --json
+```
+
+`list` is deterministic—title, then id—and does not invent a search query.
+Active records are the default; `--history` includes superseded and deprecated
+ones. JSON reports both the total matching count and the number returned, so
+callers can detect truncation.
+
+### Write and maintain
+
+```bash
+lore new --title "..." --type lesson --importance normal
+lore validate      # strict record and relationship validation
+lore rebuild       # regenerate the derived index
+lore doctor        # findability and summary health
+lore conflicts     # possible contradictions and duplicate subjects
+lore stats         # archive size and metadata distribution
+lore usage         # real retrieval behavior
+lore metrics       # privacy-audited health snapshot
+lore eval          # retrieval against known answers
+lore obsidian      # generated topic navigation notes
+lore selftest      # ranking invariants
+```
+
+The full contract, flags, and rationale live in
+[tools/lore/CLI_SPEC.md](tools/lore/CLI_SPEC.md).
+
+## The five improvement passes
+
+| Iteration | Improvement | Result |
+|---:|---|---|
+| 1 | Type-filtered search | Narrow retrieval to decisions, constraints, lessons, and other record types before scoring |
+| 2 | Topic-filtered search | Match topics exactly and case-insensitively; zero-result guidance respects every active filter |
+| 3 | JSON search | Consume hits and misses as stable structured documents without scraping terminal text |
+| 4 | JSON show | Read indexed metadata, topics, relations, summary, and body as one object |
+| 5 | Record browsing | Inspect a deterministic filtered catalog without manufacturing a full-text query |
+
+These are interface improvements. They do not change the record schema,
+ranking constants, or the measured retrieval behavior described below.
+
+## What a record looks like
+
+```markdown
+---
+schema_version: 1
+id: config-files-replace-instead-of-merge
+type: constraint
+status: current
+importance: high
+scope: repository
+risk: high
+durability: long_lived
+evidence: verified
+topics: [configuration, deployment]
+created_at: 2026-09-17T10:00:00+05:30
+updated_at: 2026-09-17T10:00:00+05:30
+relations: {}
+---
+
+# Config files replace instead of merge
+
+## Summary
+
+Supplying one environment-specific config file replaces the complete base
+mapping; it does not merge keys. Restate every required key in the override.
+
+## Knowledge
+
+The loader treats the selected file as the whole configuration source...
+```
+
+The summary is the retrieval surface: it is heavily weighted and is usually
+all an agent reads. Write it for the question a future stranger will ask, not
+as a diary of the work performed. [WRITING_RECORDS.md](WRITING_RECORDS.md)
+contains the measured guidance.
+
+## How retrieval works
+
+Lore indexes whole records and meaningful `##`/`###` sections. It expands
+code identifiers (`totalCost` becomes `total`, `cost`, and `totalCost`), then
+uses two candidate passes: a bounded relevance pool and an unbounded safety
+pass for critical knowledge. Results are deduplicated by record after scoring.
+
+Text relevance contributes up to 60 points. All metadata combined contributes
+at most 44. That ceiling is a design constraint: labels break ties between
+comparable matches; they cannot make unrelated records win.
+
+![Text relevance has a larger scoring budget than every metadata signal combined](docs/img/budget.svg)
+
+Recency contributes nothing. An old invariant remains authoritative until it
+is explicitly retired; a recent note does not win merely because it is new.
+
+## Evidence, not intuition
+
+Lore was tuned against a real archive of 293 records across four collections,
+not a synthetic demo. The clearest result was that record quality and indexing
+granularity mattered more than repeated ranker tuning.
+
+![Retrieval before and after summary, identifier, and section indexing improvements](docs/img/beforeafter.svg)
+
+| Intervention | Measured effect |
+|---|---:|
+| Stop admitting metadata blocks as summaries | 126 records repaired |
+| Index sections as well as whole records | secondary-finding reachability 36% → 82% |
+| Split code identifiers into words | two collections reached 100% recall@1 |
+| Rewrite one weak summary | that record moved from unfindable → rank 1 |
+| Three rounds of ranker tuning | one collection's recall@1 changed by 0 |
+
+Aggregate scores can still hide a weak collection:
+
+![Per-collection recall varies even when the archive average looks healthy](docs/img/collections.svg)
+
+Health tools are deliberately advisory. A first conflict detector flagged 29
+items, but only four were genuine defects:
+
+![First-pass conflict detection found four genuine defects among 29 flags](docs/img/precision.svg)
+
+Read a flagged record before changing it. A false detection costs a minute; a
+false automatic resolution silently destroys knowledge.
+
+## Privacy and measurement
+
+Every command can append one daily archive-health snapshot to
+`metrics/daily.jsonl`. Retrieval events stay local in
+`.lore/retrieval.jsonl`.
+
+```bash
+lore metrics --full
+lore metrics --export mine.json
+```
+
+Exports contain counts, rates, percentiles, versions, timestamps, platform,
+and schema values. They exclude titles, ids, paths, summaries, query text,
+topic names, and collection names. Lore audits every string before writing an
+export and refuses the file if a string is not explicitly allowed.
+
+![Lore's measurement program moves from one archive toward independent validation](docs/img/stages.svg)
+
+See [METRICS.md](METRICS.md) for the exact disclosure contract.
+
+## What Lore guarantees
+
+- **Local-first:** search and indexing require no network.
+- **Portable:** Markdown and YAML remain useful without the CLI.
+- **Disposable index:** SQLite can always be rebuilt from canonical files.
+- **Fail-open retrieval:** invalid records are reported and skipped while valid
+  records remain searchable.
+- **Fail-loud diagnostics:** read commands warn when invalid records were
+  excluded from the index.
+- **Stable automation:** search, show, and list offer machine-readable JSON.
+- **Measured ranking invariants:** `lore selftest` guards the scoring budget and
+  retirement behavior.
+
+## Repository map
+
+```text
+.
+├── memory/                    # example canonical archive
+├── tools/lore/lore.py         # CLI and retrieval engine
+├── tools/lore/schema.sql      # disposable SQLite schema
+├── tools/migrate/             # importers and reconciliation support
+├── agent/                     # harness-neutral operating policies
+├── docs/img/                  # README figures
+├── docs/diagrams/             # editable draw.io sources
+└── tools/verify.py            # syntax, unit, integration, and invariant checks
+```
+
+| Read next | Purpose |
+|---|---|
+| [START_HERE.md](START_HERE.md) | Five-minute operating guide |
+| [WRITING_RECORDS.md](WRITING_RECORDS.md) | How to write records people can find |
+| [INSTALL.md](INSTALL.md) | Installation, PATH behavior, and uninstall |
+| [MIGRATING_AN_ARCHIVE.md](MIGRATING_AN_ARCHIVE.md) | Phased adoption plan |
+| [RECONCILING_AN_EXISTING_ARCHIVE.md](RECONCILING_AN_EXISTING_ARCHIVE.md) | Resolve conflicts after importing notes |
+| [memory/SCHEMA.md](memory/SCHEMA.md) | Canonical record format |
+| [LESSONS.md](LESSONS.md) | What the project learned and measured |
+
+## Development
+
+Run the complete verifier with the active interpreter:
+
+```bash
+python3 -B tools/verify.py
+```
+
+To test a patch in a temporary clone without stashing or resetting the working
+tree:
+
+```bash
+python3 -B tools/verify.py --clean-checkout
+```
+
+The verifier parses every Python file as Python 3.10, runs unit, migration,
+installer, and end-to-end suites, then executes the ranking self-test. No
+separate lint or static type-check configuration is currently provided.
+
+## Honest limitations
+
+- Retrieval only helps when a human or agent actually searches. Give agents a
+  concrete trigger: search before non-trivial work and when a surprise looks
+  familiar.
+- `compact` and `supersede` are not implemented as commands. Validation and
+  conflict detection support the manual lifecycle, but archive aging still
+  requires judgment.
+- The published measurements come from one archive. The metrics export exists
+  to test whether the findings survive independent archives.
+
+<div align="center">
+
+Built to make rediscovery optional. MIT licensed.
 
 </div>
