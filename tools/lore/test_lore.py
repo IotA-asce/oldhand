@@ -248,6 +248,17 @@ class LoreTests(unittest.TestCase):
         self.assertIn("   id: decision\n", output)
         self.assertNotIn("   id: lesson\n", output)
 
+    def test_search_filters_by_exact_topic(self):
+        self.record("backend", topics=["API Gateway"])
+        self.record("frontend", topics=["interface"])
+        rc = lore.search(self.root, "useful testing", history=False, limit=5,
+                         scope=None, collection=None, log=False,
+                         topic="api gateway")
+        self.assertEqual(rc, 0)
+        output = self.output.getvalue()
+        self.assertIn("   id: backend\n", output)
+        self.assertNotIn("   id: frontend\n", output)
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",

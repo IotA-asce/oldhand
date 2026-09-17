@@ -15,7 +15,7 @@ python tools/lore/lore.py validate
 python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
-python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --limit N
+python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --limit N
 python tools/lore/lore.py show <id>
 python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
@@ -77,6 +77,11 @@ Default search:
 Use `--type <type>` to restrict results to one record type, such as
 `constraint`, `decision`, or `lesson`. The filter applies before ranking, so
 scores are normalised only across records that can actually be returned.
+
+Use `--topic <topic>` for an exact, case-insensitive topic match. Unlike adding
+the topic words to the query, this is a true filter: records without that topic
+never enter the ranking pool. Type, topic, collection, and history filters can
+be combined.
 
 Ranking runs in **two passes**:
 

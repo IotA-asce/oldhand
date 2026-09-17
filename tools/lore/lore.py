@@ -929,7 +929,7 @@ def fts_query(text: str) -> tuple[str, set[str]]:
 
 def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
            collection: str | None, log: bool = True,
-           entry_type: str | None = None) -> int:
+           entry_type: str | None = None, topic: str | None = None) -> int:
     """Ranked search. `log=False` for internal callers.
 
     The retrieval log answers which records real work retrieves. `doctor` and
@@ -955,6 +955,15 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         if entry_type:
             type_clause = "AND e.entry_type = ?"
             params.append(entry_type)
+        topic_clause = ""
+        if topic:
+            topic_key = topic.lower().strip().replace(" ", "-")
+            topic_clause = """AND EXISTS (
+                SELECT 1 FROM entry_topics et_filter
+                JOIN topics t_filter ON t_filter.id=et_filter.topic_id
+                WHERE et_filter.entry_id=e.id AND lower(t_filter.topic_key)=lower(?)
+            )"""
+            params.append(topic_key)
 
         select = """SELECT e.*, c.name AS collection_name,
                            f.topics AS fts_topics, bm25(entry_fts, 0.0, 8.0, 6.0, 1.0, 3.0) AS bm
@@ -965,7 +974,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
 
         # Pass 1: bounded relevance pool.
         relevance = con.execute(
-            f"{select} {status_clause} {collection_clause} {type_clause} "
+            f"{select} {status_clause} {collection_clause} {type_clause} {topic_clause} "
             "ORDER BY bm25(entry_fts, 0.0, 8.0, 6.0, 1.0, 3.0) LIMIT ?",
             (*params, RELEVANCE_POOL),
         ).fetchall()
@@ -975,7 +984,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         # Truncating the pool before this check meant the "always surfaces"
         # guarantee quietly stopped holding as the archive grew.
         safety = con.execute(
-            f"""{select} {status_clause} {collection_clause} {type_clause}
+            f"""{select} {status_clause} {collection_clause} {type_clause} {topic_clause}
                 AND (e.importance='critical' OR (e.risk='critical' AND e.durability='invariant'))""",
             tuple(params),
         ).fetchall()
@@ -994,18 +1003,26 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
             total = con.execute(
                 f"""SELECT COUNT(*) n FROM entries e
                     JOIN collections c ON c.id=e.collection_id
-                    WHERE 1=1 {status_clause} {collection_clause} {type_clause}""",
+                    WHERE 1=1 {status_clause} {collection_clause} {type_clause} {topic_clause}""",
                 tuple(params[1:]),
             ).fetchone()["n"]
             # Busiest topics first, not alphabetical: the point is to show the
             # vocabulary the archive actually uses, and the first 15 by
             # alphabet are a random sample of it.
+            topic_base = f"""FROM topics t
+                JOIN entry_topics et ON et.topic_id=t.id
+                JOIN entries e ON e.id=et.entry_id
+                JOIN collections c ON c.id=e.collection_id
+                WHERE 1=1 {status_clause} {collection_clause} {type_clause} {topic_clause}"""
+            filter_params = tuple(params[1:])
             topics = [r["topic_key"] for r in con.execute(
-                """SELECT t.topic_key, COUNT(et.entry_id) n FROM topics t
-                   JOIN entry_topics et ON et.topic_id=t.id
-                   GROUP BY t.topic_key ORDER BY n DESC, t.topic_key LIMIT 15"""
+                f"""SELECT t.topic_key, COUNT(DISTINCT et.entry_id) n {topic_base}
+                    GROUP BY t.topic_key ORDER BY n DESC, t.topic_key LIMIT 15""",
+                filter_params,
             ).fetchall()]
-            ntopics = con.execute("SELECT COUNT(*) n FROM topics").fetchone()["n"]
+            ntopics = con.execute(
+                f"SELECT COUNT(DISTINCT t.topic_key) n {topic_base}", filter_params
+            ).fetchone()["n"]
             print(f"No matching record. Searched {total} record(s).")
             if topics:
                 more = f", +{ntopics - len(topics)} more" if ntopics > len(topics) else ""
@@ -2424,6 +2441,7 @@ def main() -> int:
     p_search.add_argument("--collection", help="restrict to one collection by name")
     p_search.add_argument("--type", dest="entry_type", choices=sorted(ENTRY_TYPES),
                           help="restrict to one record type")
+    p_search.add_argument("--topic", help="restrict to one exact topic (case-insensitive)")
 
     p_show = sub.add_parser("show")
     p_show.add_argument("id")
@@ -2455,7 +2473,7 @@ def main() -> int:
         return validate_cmd(root)
     if args.command == "search":
         return search(root, args.query, args.history, args.limit, args.scope, args.collection,
-                      entry_type=args.entry_type)
+                      entry_type=args.entry_type, topic=args.topic)
     if args.command == "show":
         return show(root, args.id)
     if args.command == "stats":
