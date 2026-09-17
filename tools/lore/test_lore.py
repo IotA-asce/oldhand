@@ -448,6 +448,19 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(len(valid), 1)
         self.assertEqual(errors, [])
 
+    def test_init_archive_creates_scaffold_and_refuses_overwrite(self):
+        target = self.root / "knowledge"
+        self.assertEqual(lore.init_archive(target, json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertTrue(payload["created"])
+        self.assertEqual(payload["root"], str(target))
+        self.assertTrue((target / "memory" / "README.md").exists())
+        self.assertTrue((target / ".lore" / "lore.db").exists())
+
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.init_archive(target, json_output=False), 1)
+
     def test_new_record_json_output(self):
         args = argparse.Namespace(
             title="JSON creation", type="lesson", importance="normal",

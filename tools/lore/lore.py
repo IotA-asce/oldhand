@@ -2518,6 +2518,32 @@ def validate_cmd(root: Path) -> int:
 # Record creation
 # --------------------------------------------------------------------------
 
+def init_archive(root: Path, json_output: bool = False) -> int:
+    root = root.resolve()
+    memory = root / "memory"
+    if memory.exists():
+        print(f"Refusing to overwrite existing archive: {memory}", file=sys.stderr)
+        return 1
+    memory.mkdir(parents=True)
+    (memory / "README.md").write_text(
+        "# Memory\n\n"
+        "Canonical Lore records live below this directory. Create one with:\n\n"
+        "```bash\n"
+        "lore new --title \"...\" --type lesson --importance normal\n"
+        "```\n",
+        encoding="utf-8",
+    )
+    rebuild(root, strict=True, quiet=True)
+    if json_output:
+        print(json.dumps({
+            "created": True, "root": str(root),
+            "memory": str(memory), "records": 0,
+        }, ensure_ascii=False, indent=2))
+    else:
+        print(f"Initialized Lore archive at {root}")
+        print("Next: lore new --title \"...\" --type lesson --importance normal")
+    return 0
+
 def _records_for_mutation(root: Path) -> dict[str, dict[str, Any]] | None:
     records, errors, _ = validate_records(root)
     if errors:
@@ -2888,6 +2914,11 @@ def main() -> int:
     parser.add_argument("--root", help="workspace root (auto-detected, or set LORE_ROOT)")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    p_init = sub.add_parser("init", help="initialize a new Lore archive")
+    p_init.add_argument("path")
+    p_init.add_argument("--json", dest="json_output", action="store_true",
+                        help="emit one machine-readable JSON document")
+
     p_rebuild = sub.add_parser("rebuild")
     p_rebuild.add_argument("--strict", action="store_true",
                            help="exit non-zero if any record was skipped")
@@ -2991,6 +3022,8 @@ def main() -> int:
 
     args = parser.parse_args()
     _force_utf8_output()
+    if args.command == "init":
+        return init_archive(Path(args.path), args.json_output)
     root = workspace_root(args.root)
     if args.command not in (None, "selftest"):
         record_daily_metrics(root)

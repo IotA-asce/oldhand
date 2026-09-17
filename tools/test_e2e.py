@@ -124,6 +124,16 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(meta["topics"],
                          ["on", "null", "api: gateway", "*backend"])
 
+    def test_init_command_creates_archive(self):
+        target = self.root / "new-archive"
+        result = subprocess.run(
+            [sys.executable, "-B", str(LORE_PY), "init", str(target), "--json"],
+            capture_output=True, text=True, env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["created"])
+        self.assertTrue((target / "memory" / "README.md").exists())
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")

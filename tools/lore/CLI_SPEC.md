@@ -11,6 +11,7 @@ python -m pip install -r tools/lore/requirements.txt
 ## Implemented commands
 
 ```bash
+python tools/lore/lore.py init <path> [--json]
 python tools/lore/lore.py validate
 python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
@@ -37,6 +38,13 @@ python tools/lore/lore.py obsidian
 
 Each has its own section below. `lore --help` is authoritative if this list
 and the parser ever disagree.
+
+## Initialize
+
+`lore init PATH` creates a new archive with `memory/README.md` and an empty
+derived index. It refuses to run when `PATH/memory` already exists, so it never
+adopts or overwrites notes implicitly. Pass `--json` for a creation receipt
+containing the resolved root, memory directory, and initial record count.
 
 ## Root resolution
 
