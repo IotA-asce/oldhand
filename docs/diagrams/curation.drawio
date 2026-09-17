@@ -1,0 +1,60 @@
+<mxGraphModel adaptiveColors="auto" dx="1200" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="title" value="Lore curation loop" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=#1f2937;" vertex="1" parent="1">
+      <mxGeometry x="40" y="25" width="320" height="40" as="geometry"/>
+    </mxCell>
+    <mxCell id="initialize" value="Initialize&#xa;init · validate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f2fe;strokeColor=#0284c7;fontColor=#0c4a6e;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="100" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="discover" value="Discover&#xa;collections · topics · list" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfeff;strokeColor=#0891b2;fontColor=#164e63;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="220" y="100" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="retrieve" value="Retrieve&#xa;search · show · backlinks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef2ff;strokeColor=#6366f1;fontColor=#312e81;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="400" y="100" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="create" value="Create&#xa;new · explicit id · dry-run" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#8b5cf6;fontColor=#4c1d95;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="580" y="100" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="curate" value="Curate&#xa;topic · classify · rename" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fdf2f8;strokeColor=#db2777;fontColor=#831843;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="760" y="100" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="consolidate" value="Consolidate&#xa;relate · compact · supersede" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;fontColor=#7c2d12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="940" y="100" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="measure" value="Measure&#xa;doctor · metrics · eval" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#16a34a;fontColor=#14532d;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="580" y="280" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="source" value="Canonical Markdown&#xa;portable · reviewable · durable" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#475569;fontColor=#0f172a;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="400" y="270" width="140" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="e1" edge="1" parent="1" source="initialize" target="discover" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=2;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e2" edge="1" parent="1" source="discover" target="retrieve" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=2;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e3" edge="1" parent="1" source="retrieve" target="create" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=2;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e4" edge="1" parent="1" source="create" target="curate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=2;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e5" edge="1" parent="1" source="curate" target="consolidate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=2;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e6" edge="1" parent="1" source="consolidate" target="measure" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#64748b;strokeWidth=2;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e7" value="improve" edge="1" parent="1" source="measure" target="discover" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#16a34a;strokeWidth=2;endArrow=classic;dashed=1;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e8" value="reads / writes" edge="1" parent="1" source="source" target="retrieve" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#475569;endArrow=classic;dashed=1;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e9" edge="1" parent="1" source="create" target="source" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#475569;endArrow=classic;dashed=1;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>

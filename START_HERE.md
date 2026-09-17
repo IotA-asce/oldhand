@@ -182,10 +182,10 @@ surprising or looks like it has been hit before.* Asking someone to search
 "when history might matter" asks them to suspect the trap before looking, and
 the traps worth recording are the ones nobody suspects.
 
-**`compact` is not implemented.** `lore supersede OLD --by NEW` now performs a
-validated two-record retirement, and `conflicts` still finds contradictions,
-but nothing automatically decides when several old records should be merged.
-That judgment remains deliberately manual.
+**Compaction does not write prose.** Prepare the canonical target first, then
+use `lore compact --into TARGET SOURCE...` to retire the sources and connect
+them atomically. Deciding what the merged knowledge should say remains a
+deliberately human or agent-reviewed judgment.
 
 ## Harness adapters
 

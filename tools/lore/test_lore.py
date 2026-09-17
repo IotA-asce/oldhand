@@ -63,6 +63,19 @@ class LoreTests(unittest.TestCase):
         with contextlib.closing(lore.connect(self.root)) as con:
             self.assertEqual(con.execute("SELECT count(*) FROM entries").fetchone()[0], 1)
 
+    def test_validate_json_reports_success_and_failure(self):
+        self.record("valid")
+        self.assertEqual(lore.validate_cmd(self.root, json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual((payload["valid"], payload["record_count"]), (True, 1))
+        self.output.seek(0)
+        self.output.truncate()
+        self.record("bad", schema_version="v1")
+        self.assertEqual(lore.validate_cmd(self.root, json_output=True), 1)
+        payload = json.loads(self.output.getvalue())
+        self.assertFalse(payload["valid"])
+        self.assertEqual(payload["error_count"], 1)
+
     def test_malformed_relations_rejected(self):
         self.record("valid")
         for index, relations in enumerate([123, [], "target", {"supersedes": 123},
@@ -260,6 +273,17 @@ class LoreTests(unittest.TestCase):
         self.assertIn("   id: resolved\n", output)
         self.assertNotIn("   id: current\n", output)
 
+    def test_search_filters_by_exact_importance(self):
+        self.record("normal", importance="normal")
+        self.record("critical", importance="critical")
+        rc = lore.search(self.root, "useful testing", history=False, limit=5,
+                         scope=None, collection=None, log=False,
+                         importance="critical", json_output=True)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["filters"]["importance"], "critical")
+        self.assertEqual([item["id"] for item in payload["results"]], ["critical"])
+
     def test_search_filters_by_exact_topic(self):
         self.record("backend", topics=["API Gateway"])
         self.record("frontend", topics=["interface"])
@@ -347,6 +371,90 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["records"][0]["id"], "retired")
         self.assertEqual(payload["filters"]["status"], "deprecated")
+
+    def test_list_filters_by_exact_importance(self):
+        self.record("normal", importance="normal")
+        self.record("critical", importance="critical")
+        rc = lore.list_records(self.root, history=False, limit=10,
+                               entry_type=None, topic=None, collection=None,
+                               json_output=True, importance="critical")
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["records"][0]["id"], "critical")
+        self.assertEqual(payload["filters"]["importance"], "critical")
+
+    def test_backlinks_reports_both_directions(self):
+        self.record("center", relations={"depends_on": ["target"]})
+        self.record("source", relations={"related_to": ["center"]})
+        self.record("target")
+        self.assertEqual(lore.backlinks(self.root, "center", json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual([(e["type"], e["id"]) for e in payload["incoming"]],
+                         [("related_to", "source")])
+        self.assertEqual([(e["type"], e["id"]) for e in payload["outgoing"]],
+                         [("depends_on", "target")])
+
+    def test_rename_updates_id_and_all_backlinks(self):
+        target = self.record("old")
+        source = self.record("source", relations={"depends_on": ["old"]})
+        self.assertEqual(lore.rename_record_id(self.root, "old", "stable.id"), 0)
+        target_meta = yaml.safe_load(target.read_text(encoding="utf-8").split("---\n")[1])
+        source_meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(target_meta["id"], "stable.id")
+        self.assertEqual(source_meta["relations"]["depends_on"], ["stable.id"])
+        records, errors, _ = lore.validate_records(self.root)
+        self.assertFalse(errors)
+        self.assertIn("stable.id", {record["meta"]["id"] for record in records})
+
+    def test_rename_rejects_collision_without_changes(self):
+        old = self.record("old")
+        self.record("taken")
+        before = old.read_bytes()
+        self.assertEqual(lore.rename_record_id(self.root, "old", "taken"), 1)
+        self.assertEqual(old.read_bytes(), before)
+
+    def test_topic_add_and_remove_preserve_nonempty_topics(self):
+        path = self.record("record", topics=["testing"])
+        self.assertEqual(lore.curate_topic(self.root, "record", add="API Gateway"), 0)
+        meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["topics"], ["testing", "API Gateway"])
+        self.assertEqual(lore.curate_topic(self.root, "record", remove="api-gateway"), 0)
+        self.assertEqual(lore.curate_topic(self.root, "record", remove="testing"), 1)
+
+    def test_classify_updates_multiple_metadata_fields(self):
+        path = self.record("record")
+        self.assertEqual(lore.classify_record(
+            self.root, "record", importance="critical", risk="high",
+            durability="invariant", evidence="observed"), 0)
+        meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(
+            {key: meta[key] for key in ("importance", "risk", "durability", "evidence")},
+            {"importance": "critical", "risk": "high",
+             "durability": "invariant", "evidence": "observed"})
+
+    def test_classify_requires_a_change(self):
+        self.record("record")
+        self.assertEqual(lore.classify_record(self.root, "record"), 2)
+
+    def test_compact_dry_run_then_retires_sources(self):
+        target = self.record("target")
+        first = self.record("first")
+        second = self.record("second")
+        before = {path: path.read_bytes() for path in (target, first, second)}
+        self.assertEqual(lore.compact_records(
+            self.root, "target", ["first", "second"], True, True), 0)
+        self.assertEqual({path: path.read_bytes() for path in before}, before)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.compact_records(
+            self.root, "target", ["first", "second"], False, True), 0)
+        target_meta = yaml.safe_load(target.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(target_meta["relations"]["supersedes"], ["first", "second"])
+        for path in (first, second):
+            meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+            self.assertEqual(meta["status"], "superseded")
+            self.assertIn("Known facts.", path.read_text(encoding="utf-8"))
 
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
@@ -448,6 +556,19 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(len(valid), 1)
         self.assertEqual(errors, [])
 
+    def test_init_archive_creates_scaffold_and_refuses_overwrite(self):
+        target = self.root / "knowledge"
+        self.assertEqual(lore.init_archive(target, json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertTrue(payload["created"])
+        self.assertEqual(payload["root"], str(target))
+        self.assertTrue((target / "memory" / "README.md").exists())
+        self.assertTrue((target / ".lore" / "lore.db").exists())
+
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.init_archive(target, json_output=False), 1)
+
     def test_new_record_json_output(self):
         args = argparse.Namespace(
             title="JSON creation", type="lesson", importance="normal",
@@ -462,6 +583,23 @@ class LoreTests(unittest.TestCase):
         self.assertFalse(payload["dry_run"])
         self.assertEqual(payload["id"], "lore_json_creation")
         self.assertEqual(payload["path"], "memory/lessons/json-creation.md")
+
+    def test_new_record_accepts_explicit_portable_id(self):
+        args = argparse.Namespace(
+            id="gateway.retry-policy_v2", title="Explicit identity", type="lesson",
+            importance="normal", topics="automation", status="current",
+            scope="subsystem", risk="low", durability="situational",
+            evidence="documented", summary=None, knowledge=None, verification=None,
+            collection=None, json_output=True, dry_run=False)
+        self.assertEqual(lore.new_record(self.root, args), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["id"], "gateway.retry-policy_v2")
+
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.new_record(self.root, args), 1)
+        args.id = "invalid id/with spaces"
+        self.assertEqual(lore.new_record(self.root, args), 2)
 
     def test_new_record_dry_run_writes_nothing(self):
         args = argparse.Namespace(

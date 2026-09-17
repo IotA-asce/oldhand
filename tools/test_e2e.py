@@ -66,6 +66,14 @@ class CoreCliTests(E2ETestCase):
         self.assertNotIn("badver", result.stdout)
         self.assertNotIn("badrel", result.stdout)
 
+    def test_validate_json_is_machine_readable(self):
+        self.record("good")
+        result = self.lore("validate", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["valid"])
+        self.assertEqual(payload["record_count"], 1)
+
     def test_unicode_query_finds_record(self):
         self.record("good")
         self.lore("rebuild")
@@ -124,6 +132,16 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(meta["topics"],
                          ["on", "null", "api: gateway", "*backend"])
 
+    def test_init_command_creates_archive(self):
+        target = self.root / "new-archive"
+        result = subprocess.run(
+            [sys.executable, "-B", str(LORE_PY), "init", str(target), "--json"],
+            capture_output=True, text=True, env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["created"])
+        self.assertTrue((target / "memory" / "README.md").exists())
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")
@@ -131,6 +149,12 @@ class CoreCliTests(E2ETestCase):
         payload = json.loads(result.stdout)
         self.assertTrue(payload["created"])
         self.assertEqual(payload["id"], "lore_json_record")
+
+    def test_new_explicit_id(self):
+        result = self.lore("new", "--id", "stable.record-id", "--title", "Stable id",
+                           "--type", "lesson", "--importance", "normal", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["id"], "stable.record-id")
 
     def test_new_dry_run_json_writes_nothing(self):
         result = self.lore("new", "--title", "Preview record", "--type", "lesson",
@@ -206,6 +230,56 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual([record["id"] for record in payload["records"]], ["old"])
+
+    def test_list_selects_importance(self):
+        self.record("normal", importance="normal")
+        self.record("critical", importance="critical")
+        result = self.lore("list", "--importance", "critical", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual([item["id"] for item in payload["records"]], ["critical"])
+
+    def test_backlinks_json(self):
+        self.record("source", relations={"depends_on": ["target"]})
+        self.record("target")
+        result = self.lore("backlinks", "target", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["incoming"][0]["id"], "source")
+
+    def test_rename_command_updates_backlinks(self):
+        self.record("source", relations={"related_to": ["old"]})
+        self.record("old")
+        result = self.lore("rename", "old", "renamed")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        graph = self.lore("backlinks", "renamed", "--json")
+        self.assertEqual(json.loads(graph.stdout)["incoming"][0]["id"], "source")
+
+    def test_topic_command_curates_topics(self):
+        path = self.record("record")
+        result = self.lore("topic", "record", "--add", "api-gateway")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertIn("api-gateway", meta["topics"])
+
+    def test_classify_command_updates_metadata(self):
+        path = self.record("record")
+        result = self.lore("classify", "record", "--importance", "critical",
+                           "--scope", "workspace")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual((meta["importance"], meta["scope"]), ("critical", "workspace"))
+
+    def test_compact_command_retires_sources(self):
+        self.record("target")
+        source = self.record("source")
+        preview = self.lore("compact", "--into", "target", "source", "--dry-run", "--json")
+        self.assertEqual(preview.returncode, 0, preview.stderr)
+        self.assertTrue(json.loads(preview.stdout)["dry_run"])
+        result = self.lore("compact", "--into", "target", "source")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["status"], "superseded")
 
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")

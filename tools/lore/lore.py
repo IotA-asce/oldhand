@@ -177,6 +177,7 @@ HEADING_RE = re.compile(r"^#\s+(.+?)\s*$", re.M)
 SECTION_RE = re.compile(r"^##\s+(.+?)\s*$", re.M)
 QUERY_WORD_RE = re.compile(r"[\w.:/+-]+")
 SLUG_STRIP_RE = re.compile(r"[^a-z0-9]+")
+RECORD_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 
 
 # --------------------------------------------------------------------------
@@ -931,7 +932,8 @@ def fts_query(text: str) -> tuple[str, set[str]]:
 def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
            collection: str | None, log: bool = True,
            entry_type: str | None = None, topic: str | None = None,
-           json_output: bool = False, status: str | None = None) -> int:
+           json_output: bool = False, status: str | None = None,
+           importance: str | None = None) -> int:
     """Ranked search. `log=False` for internal callers.
 
     The retrieval log answers which records real work retrieves. `doctor` and
@@ -961,6 +963,10 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         if entry_type:
             type_clause = "AND e.entry_type = ?"
             params.append(entry_type)
+        importance_clause = ""
+        if importance:
+            importance_clause = "AND e.importance = ?"
+            params.append(importance)
         topic_clause = ""
         if topic:
             topic_key = topic.lower().strip().replace(" ", "-")
@@ -980,7 +986,8 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
 
         # Pass 1: bounded relevance pool.
         relevance = con.execute(
-            f"{select} {status_clause} {collection_clause} {type_clause} {topic_clause} "
+            f"{select} {status_clause} {collection_clause} {type_clause} "
+            f"{importance_clause} {topic_clause} "
             "ORDER BY bm25(entry_fts, 0.0, 8.0, 6.0, 1.0, 3.0) LIMIT ?",
             (*params, RELEVANCE_POOL),
         ).fetchall()
@@ -990,7 +997,8 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         # Truncating the pool before this check meant the "always surfaces"
         # guarantee quietly stopped holding as the archive grew.
         safety = con.execute(
-            f"""{select} {status_clause} {collection_clause} {type_clause} {topic_clause}
+            f"""{select} {status_clause} {collection_clause} {type_clause}
+                {importance_clause} {topic_clause}
                 AND (e.importance='critical' OR (e.risk='critical' AND e.durability='invariant'))""",
             tuple(params),
         ).fetchall()
@@ -1009,7 +1017,8 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
             total = con.execute(
                 f"""SELECT COUNT(*) n FROM entries e
                     JOIN collections c ON c.id=e.collection_id
-                    WHERE 1=1 {status_clause} {collection_clause} {type_clause} {topic_clause}""",
+                    WHERE 1=1 {status_clause} {collection_clause} {type_clause}
+                    {importance_clause} {topic_clause}""",
                 tuple(params[1:]),
             ).fetchone()["n"]
             # Busiest topics first, not alphabetical: the point is to show the
@@ -1019,7 +1028,8 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                 JOIN entry_topics et ON et.topic_id=t.id
                 JOIN entries e ON e.id=et.entry_id
                 JOIN collections c ON c.id=e.collection_id
-                WHERE 1=1 {status_clause} {collection_clause} {type_clause} {topic_clause}"""
+                WHERE 1=1 {status_clause} {collection_clause} {type_clause}
+                {importance_clause} {topic_clause}"""
             filter_params = tuple(params[1:])
             topics = [r["topic_key"] for r in con.execute(
                 f"""SELECT t.topic_key, COUNT(DISTINCT et.entry_id) n {topic_base}
@@ -1035,6 +1045,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                     "filters": {
                         "history": history, "scope": scope, "collection": collection,
                         "type": entry_type, "topic": topic, "status": status,
+                        "importance": importance,
                     },
                     "count": 0,
                     "searched": total,
@@ -1132,6 +1143,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                 "filters": {
                     "history": history, "scope": scope, "collection": collection,
                     "type": entry_type, "topic": topic, "status": status,
+                    "importance": importance,
                 },
                 "count": len(results),
                 "results": results,
@@ -1213,7 +1225,8 @@ def show(root: Path, rid: str, json_output: bool = False) -> int:
 
 def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
                  topic: str | None, collection: str | None,
-                 json_output: bool = False, status: str | None = None) -> int:
+                 json_output: bool = False, status: str | None = None,
+                 importance: str | None = None) -> int:
     """Browse record metadata without requiring a full-text query."""
     con = ensure_db(root)
     try:
@@ -1228,6 +1241,9 @@ def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
         if entry_type:
             clauses.append("e.entry_type = ?")
             params.append(entry_type)
+        if importance:
+            clauses.append("e.importance = ?")
+            params.append(importance)
         if topic:
             clauses.append("""EXISTS (
                 SELECT 1 FROM entry_topics et_filter
@@ -1271,6 +1287,7 @@ def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
                 "filters": {
                     "history": history, "type": entry_type,
                     "topic": topic, "collection": collection, "status": status,
+                    "importance": importance,
                 },
                 "count": total, "returned": len(records), "records": records,
             }, ensure_ascii=False, indent=2))
@@ -1290,6 +1307,47 @@ def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
                     print(f"   topics: {', '.join(record['topics'])}")
                 print(f"   {' '.join(str(record['summary']).split())}")
                 print()
+        return 0
+    finally:
+        con.close()
+
+
+def backlinks(root: Path, record_id: str, json_output: bool = False) -> int:
+    """Show every indexed edge touching a record."""
+    con = ensure_db(root)
+    try:
+        record = con.execute(
+            "SELECT id, title FROM entries WHERE id=?", (record_id,)
+        ).fetchone()
+        if record is None:
+            print(f"Unknown record id: {record_id}", file=sys.stderr)
+            return 1
+        incoming = [dict(row) for row in con.execute(
+            """SELECT r.relation_type AS type, e.id, e.title, e.status
+               FROM relations r JOIN entries e ON e.id=r.source_entry_id
+               WHERE r.target_entry_id=? ORDER BY r.relation_type, e.id""",
+            (record_id,),
+        ).fetchall()]
+        outgoing = [dict(row) for row in con.execute(
+            """SELECT r.relation_type AS type, e.id, e.title, e.status
+               FROM relations r JOIN entries e ON e.id=r.target_entry_id
+               WHERE r.source_entry_id=? ORDER BY r.relation_type, e.id""",
+            (record_id,),
+        ).fetchall()]
+        payload = {
+            "id": record_id, "title": record["title"],
+            "incoming": incoming, "outgoing": outgoing,
+        }
+        if json_output:
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print(f"{record['title']} ({record_id})")
+            for label, edges in (("Incoming", incoming), ("Outgoing", outgoing)):
+                print(f"\n{label} ({len(edges)}):")
+                if not edges:
+                    print("  none")
+                for edge in edges:
+                    print(f"  {edge['type']}: {edge['id']} — {edge['title']} [{edge['status']}]")
         return 0
     finally:
         con.close()
@@ -2501,8 +2559,15 @@ def stats(root: Path) -> int:
         con.close()
 
 
-def validate_cmd(root: Path) -> int:
+def validate_cmd(root: Path, json_output: bool = False) -> int:
     records, errors, warnings = validate_records(root)
+    if json_output:
+        print(json.dumps({
+            "valid": not errors, "record_count": len(records),
+            "error_count": len(errors), "warning_count": len(warnings),
+            "errors": errors, "warnings": warnings,
+        }, ensure_ascii=False, indent=2))
+        return 1 if errors else 0
     for w in warnings:
         print(f"  warning: {w}")
     if errors:
@@ -2517,6 +2582,32 @@ def validate_cmd(root: Path) -> int:
 # --------------------------------------------------------------------------
 # Record creation
 # --------------------------------------------------------------------------
+
+def init_archive(root: Path, json_output: bool = False) -> int:
+    root = root.resolve()
+    memory = root / "memory"
+    if memory.exists():
+        print(f"Refusing to overwrite existing archive: {memory}", file=sys.stderr)
+        return 1
+    memory.mkdir(parents=True)
+    (memory / "README.md").write_text(
+        "# Memory\n\n"
+        "Canonical Lore records live below this directory. Create one with:\n\n"
+        "```bash\n"
+        "lore new --title \"...\" --type lesson --importance normal\n"
+        "```\n",
+        encoding="utf-8",
+    )
+    rebuild(root, strict=True, quiet=True)
+    if json_output:
+        print(json.dumps({
+            "created": True, "root": str(root),
+            "memory": str(memory), "records": 0,
+        }, ensure_ascii=False, indent=2))
+    else:
+        print(f"Initialized Lore archive at {root}")
+        print("Next: lore new --title \"...\" --type lesson --importance normal")
+    return 0
 
 def _records_for_mutation(root: Path) -> dict[str, dict[str, Any]] | None:
     records, errors, _ = validate_records(root)
@@ -2569,6 +2660,177 @@ def _publish_record_updates(root: Path, records: dict[str, dict[str, Any]],
         return False
     rebuild(root, strict=True, quiet=True)
     return True
+
+
+def rename_record_id(root: Path, old_id: str, new_id: str) -> int:
+    """Rename an id and rewrite every incoming relation atomically."""
+    if not RECORD_ID_RE.fullmatch(new_id):
+        print("Invalid id: use 1-128 letters, digits, dots, underscores, or hyphens; start with a letter or digit.",
+              file=sys.stderr)
+        return 2
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if old_id not in records:
+        print(f"Unknown record id: {old_id}", file=sys.stderr)
+        return 1
+    if old_id == new_id:
+        print(f"Record already has id {old_id}")
+        return 0
+    if new_id in records:
+        print(f"Record id already exists: {new_id}", file=sys.stderr)
+        return 1
+
+    now = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    updates: dict[str, dict[str, Any]] = {}
+    renamed = dict(records[old_id]["meta"])
+    renamed["id"] = new_id
+    renamed["updated_at"] = now
+    updates[old_id] = renamed
+    for rid, record in records.items():
+        if rid == old_id:
+            continue
+        changed = False
+        relations = {key: list(values) for key, values in record["relations"].items()}
+        for relation_type, targets in relations.items():
+            if old_id in targets:
+                relations[relation_type] = sorted(set(
+                    new_id if target == old_id else target for target in targets
+                ))
+                changed = True
+        if changed:
+            meta = dict(record["meta"])
+            meta["relations"] = relations
+            meta["updated_at"] = now
+            updates[rid] = meta
+    if not _publish_record_updates(root, records, updates):
+        return 1
+    print(f"Renamed {old_id} -> {new_id}; updated {len(updates) - 1} backlink record(s)")
+    return 0
+
+
+def curate_topic(root: Path, record_id: str, add: str | None = None,
+                 remove: str | None = None) -> int:
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if record_id not in records:
+        print(f"Unknown record id: {record_id}", file=sys.stderr)
+        return 1
+    topic = (add or remove or "").strip()
+    if not topic:
+        print("Topic cannot be empty.", file=sys.stderr)
+        return 2
+    meta = dict(records[record_id]["meta"])
+    raw_topics = meta.get("topics", [])
+    topics = [str(raw_topics)] if isinstance(raw_topics, str) else list(raw_topics)
+    key = topic.casefold().replace(" ", "-")
+    keys = [str(item).casefold().replace(" ", "-") for item in topics]
+    if add is not None:
+        if key in keys:
+            print(f"Record {record_id} already has topic {topic}")
+            return 0
+        topics.append(topic)
+        action = "Added"
+    else:
+        if key not in keys:
+            print(f"Record {record_id} does not have topic {topic}", file=sys.stderr)
+            return 1
+        if len(topics) == 1:
+            print("A record must retain at least one topic.", file=sys.stderr)
+            return 1
+        topics.pop(keys.index(key))
+        action = "Removed"
+    meta["topics"] = topics
+    meta["updated_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    if not _publish_record_updates(root, records, {record_id: meta}):
+        return 1
+    print(f"{action} topic {topic} {'to' if add is not None else 'from'} {record_id}")
+    return 0
+
+
+def classify_record(root: Path, record_id: str, **changes: str | None) -> int:
+    selected = {key: value for key, value in changes.items() if value is not None}
+    if not selected:
+        print("Provide at least one classification option.", file=sys.stderr)
+        return 2
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if record_id not in records:
+        print(f"Unknown record id: {record_id}", file=sys.stderr)
+        return 1
+    meta = dict(records[record_id]["meta"])
+    meta.update(selected)
+    meta["updated_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    if not _publish_record_updates(root, records, {record_id: meta}):
+        return 1
+    rendered = ", ".join(f"{key}={value}" for key, value in selected.items())
+    print(f"Classified {record_id}: {rendered}")
+    return 0
+
+
+def compact_records(root: Path, target_id: str, source_ids: list[str],
+                    dry_run: bool = False, json_output: bool = False) -> int:
+    """Retire several records into an already-prepared canonical target."""
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    sources = list(dict.fromkeys(source_ids))
+    if target_id not in records:
+        print(f"Unknown target record id: {target_id}", file=sys.stderr)
+        return 1
+    if str(records[target_id]["meta"].get("status")) in RETIRED_STATUSES:
+        print(f"Target record '{target_id}' is retired.", file=sys.stderr)
+        return 1
+    for source_id in sources:
+        if source_id == target_id:
+            print("Target cannot also be a source.", file=sys.stderr)
+            return 1
+        if source_id not in records:
+            print(f"Unknown source record id: {source_id}", file=sys.stderr)
+            return 1
+        if str(records[source_id]["meta"].get("status")) in RETIRED_STATUSES:
+            print(f"Source record '{source_id}' is already retired.", file=sys.stderr)
+            return 1
+
+    plan = {
+        "target": target_id, "sources": sources, "dry_run": dry_run,
+        "changes": {
+            target_id: {"add_relation": {"supersedes": sources}},
+            **{source_id: {"status": "superseded"} for source_id in sources},
+        },
+    }
+    if dry_run:
+        if json_output:
+            print(json.dumps(plan, ensure_ascii=False, indent=2))
+        else:
+            print(f"Would compact {', '.join(sources)} into {target_id}")
+            print("No record bodies would be changed.")
+        return 0
+
+    now = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    updates: dict[str, dict[str, Any]] = {}
+    target_meta = dict(records[target_id]["meta"])
+    relations = {key: list(values) for key, values in records[target_id]["relations"].items()}
+    relations["supersedes"] = sorted(set(relations.get("supersedes", [])) | set(sources))
+    target_meta["relations"] = relations
+    target_meta["updated_at"] = now
+    updates[target_id] = target_meta
+    for source_id in sources:
+        meta = dict(records[source_id]["meta"])
+        meta["status"] = "superseded"
+        meta["updated_at"] = now
+        updates[source_id] = meta
+    if not _publish_record_updates(root, records, updates):
+        return 1
+    plan["dry_run"] = False
+    if json_output:
+        print(json.dumps(plan, ensure_ascii=False, indent=2))
+    else:
+        print(f"Compacted {', '.join(sources)} into {target_id}")
+        print("Canonical bodies were preserved; sources are now superseded.")
+    return 0
 
 
 def relate(root: Path, source_id: str, relation_type: str, target_id: str) -> int:
@@ -2761,11 +3023,25 @@ def new_record(root: Path, args: argparse.Namespace) -> int:
     topics = [t.strip() for t in (args.topics or "").split(",") if t.strip()]
 
     taken = existing_ids(root)
-    base = "lore_" + slugify(args.title).replace("-", "_")
-    rid = base
-    while rid in taken:
-        suffix = hashlib.sha1(f"{rid}:{datetime.now().isoformat()}".encode()).hexdigest()[:4]
-        rid = f"{base}_{suffix}"
+    explicit_id = getattr(args, "id", None)
+    if explicit_id:
+        if not RECORD_ID_RE.fullmatch(explicit_id):
+            print(
+                "Invalid record id. Use 1-128 letters, numbers, dots, underscores, or hyphens; "
+                "start with a letter or number.",
+                file=sys.stderr,
+            )
+            return 2
+        if explicit_id in taken:
+            print(f"Record id already exists: {explicit_id}", file=sys.stderr)
+            return 1
+        rid = explicit_id
+    else:
+        base = "lore_" + slugify(args.title).replace("-", "_")
+        rid = base
+        while rid in taken:
+            suffix = hashlib.sha1(f"{rid}:{datetime.now().isoformat()}".encode()).hexdigest()[:4]
+            rid = f"{base}_{suffix}"
 
     now = datetime.now().astimezone().replace(microsecond=0).isoformat()
     directory = target_root / "memory" / TYPE_DIRS[args.type]
@@ -2888,10 +3164,17 @@ def main() -> int:
     parser.add_argument("--root", help="workspace root (auto-detected, or set LORE_ROOT)")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    p_init = sub.add_parser("init", help="initialize a new Lore archive")
+    p_init.add_argument("path")
+    p_init.add_argument("--json", dest="json_output", action="store_true",
+                        help="emit one machine-readable JSON document")
+
     p_rebuild = sub.add_parser("rebuild")
     p_rebuild.add_argument("--strict", action="store_true",
                            help="exit non-zero if any record was skipped")
-    sub.add_parser("validate")
+    p_validate = sub.add_parser("validate")
+    p_validate.add_argument("--json", dest="json_output", action="store_true",
+                            help="emit one machine-readable JSON document")
     sub.add_parser("stats")
     sub.add_parser("selftest", help="assert the ranking invariants hold")
     sub.add_parser("usage", help="what retrieval actually did, from the log")
@@ -2921,6 +3204,8 @@ def main() -> int:
     p_search.add_argument("--topic", help="restrict to one exact topic (case-insensitive)")
     p_search.add_argument("--status", choices=sorted(STATUSES),
                           help="restrict to one exact status")
+    p_search.add_argument("--importance", choices=sorted(IMPORTANCE),
+                          help="restrict to one exact importance level")
     p_search.add_argument("--json", dest="json_output", action="store_true",
                           help="emit one machine-readable JSON document")
 
@@ -2928,6 +3213,11 @@ def main() -> int:
     p_show.add_argument("id")
     p_show.add_argument("--json", dest="json_output", action="store_true",
                         help="emit one machine-readable JSON document")
+
+    p_backlinks = sub.add_parser("backlinks", help="show incoming and outgoing relations")
+    p_backlinks.add_argument("id")
+    p_backlinks.add_argument("--json", dest="json_output", action="store_true",
+                             help="emit one machine-readable JSON document")
 
     p_list = sub.add_parser("list", help="browse record metadata without a query")
     p_list.add_argument("--history", action="store_true",
@@ -2938,6 +3228,8 @@ def main() -> int:
     p_list.add_argument("--collection", help="restrict to one collection by name")
     p_list.add_argument("--status", choices=sorted(STATUSES),
                         help="restrict to one exact status")
+    p_list.add_argument("--importance", choices=sorted(IMPORTANCE),
+                        help="restrict to one exact importance level")
     p_list.add_argument("--json", dest="json_output", action="store_true",
                         help="emit one machine-readable JSON document")
 
@@ -2952,6 +3244,7 @@ def main() -> int:
                                help="emit one machine-readable JSON document")
 
     p_new = sub.add_parser("new", help="create a well-formed record skeleton")
+    p_new.add_argument("--id", help="explicit portable record id (default: generated)")
     p_new.add_argument("--title", required=True)
     p_new.add_argument("--type", required=True, choices=sorted(ENTRY_TYPES))
     p_new.add_argument("--importance", required=True, choices=sorted(IMPORTANCE))
@@ -2989,8 +3282,34 @@ def main() -> int:
     p_status.add_argument("id")
     p_status.add_argument("new_status", choices=sorted(DIRECT_STATUSES))
 
+    p_rename = sub.add_parser("rename", help="rename a record id and its backlinks")
+    p_rename.add_argument("old_id")
+    p_rename.add_argument("new_id")
+
+    p_topic = sub.add_parser("topic", help="add or remove a record topic")
+    p_topic.add_argument("id")
+    topic_action = p_topic.add_mutually_exclusive_group(required=True)
+    topic_action.add_argument("--add")
+    topic_action.add_argument("--remove")
+
+    p_classify = sub.add_parser("classify", help="update record classification metadata")
+    p_classify.add_argument("id")
+    p_classify.add_argument("--importance", choices=sorted(IMPORTANCE))
+    p_classify.add_argument("--scope", choices=sorted(SCOPES))
+    p_classify.add_argument("--risk", choices=sorted(RISKS))
+    p_classify.add_argument("--durability", choices=sorted(DURABILITY))
+    p_classify.add_argument("--evidence", choices=sorted(EVIDENCE))
+
+    p_compact = sub.add_parser("compact", help="retire sources into a prepared target")
+    p_compact.add_argument("--into", dest="target", required=True)
+    p_compact.add_argument("sources", nargs="+")
+    p_compact.add_argument("--dry-run", action="store_true")
+    p_compact.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
+    if args.command == "init":
+        return init_archive(Path(args.path), args.json_output)
     root = workspace_root(args.root)
     if args.command not in (None, "selftest"):
         record_daily_metrics(root)
@@ -2998,16 +3317,20 @@ def main() -> int:
     if args.command == "rebuild":
         return rebuild(root, strict=args.strict)
     if args.command == "validate":
-        return validate_cmd(root)
+        return validate_cmd(root, args.json_output)
     if args.command == "search":
         return search(root, args.query, args.history, args.limit, args.scope, args.collection,
                       entry_type=args.entry_type, topic=args.topic,
-                      json_output=args.json_output, status=args.status)
+                      json_output=args.json_output, status=args.status,
+                      importance=args.importance)
     if args.command == "show":
         return show(root, args.id, json_output=args.json_output)
+    if args.command == "backlinks":
+        return backlinks(root, args.id, args.json_output)
     if args.command == "list":
         return list_records(root, args.history, args.limit, args.entry_type,
-                            args.topic, args.collection, args.json_output, args.status)
+                            args.topic, args.collection, args.json_output, args.status,
+                            args.importance)
     if args.command == "topics":
         return list_topics(root, args.limit, args.collection, args.json_output)
     if args.command == "collections":
@@ -3038,6 +3361,17 @@ def main() -> int:
         return supersede_record(root, args.old_id, args.new_id)
     if args.command == "status":
         return set_record_status(root, args.id, args.new_status)
+    if args.command == "rename":
+        return rename_record_id(root, args.old_id, args.new_id)
+    if args.command == "topic":
+        return curate_topic(root, args.id, args.add, args.remove)
+    if args.command == "classify":
+        return classify_record(root, args.id, importance=args.importance,
+                               scope=args.scope, risk=args.risk,
+                               durability=args.durability, evidence=args.evidence)
+    if args.command == "compact":
+        return compact_records(root, args.target, args.sources,
+                               args.dry_run, args.json_output)
     return 2
 
 

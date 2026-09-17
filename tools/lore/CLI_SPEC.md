@@ -11,13 +11,15 @@ python -m pip install -r tools/lore/requirements.txt
 ## Implemented commands
 
 ```bash
-python tools/lore/lore.py validate
+python tools/lore/lore.py init <path> [--json]
+python tools/lore/lore.py validate [--json]
 python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
-python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --limit N [--json]
+python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --importance <level> --limit N [--json]
 python tools/lore/lore.py show <id> [--json]
-python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--collection <name>] [--limit N] [--json]
+python tools/lore/lore.py backlinks <id> [--json]
+python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--importance <level>] [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py topics [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py collections [--json]
 python tools/lore/lore.py stats
@@ -28,6 +30,10 @@ python tools/lore/lore.py relate <source-id> <relation-type> <target-id>
 python tools/lore/lore.py unrelate <source-id> <relation-type> <target-id>
 python tools/lore/lore.py supersede <old-id> --by <replacement-id>
 python tools/lore/lore.py status <id> <current|resolved|deprecated|historical>
+python tools/lore/lore.py rename <old-id> <new-id>
+python tools/lore/lore.py topic <id> (--add <topic> | --remove <topic>)
+python tools/lore/lore.py classify <id> [--importance ...] [--scope ...] [--risk ...] [--durability ...] [--evidence ...]
+python tools/lore/lore.py compact --into <target-id> <source-id>... [--dry-run] [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -38,7 +44,18 @@ python tools/lore/lore.py obsidian
 Each has its own section below. `lore --help` is authoritative if this list
 and the parser ever disagree.
 
+## Initialize
+
+`lore init PATH` creates a new archive with `memory/README.md` and an empty
+derived index. It refuses to run when `PATH/memory` already exists, so it never
+adopts or overwrites notes implicitly. Pass `--json` for a creation receipt
+containing the resolved root, memory directory, and initial record count.
+
 ## Root resolution
+
+`lore validate --json` returns record, error, and warning counts plus the full
+diagnostic arrays. It preserves the human command's exit semantics: zero only
+when the archive is valid.
 
 The root is resolved in this order:
 
@@ -94,6 +111,9 @@ Use `--status <status>` to select one lifecycle state exactly. An explicit
 status overrides the default active-only behavior and `--history`, so
 `--status superseded` returns only superseded records.
 
+Use `--importance <level>` to restrict the candidate pool to one exact
+importance level. It composes with every other search filter.
+
 Pass `--json` when another tool or agent will consume the results. Lore emits
 one JSON document with the query, active filters, result count, and result
 objects. Each result includes its score, metadata, topics, collection, path,
@@ -107,6 +127,10 @@ topics, outgoing relations, collection, path, token estimate, summary, and
 body. The JSON mode is read-only and records the same retrieval event as the
 Markdown mode.
 
+`backlinks <id>` inspects the record graph from both directions. It reports
+each incoming and outgoing relation with the other record's title and status;
+`--json` emits stable `incoming` and `outgoing` arrays for automation.
+
 ## List and browse
 
 `lore list` browses records deterministically by title, then id, without
@@ -115,6 +139,7 @@ default; pass `--history` to include them. Exact type, topic, and collection
 filters can be combined, and `--limit` bounds the output (50 by default).
 An explicit `--status` selects that state exactly and overrides the active-only
 default, including for retired states.
+Use `--importance` to inventory one importance tier without a text query.
 
 Human output is a compact catalog with metadata, topics, and summaries.
 `--json` returns the matching count separately from the number returned, so a
@@ -127,6 +152,18 @@ topics attached to active records, ordered by record count and then name.
 Repeated topic names remain separate across collections. Use `--collection`
 to narrow the catalog, `--limit` to bound it, and `--json` for a document that
 separates the total matching count from the number returned.
+
+`lore topic ID --add TOPIC` and `--remove TOPIC` safely curate a canonical
+record's vocabulary. Matching is case-insensitive and space/hyphen aware;
+Lore refuses to remove the final topic.
+
+`lore classify ID` updates one or more ranking and governance fields in a
+single validated write. Enum choices are enforced by the CLI parser.
+
+`lore compact --into TARGET SOURCE...` is deliberately conservative: prepare
+the target's canonical prose first, then Lore atomically marks every source
+`superseded` and adds the reverse `supersedes` edges to the target. It never
+merges or deletes prose. Use `--dry-run --json` to inspect the complete plan.
 
 `lore collections` lists every indexed collection with its kind, active and
 total record counts, and topic count. The command is the discovery companion
@@ -174,6 +211,10 @@ metadata distinction that is checkable at write time rather than predicted,
 which makes it the one worth trusting.
 
 ## Identifier expansion
+
+`lore rename OLD NEW` changes a canonical record id and every incoming
+relation reference in one validated transaction. It rejects collisions and
+invalid portable ids; filenames are intentionally left stable.
 
 Code identifiers are indexed by their component words as well as whole.
 FTS5's tokenizer splits on punctuation and nothing else, so `totalCost` is the
@@ -467,6 +508,11 @@ path, and collection instead of the human follow-up instructions. Pass
 or files. Combining both returns the Markdown in the JSON object's `content`
 field with `created: false`.
 
+Use `--id ID` when an automation or migration needs a deterministic identity.
+Portable ids are 1-128 characters, start with a letter or number, and contain
+only letters, numbers, dots, underscores, and hyphens. Collisions are refused;
+without `--id`, Lore keeps generating a unique id from the title.
+
 ## Relationship maintenance
 
 `lore relate SOURCE TYPE TARGET` adds one typed relationship to the canonical
@@ -492,15 +538,3 @@ mutation path. It accepts `current`, `resolved`, `deprecated`, and `historical`.
 `superseded` is intentionally excluded: that state is only valid together
 with a replacement's `supersedes` relationship, so use the atomic command.
 An idempotent status request succeeds without rewriting the file.
-
-## Intentionally deferred
-
-This operation remains specified but not implemented:
-
-```bash
-lore compact
-```
-
-`validate` reports supersession drift with the exact edit to make, so the manual
-path is workable in the meantime. Add these only after real usage shows what
-ergonomics are actually needed.
