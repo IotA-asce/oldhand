@@ -457,6 +457,9 @@ Fill in `## Knowledge`, `## Verification` and `## References`, then run
 `rebuild`. Hand-written frontmatter was the main source of records that failed
 validation, which is why this is the intended write path.
 
+Pass `--json` to receive a single object containing `created`, `dry_run`, id,
+path, and collection instead of the human follow-up instructions.
+
 ## Intentionally deferred
 
 These operations are specified but not implemented:

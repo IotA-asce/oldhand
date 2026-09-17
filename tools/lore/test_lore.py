@@ -391,6 +391,21 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(len(valid), 1)
         self.assertEqual(errors, [])
 
+    def test_new_record_json_output(self):
+        args = argparse.Namespace(
+            title="JSON creation", type="lesson", importance="normal",
+            topics="automation", status="current", scope="subsystem", risk="low",
+            durability="situational", evidence="documented", summary=None,
+            knowledge=None, verification=None, collection=None,
+            json_output=True, dry_run=False)
+        rc = lore.new_record(self.root, args)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertTrue(payload["created"])
+        self.assertFalse(payload["dry_run"])
+        self.assertEqual(payload["id"], "lore_json_creation")
+        self.assertEqual(payload["path"], "memory/lessons/json-creation.md")
+
     def test_metrics_full_on_empty_and_retired_archives(self):
         for seed in (None, "retired"):
             self.output.seek(0)

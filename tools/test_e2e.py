@@ -124,6 +124,14 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(meta["topics"],
                          ["on", "null", "api: gateway", "*backend"])
 
+    def test_new_json_output(self):
+        result = self.lore("new", "--title", "JSON record", "--type", "lesson",
+                           "--importance", "normal", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertTrue(payload["created"])
+        self.assertEqual(payload["id"], "lore_json_record")
+
     def test_search_json_output(self):
         self.record("good")
         result = self.lore("search", "database", "--json")
