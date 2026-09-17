@@ -300,6 +300,31 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["relations"], {"depends_on": ["target"]})
         self.assertIn("Known facts.", payload["body"])
 
+    def test_list_browses_active_records_with_filters_and_json(self):
+        self.record("active-backend", type="lesson", topics=["backend"])
+        self.record("retired-backend", type="decision", status="superseded",
+                    topics=["backend"])
+        self.record("active-frontend", type="decision", topics=["frontend"])
+        rc = lore.list_records(self.root, history=False, limit=10,
+                               entry_type="lesson", topic="backend",
+                               collection=None, json_output=False)
+        self.assertEqual(rc, 0)
+        output = self.output.getvalue()
+        self.assertIn("active-backend", output)
+        self.assertNotIn("retired-backend", output)
+        self.assertNotIn("active-frontend", output)
+
+        self.output.seek(0)
+        self.output.truncate()
+        rc = lore.list_records(self.root, history=True, limit=1,
+                               entry_type=None, topic="backend",
+                               collection=None, json_output=True)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["count"], 2)
+        self.assertEqual(payload["returned"], 1)
+        self.assertEqual(len(payload["records"]), 1)
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",

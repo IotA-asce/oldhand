@@ -141,6 +141,18 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(payload["topics"], ["testing"])
         self.assertIn("gateway retries", payload["body"])
 
+    def test_list_json_and_positive_limit(self):
+        self.record("good")
+        result = self.lore("list", "--json", "--type", "lesson", "--topic", "testing")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["records"][0]["id"], "good")
+
+        result = self.lore("list", "--limit", "0")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("positive integer", result.stderr)
+
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")
 class InstallerTests(E2ETestCase):

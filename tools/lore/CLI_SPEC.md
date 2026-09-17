@@ -17,6 +17,7 @@ python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
 python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --limit N [--json]
 python tools/lore/lore.py show <id> [--json]
+python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
 python tools/lore/lore.py usage
@@ -95,6 +96,19 @@ emits one structured object containing every indexed frontmatter field,
 topics, outgoing relations, collection, path, token estimate, summary, and
 body. The JSON mode is read-only and records the same retrieval event as the
 Markdown mode.
+
+## List and browse
+
+`lore list` browses records deterministically by title, then id, without
+inventing a full-text query. It excludes superseded and deprecated records by
+default; pass `--history` to include them. Exact type, topic, and collection
+filters can be combined, and `--limit` bounds the output (50 by default).
+
+Human output is a compact catalog with metadata, topics, and summaries.
+`--json` returns the matching count separately from the number returned, so a
+caller can detect truncation. Listing is not written to the retrieval log:
+that log measures intentional searches and record opens, not archive
+administration.
 
 Ranking runs in **two passes**:
 
