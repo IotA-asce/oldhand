@@ -15,8 +15,9 @@ python tools/lore/lore.py validate
 python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
-python tools/lore/lore.py search "query" --collection <name> --scope <scope> --limit N
-python tools/lore/lore.py show <id>
+python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --limit N [--json]
+python tools/lore/lore.py show <id> [--json]
+python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
 python tools/lore/lore.py usage
@@ -73,6 +74,41 @@ Default search:
 - combines textual relevance with topic, importance, risk, durability, status,
   and optional scope;
 - gives recency no authority in v1.
+
+Use `--type <type>` to restrict results to one record type, such as
+`constraint`, `decision`, or `lesson`. The filter applies before ranking, so
+scores are normalised only across records that can actually be returned.
+
+Use `--topic <topic>` for an exact, case-insensitive topic match. Unlike adding
+the topic words to the query, this is a true filter: records without that topic
+never enter the ranking pool. Type, topic, collection, and history filters can
+be combined.
+
+Pass `--json` when another tool or agent will consume the results. Lore emits
+one JSON document with the query, active filters, result count, and result
+objects. Each result includes its score, metadata, topics, collection, path,
+token estimate, and complete summary. A miss is also a successful JSON
+document and includes the number of records searched plus suggested topics.
+Diagnostics still go to stderr, so stdout remains directly parseable.
+
+`show <id>` prints the canonical Markdown record. With `--json`, it instead
+emits one structured object containing every indexed frontmatter field,
+topics, outgoing relations, collection, path, token estimate, summary, and
+body. The JSON mode is read-only and records the same retrieval event as the
+Markdown mode.
+
+## List and browse
+
+`lore list` browses records deterministically by title, then id, without
+inventing a full-text query. It excludes superseded and deprecated records by
+default; pass `--history` to include them. Exact type, topic, and collection
+filters can be combined, and `--limit` bounds the output (50 by default).
+
+Human output is a compact catalog with metadata, topics, and summaries.
+`--json` returns the matching count separately from the number returned, so a
+caller can detect truncation. Listing is not written to the retrieval log:
+that log measures intentional searches and record opens, not archive
+administration.
 
 Ranking runs in **two passes**:
 

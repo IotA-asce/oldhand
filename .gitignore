@@ -3,6 +3,7 @@
 .lore/
 __pycache__/
 *.pyc
+.DS_Store
 
 # Exported metrics bundles, if you write one into this directory.
 #

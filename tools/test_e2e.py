@@ -1,4 +1,5 @@
 import contextlib
+import json
 import os
 from pathlib import Path
 import sqlite3
@@ -122,6 +123,35 @@ class CoreCliTests(E2ETestCase):
         meta = yaml.safe_load(text.split("---\n")[1])
         self.assertEqual(meta["topics"],
                          ["on", "null", "api: gateway", "*backend"])
+
+    def test_search_json_output(self):
+        self.record("good")
+        result = self.lore("search", "database", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["id"], "good")
+
+    def test_show_json_output(self):
+        self.record("good")
+        result = self.lore("show", "good", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["id"], "good")
+        self.assertEqual(payload["topics"], ["testing"])
+        self.assertIn("gateway retries", payload["body"])
+
+    def test_list_json_and_positive_limit(self):
+        self.record("good")
+        result = self.lore("list", "--json", "--type", "lesson", "--topic", "testing")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["records"][0]["id"], "good")
+
+        result = self.lore("list", "--limit", "0")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("positive integer", result.stderr)
 
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")

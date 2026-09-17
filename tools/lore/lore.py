@@ -928,7 +928,9 @@ def fts_query(text: str) -> tuple[str, set[str]]:
 
 
 def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
-           collection: str | None, log: bool = True) -> int:
+           collection: str | None, log: bool = True,
+           entry_type: str | None = None, topic: str | None = None,
+           json_output: bool = False) -> int:
     """Ranked search. `log=False` for internal callers.
 
     The retrieval log answers which records real work retrieves. `doctor` and
@@ -950,6 +952,19 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         if collection:
             collection_clause = "AND c.name = ?"
             params.append(collection)
+        type_clause = ""
+        if entry_type:
+            type_clause = "AND e.entry_type = ?"
+            params.append(entry_type)
+        topic_clause = ""
+        if topic:
+            topic_key = topic.lower().strip().replace(" ", "-")
+            topic_clause = """AND EXISTS (
+                SELECT 1 FROM entry_topics et_filter
+                JOIN topics t_filter ON t_filter.id=et_filter.topic_id
+                WHERE et_filter.entry_id=e.id AND lower(t_filter.topic_key)=lower(?)
+            )"""
+            params.append(topic_key)
 
         select = """SELECT e.*, c.name AS collection_name,
                            f.topics AS fts_topics, bm25(entry_fts, 0.0, 8.0, 6.0, 1.0, 3.0) AS bm
@@ -960,7 +975,8 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
 
         # Pass 1: bounded relevance pool.
         relevance = con.execute(
-            f"{select} {status_clause} {collection_clause} ORDER BY bm25(entry_fts, 0.0, 8.0, 6.0, 1.0, 3.0) LIMIT ?",
+            f"{select} {status_clause} {collection_clause} {type_clause} {topic_clause} "
+            "ORDER BY bm25(entry_fts, 0.0, 8.0, 6.0, 1.0, 3.0) LIMIT ?",
             (*params, RELEVANCE_POOL),
         ).fetchall()
 
@@ -969,7 +985,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         # Truncating the pool before this check meant the "always surfaces"
         # guarantee quietly stopped holding as the archive grew.
         safety = con.execute(
-            f"""{select} {status_clause} {collection_clause}
+            f"""{select} {status_clause} {collection_clause} {type_clause} {topic_clause}
                 AND (e.importance='critical' OR (e.risk='critical' AND e.durability='invariant'))""",
             tuple(params),
         ).fetchall()
@@ -988,23 +1004,44 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
             total = con.execute(
                 f"""SELECT COUNT(*) n FROM entries e
                     JOIN collections c ON c.id=e.collection_id
-                    WHERE 1=1 {status_clause} {collection_clause}""",
+                    WHERE 1=1 {status_clause} {collection_clause} {type_clause} {topic_clause}""",
                 tuple(params[1:]),
             ).fetchone()["n"]
             # Busiest topics first, not alphabetical: the point is to show the
             # vocabulary the archive actually uses, and the first 15 by
             # alphabet are a random sample of it.
+            topic_base = f"""FROM topics t
+                JOIN entry_topics et ON et.topic_id=t.id
+                JOIN entries e ON e.id=et.entry_id
+                JOIN collections c ON c.id=e.collection_id
+                WHERE 1=1 {status_clause} {collection_clause} {type_clause} {topic_clause}"""
+            filter_params = tuple(params[1:])
             topics = [r["topic_key"] for r in con.execute(
-                """SELECT t.topic_key, COUNT(et.entry_id) n FROM topics t
-                   JOIN entry_topics et ON et.topic_id=t.id
-                   GROUP BY t.topic_key ORDER BY n DESC, t.topic_key LIMIT 15"""
+                f"""SELECT t.topic_key, COUNT(DISTINCT et.entry_id) n {topic_base}
+                    GROUP BY t.topic_key ORDER BY n DESC, t.topic_key LIMIT 15""",
+                filter_params,
             ).fetchall()]
-            ntopics = con.execute("SELECT COUNT(*) n FROM topics").fetchone()["n"]
-            print(f"No matching record. Searched {total} record(s).")
-            if topics:
-                more = f", +{ntopics - len(topics)} more" if ntopics > len(topics) else ""
-                print(f"Busiest topics: {', '.join(topics)}{more}")
-                print("If the answer should exist, retry using the archive's own terms.")
+            ntopics = con.execute(
+                f"SELECT COUNT(DISTINCT t.topic_key) n {topic_base}", filter_params
+            ).fetchone()["n"]
+            if json_output:
+                print(json.dumps({
+                    "query": query,
+                    "filters": {
+                        "history": history, "scope": scope, "collection": collection,
+                        "type": entry_type, "topic": topic,
+                    },
+                    "count": 0,
+                    "searched": total,
+                    "suggested_topics": topics,
+                    "results": [],
+                }, ensure_ascii=False, indent=2))
+            else:
+                print(f"No matching record. Searched {total} record(s).")
+                if topics:
+                    more = f", +{ntopics - len(topics)} more" if ntopics > len(topics) else ""
+                    print(f"Busiest topics: {', '.join(topics)}{more}")
+                    print("If the answer should exist, retry using the archive's own terms.")
             if log:
                 log_retrieval(root, "search", query, [])
             return 0
@@ -1065,24 +1102,54 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
 
         multi = con.execute("SELECT COUNT(*) c FROM collections").fetchone()["c"] > 1
 
-        for i, (score, hard, r) in enumerate(ranked, 1):
-            marker = " !" if hard else ""
-            print(
-                f"{i}. [{r['importance'].upper()} | {r['status']} | {r['evidence']}]"
-                f"{marker} {r['title']}"
-            )
-            print(f"   id: {r['id']}")
-            location = f"{r['collection_name']}/{r['path']}" if multi else r["path"]
-            print(f"   path: {location}")
-            print(
-                f"   scope={r['scope']} risk={r['risk']} durability={r['durability']} "
-                f"~{r['token_estimate']} tokens score={score:.0f}"
-            )
-            summary = " ".join(str(r["summary"]).split())
-            if len(summary) > 360:
-                summary = summary[:357] + "..."
-            print(f"   {summary}")
-            print()
+        if json_output:
+            results = []
+            for score, hard, r in ranked:
+                topics = [row["display_name"] for row in con.execute(
+                    """SELECT t.display_name FROM topics t
+                       JOIN entry_topics et ON et.topic_id=t.id
+                       WHERE et.entry_id=? ORDER BY t.display_name COLLATE NOCASE""",
+                    (r["id"],),
+                ).fetchall()]
+                location = f"{r['collection_name']}/{r['path']}" if multi else r["path"]
+                results.append({
+                    "id": r["id"], "title": r["title"], "type": r["entry_type"],
+                    "status": r["status"], "importance": r["importance"],
+                    "scope": r["scope"], "risk": r["risk"],
+                    "durability": r["durability"], "evidence": r["evidence"],
+                    "topics": topics, "collection": r["collection_name"],
+                    "path": location, "token_estimate": r["token_estimate"],
+                    "score": round(score, 2), "critical": hard,
+                    "summary": " ".join(str(r["summary"]).split()),
+                })
+            print(json.dumps({
+                "query": query,
+                "filters": {
+                    "history": history, "scope": scope, "collection": collection,
+                    "type": entry_type, "topic": topic,
+                },
+                "count": len(results),
+                "results": results,
+            }, ensure_ascii=False, indent=2))
+        else:
+            for i, (score, hard, r) in enumerate(ranked, 1):
+                marker = " !" if hard else ""
+                print(
+                    f"{i}. [{r['importance'].upper()} | {r['status']} | {r['evidence']}]"
+                    f"{marker} {r['title']}"
+                )
+                print(f"   id: {r['id']}")
+                location = f"{r['collection_name']}/{r['path']}" if multi else r["path"]
+                print(f"   path: {location}")
+                print(
+                    f"   scope={r['scope']} risk={r['risk']} durability={r['durability']} "
+                    f"~{r['token_estimate']} tokens score={score:.0f}"
+                )
+                summary = " ".join(str(r["summary"]).split())
+                if len(summary) > 360:
+                    summary = summary[:357] + "..."
+                print(f"   {summary}")
+                print()
         if log:
             log_retrieval(root, "search", query, [str(r["id"]) for _, _, r in ranked])
         return 0
@@ -1090,20 +1157,131 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         con.close()
 
 
-def show(root: Path, rid: str) -> int:
+def show(root: Path, rid: str, json_output: bool = False) -> int:
     con = ensure_db(root)
     try:
         warn_index_state(root, con)
         row = con.execute(
-            """SELECT e.path, c.root_path FROM entries e
+            """SELECT e.*, c.name AS collection_name, c.root_path FROM entries e
                JOIN collections c ON c.id=e.collection_id WHERE e.id=?""",
             (rid,),
         ).fetchone()
         if not row:
             print(f"Unknown record id: {rid}", file=sys.stderr)
             return 1
-        print((Path(row["root_path"]) / row["path"]).read_text(encoding="utf-8"))
+        if json_output:
+            topics = [item["display_name"] for item in con.execute(
+                """SELECT t.display_name FROM topics t
+                   JOIN entry_topics et ON et.topic_id=t.id
+                   WHERE et.entry_id=? ORDER BY t.display_name COLLATE NOCASE""",
+                (rid,),
+            ).fetchall()]
+            relations: dict[str, list[str]] = {}
+            for item in con.execute(
+                """SELECT relation_type, target_entry_id FROM relations
+                   WHERE source_entry_id=? ORDER BY relation_type, target_entry_id""",
+                (rid,),
+            ).fetchall():
+                relations.setdefault(str(item["relation_type"]), []).append(
+                    str(item["target_entry_id"])
+                )
+            payload = {
+                "schema_version": row["schema_version"], "id": row["id"],
+                "title": row["title"], "type": row["entry_type"],
+                "status": row["status"], "importance": row["importance"],
+                "scope": row["scope"], "risk": row["risk"],
+                "durability": row["durability"], "evidence": row["evidence"],
+                "topics": topics, "created_at": row["created_at"],
+                "updated_at": row["updated_at"], "expires_at": row["expires_at"],
+                "relations": relations, "collection": row["collection_name"],
+                "path": row["path"], "token_estimate": row["token_estimate"],
+                "summary": row["summary"], "body": row["body"],
+            }
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            print((Path(row["root_path"]) / row["path"]).read_text(encoding="utf-8"))
         log_retrieval(root, "show", rid, [rid])
+        return 0
+    finally:
+        con.close()
+
+
+def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
+                 topic: str | None, collection: str | None,
+                 json_output: bool = False) -> int:
+    """Browse record metadata without requiring a full-text query."""
+    con = ensure_db(root)
+    try:
+        warn_index_state(root, con)
+        clauses = []
+        params: list[Any] = []
+        if not history:
+            clauses.append("e.status NOT IN ('superseded','deprecated')")
+        if entry_type:
+            clauses.append("e.entry_type = ?")
+            params.append(entry_type)
+        if topic:
+            clauses.append("""EXISTS (
+                SELECT 1 FROM entry_topics et_filter
+                JOIN topics t_filter ON t_filter.id=et_filter.topic_id
+                WHERE et_filter.entry_id=e.id AND t_filter.topic_key=?
+            )""")
+            params.append(topic.lower().strip().replace(" ", "-"))
+        if collection:
+            clauses.append("c.name = ?")
+            params.append(collection)
+        where = " AND ".join(clauses) if clauses else "1=1"
+        base = f"""FROM entries e
+            JOIN collections c ON c.id=e.collection_id
+            WHERE {where}"""
+        total = con.execute(f"SELECT COUNT(*) n {base}", tuple(params)).fetchone()["n"]
+        rows = con.execute(
+            f"""SELECT e.*, c.name AS collection_name {base}
+                ORDER BY e.title COLLATE NOCASE, e.id LIMIT ?""",
+            (*params, limit),
+        ).fetchall()
+        records = []
+        for row in rows:
+            topics = [item["display_name"] for item in con.execute(
+                """SELECT t.display_name FROM topics t
+                   JOIN entry_topics et ON et.topic_id=t.id
+                   WHERE et.entry_id=? ORDER BY t.display_name COLLATE NOCASE""",
+                (row["id"],),
+            ).fetchall()]
+            records.append({
+                "id": row["id"], "title": row["title"],
+                "type": row["entry_type"], "status": row["status"],
+                "importance": row["importance"], "scope": row["scope"],
+                "risk": row["risk"], "durability": row["durability"],
+                "evidence": row["evidence"], "topics": topics,
+                "collection": row["collection_name"], "path": row["path"],
+                "token_estimate": row["token_estimate"],
+                "updated_at": row["updated_at"], "summary": row["summary"],
+            })
+        if json_output:
+            print(json.dumps({
+                "filters": {
+                    "history": history, "type": entry_type,
+                    "topic": topic, "collection": collection,
+                },
+                "count": total, "returned": len(records), "records": records,
+            }, ensure_ascii=False, indent=2))
+        else:
+            multi = con.execute("SELECT COUNT(*) c FROM collections").fetchone()["c"] > 1
+            print(f"{total} record(s); showing {len(records)}.")
+            for index, record in enumerate(records, 1):
+                print(
+                    f"{index}. [{record['type']} | {record['importance']} | "
+                    f"{record['status']}] {record['title']}"
+                )
+                print(f"   id: {record['id']}")
+                location = (f"{record['collection']}/{record['path']}"
+                            if multi else record["path"])
+                print(f"   path: {location}")
+                if record["topics"]:
+                    print(f"   topics: {', '.join(record['topics'])}")
+                print(f"   {' '.join(str(record['summary']).split())}")
+                print()
         return 0
     finally:
         con.close()
@@ -2381,6 +2559,13 @@ def _force_utf8_output() -> None:
             pass
 
 
+def positive_int(value: str) -> int:
+    number = int(value)
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return number
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="lore",
@@ -2413,12 +2598,29 @@ def main() -> int:
     p_search = sub.add_parser("search")
     p_search.add_argument("query")
     p_search.add_argument("--history", action="store_true")
-    p_search.add_argument("--limit", type=int, default=5)
+    p_search.add_argument("--limit", type=positive_int, default=5)
     p_search.add_argument("--scope", choices=sorted(SCOPES))
     p_search.add_argument("--collection", help="restrict to one collection by name")
+    p_search.add_argument("--type", dest="entry_type", choices=sorted(ENTRY_TYPES),
+                          help="restrict to one record type")
+    p_search.add_argument("--topic", help="restrict to one exact topic (case-insensitive)")
+    p_search.add_argument("--json", dest="json_output", action="store_true",
+                          help="emit one machine-readable JSON document")
 
     p_show = sub.add_parser("show")
     p_show.add_argument("id")
+    p_show.add_argument("--json", dest="json_output", action="store_true",
+                        help="emit one machine-readable JSON document")
+
+    p_list = sub.add_parser("list", help="browse record metadata without a query")
+    p_list.add_argument("--history", action="store_true",
+                        help="include superseded and deprecated records")
+    p_list.add_argument("--limit", type=positive_int, default=50)
+    p_list.add_argument("--type", dest="entry_type", choices=sorted(ENTRY_TYPES))
+    p_list.add_argument("--topic", help="restrict to one exact topic (case-insensitive)")
+    p_list.add_argument("--collection", help="restrict to one collection by name")
+    p_list.add_argument("--json", dest="json_output", action="store_true",
+                        help="emit one machine-readable JSON document")
 
     p_new = sub.add_parser("new", help="create a well-formed record skeleton")
     p_new.add_argument("--title", required=True)
@@ -2446,9 +2648,14 @@ def main() -> int:
     if args.command == "validate":
         return validate_cmd(root)
     if args.command == "search":
-        return search(root, args.query, args.history, args.limit, args.scope, args.collection)
+        return search(root, args.query, args.history, args.limit, args.scope, args.collection,
+                      entry_type=args.entry_type, topic=args.topic,
+                      json_output=args.json_output)
     if args.command == "show":
-        return show(root, args.id)
+        return show(root, args.id, json_output=args.json_output)
+    if args.command == "list":
+        return list_records(root, args.history, args.limit, args.entry_type,
+                            args.topic, args.collection, args.json_output)
     if args.command == "stats":
         return stats(root)
     if args.command == "selftest":
