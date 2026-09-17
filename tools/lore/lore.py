@@ -3344,6 +3344,14 @@ def main() -> int:
     p_attempt_eval.add_argument("--diagnostics-ref")
     p_attempt_eval.add_argument("--json", dest="json_output", action="store_true")
 
+    p_run_finish = sub.add_parser("run-finish", help="complete a fully evaluated run")
+    p_run_finish.add_argument("run_id")
+    p_run_finish.add_argument("--json", dest="json_output", action="store_true")
+
+    p_run_validate = sub.add_parser("run-validate", help="validate discovery traces")
+    p_run_validate.add_argument("run_id", nargs="?")
+    p_run_validate.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3422,6 +3430,10 @@ def main() -> int:
         return experience.evaluate_attempt(
             root, args.run_id, args.node_id, args.score, args.correct, args.outcome,
             args.cost, args.duration_ms, args.diagnostics_ref, args.json_output)
+    if args.command == "run-finish":
+        return experience.finish_run(root, args.run_id, args.json_output)
+    if args.command == "run-validate":
+        return experience.validate_runs_cmd(root, args.run_id, args.json_output)
     return 2
 
 

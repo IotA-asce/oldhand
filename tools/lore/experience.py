@@ -65,6 +65,105 @@ def load_run(root: Path, run_id: str) -> dict[str, Any]:
     return payload
 
 
+def validate_run_payload(payload: Any, label: str) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return [f"{label}: trace must be a JSON object"]
+    required = {
+        "schema_version", "id", "task", "evaluator", "policy", "goal",
+        "max_workers", "status", "created_at", "updated_at", "nodes",
+    }
+    missing = sorted(required - set(payload))
+    if missing:
+        errors.append(f"{label}: missing fields: {', '.join(missing)}")
+    if payload.get("schema_version") != TRACE_SCHEMA_VERSION:
+        errors.append(f"{label}: schema_version must be {TRACE_SCHEMA_VERSION}")
+    run_id = payload.get("id")
+    if not isinstance(run_id, str) or not TRACE_ID_RE.fullmatch(run_id):
+        errors.append(f"{label}: invalid run id")
+    if payload.get("goal") not in ("maximize", "minimize"):
+        errors.append(f"{label}: goal must be maximize or minimize")
+    if payload.get("status") not in ("active", "completed"):
+        errors.append(f"{label}: status must be active or completed")
+    if not isinstance(payload.get("max_workers"), int) or payload.get("max_workers", 0) < 1:
+        errors.append(f"{label}: max_workers must be a positive integer")
+    nodes = payload.get("nodes")
+    if not isinstance(nodes, list):
+        errors.append(f"{label}: nodes must be a list")
+        return errors
+    ids: set[str] = set()
+    child_counts: dict[str, int] = {}
+    for index, node in enumerate(nodes, 1):
+        node_label = f"{label}: node {index}"
+        if not isinstance(node, dict):
+            errors.append(f"{node_label} must be an object")
+            continue
+        node_id = node.get("id")
+        if not isinstance(node_id, str) or not TRACE_ID_RE.fullmatch(node_id):
+            errors.append(f"{node_label} has invalid id")
+            continue
+        if node_id in ids:
+            errors.append(f"{label}: duplicate node id {node_id}")
+        parent = node.get("parent_id")
+        if parent != "root" and parent not in ids:
+            errors.append(f"{label}: node {node_id} has unknown or forward parent {parent}")
+        if parent != "root":
+            child_counts[str(parent)] = child_counts.get(str(parent), 0) + 1
+        if node.get("created_order") != index:
+            errors.append(f"{label}: node {node_id} has invalid created_order")
+        evaluation = node.get("evaluation")
+        if evaluation is not None:
+            if not isinstance(evaluation, dict):
+                errors.append(f"{label}: node {node_id} evaluation must be an object")
+            else:
+                score = evaluation.get("score")
+                if not isinstance(score, (int, float)) or isinstance(score, bool) or not math.isfinite(score):
+                    errors.append(f"{label}: node {node_id} has invalid score")
+                if type(evaluation.get("correct")) is not bool:
+                    errors.append(f"{label}: node {node_id} correct must be boolean")
+                if evaluation.get("outcome") not in ("success", "failure", "error"):
+                    errors.append(f"{label}: node {node_id} has invalid outcome")
+                for field in ("cost", "duration_ms"):
+                    value = evaluation.get(field)
+                    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                        errors.append(f"{label}: node {node_id} has invalid {field}")
+        ids.add(node_id)
+    for parent, count in child_counts.items():
+        if count > 1:
+            errors.append(f"{label}: non-root node {parent} has multiple continuations")
+    if payload.get("status") == "completed":
+        if not nodes:
+            errors.append(f"{label}: completed run has no attempts")
+        incomplete = [str(node.get("id")) for node in nodes
+                      if isinstance(node, dict) and node.get("evaluation") is None]
+        if incomplete:
+            errors.append(f"{label}: completed run has unevaluated attempts: {', '.join(incomplete)}")
+        if not payload.get("finished_at"):
+            errors.append(f"{label}: completed run requires finished_at")
+    return errors
+
+
+def validate_runs(root: Path, run_id: str | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+    paths = [run_path(root, run_id)] if run_id else sorted(runs_dir(root).glob("*.json"))
+    if run_id and not paths[0].is_file():
+        return [], [f"Unknown discovery run: {run_id}"]
+    valid: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for path in paths:
+        label = str(path.relative_to(root))
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            errors.append(f"{label}: cannot parse JSON: {error}")
+            continue
+        current = validate_run_payload(payload, label)
+        if current:
+            errors.extend(current)
+        else:
+            valid.append(payload)
+    return valid, errors
+
+
 def start_run(root: Path, task: str, evaluator: str, policy: str,
               goal: str = "maximize", workers: int = 1,
               run_id: str | None = None, workspace_ref: str | None = None,
@@ -205,3 +304,55 @@ def evaluate_attempt(root: Path, run_id: str, node_id: str, score: float,
         state = "correct" if correct else "incorrect"
         print(f"Evaluated {node_id}: score={score:g}, {state}, outcome={outcome}")
     return 0
+
+
+def finish_run(root: Path, run_id: str, json_output: bool = False) -> int:
+    valid, errors = validate_runs(root, run_id)
+    if errors:
+        for error in errors:
+            print(error, file=os.sys.stderr)
+        return 1
+    run = valid[0]
+    if run.get("status") == "completed":
+        print(f"Discovery run is already completed: {run_id}")
+        return 0
+    if not run.get("nodes"):
+        print("Cannot finish a run with no attempts.", file=os.sys.stderr)
+        return 1
+    incomplete = [node["id"] for node in run["nodes"] if node.get("evaluation") is None]
+    if incomplete:
+        print(f"Unevaluated attempts: {', '.join(incomplete)}", file=os.sys.stderr)
+        return 1
+    finished = now_iso()
+    run["status"] = "completed"
+    run["updated_at"] = finished
+    run["finished_at"] = finished
+    post_errors = validate_run_payload(run, str(run_path(root, run_id).relative_to(root)))
+    if post_errors:
+        for error in post_errors:
+            print(error, file=os.sys.stderr)
+        return 1
+    _atomic_json(run_path(root, run_id), run)
+    receipt = {"completed": True, "id": run_id, "attempts": len(run["nodes"]),
+               "finished_at": finished}
+    if json_output:
+        print(json.dumps(receipt, ensure_ascii=False, indent=2))
+    else:
+        print(f"Completed discovery run {run_id} with {len(run['nodes'])} attempt(s)")
+    return 0
+
+
+def validate_runs_cmd(root: Path, run_id: str | None = None,
+                      json_output: bool = False) -> int:
+    valid, errors = validate_runs(root, run_id)
+    payload = {"valid": not errors, "run_count": len(valid),
+               "error_count": len(errors), "errors": errors}
+    if json_output:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    elif errors:
+        print(f"Discovery validation failed ({len(errors)} issue(s)):")
+        for error in errors:
+            print(f"  - {error}")
+    else:
+        print(f"Discovery validation passed: {len(valid)} run(s).")
+    return 1 if errors else 0

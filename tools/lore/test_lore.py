@@ -500,6 +500,29 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(lore.experience.evaluate_attempt(
             self.root, "run", "a", 9, True, "success"), 1)
 
+    def test_finish_requires_evaluations_and_validates_trace(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "Try it")
+        self.assertEqual(lore.experience.finish_run(self.root, "run"), 1)
+        lore.experience.evaluate_attempt(self.root, "run", "a", 8, True, "success")
+        self.assertEqual(lore.experience.finish_run(self.root, "run", True), 0)
+        run = lore.experience.load_run(self.root, "run")
+        self.assertEqual(run["status"], "completed")
+        self.assertIsNotNone(run["finished_at"])
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.validate_runs_cmd(self.root, None, True), 0)
+        self.assertTrue(json.loads(self.output.getvalue())["valid"])
+
+    def test_run_validation_reports_malformed_trace(self):
+        path = self.root / "experience" / "runs" / "bad.json"
+        path.parent.mkdir(parents=True)
+        path.write_text('{"schema_version": 99, "id": "bad", "nodes": []}\n',
+                        encoding="utf-8")
+        _, errors = lore.experience.validate_runs(self.root)
+        self.assertTrue(any("schema_version" in error for error in errors))
+        self.assertTrue(any("missing fields" in error for error in errors))
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])

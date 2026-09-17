@@ -37,6 +37,8 @@ python tools/lore/lore.py compact --into <target-id> <source-id>... [--dry-run] 
 python tools/lore/lore.py run-start --task <text> --evaluator <name> [--id <id>] [--policy <name>] [--goal maximize|minimize] [--workers N] [--workspace-ref <ref>] [--json]
 python tools/lore/lore.py attempt-add <run-id> --id <attempt-id> --parent <root|attempt-id> --proposal <text> [--artifact-ref <ref>] [--policy-version <name>] [--json]
 python tools/lore/lore.py attempt-evaluate <run-id> <attempt-id> --score N (--correct|--incorrect) --outcome <success|failure|error> [--cost N] [--duration-ms N] [--diagnostics-ref <ref>] [--json]
+python tools/lore/lore.py run-finish <run-id> [--json]
+python tools/lore/lore.py run-validate [<run-id>] [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -61,6 +63,11 @@ replay can reveal the historical trajectory without ambiguous future choices.
 `lore attempt-evaluate` attaches the fixed evaluator's grounded result exactly
 once. Correctness is explicit and separate from score; cost, elapsed time, and
 diagnostic artifacts remain available to replay and later audit.
+
+`lore run-finish` closes only a nonempty run whose attempts all have grounded
+evaluations. `run-validate` checks one trace or the entire experience archive,
+including parent order, unique ids, continuation shape, score integrity, and
+completion state.
 
 ## Initialize
 
