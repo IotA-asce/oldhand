@@ -1345,6 +1345,48 @@ def list_topics(root: Path, limit: int, collection: str | None,
         con.close()
 
 
+def list_collections(root: Path, json_output: bool = False) -> int:
+    """Describe every indexed collection and its archive footprint."""
+    con = ensure_db(root)
+    try:
+        warn_index_state(root, con)
+        rows = con.execute(
+            """SELECT c.name, c.kind,
+                      (SELECT COUNT(*) FROM entries e
+                       WHERE e.collection_id=c.id) AS record_count,
+                      (SELECT COUNT(*) FROM entries e
+                       WHERE e.collection_id=c.id
+                         AND e.status NOT IN ('superseded','deprecated'))
+                         AS active_record_count,
+                      (SELECT COUNT(*) FROM topics t
+                       WHERE t.collection_id=c.id) AS topic_count
+               FROM collections c
+               ORDER BY c.name COLLATE NOCASE"""
+        ).fetchall()
+        collections = [{
+            "name": row["name"], "kind": row["kind"],
+            "record_count": row["record_count"],
+            "active_record_count": row["active_record_count"],
+            "topic_count": row["topic_count"],
+        } for row in rows]
+        if json_output:
+            print(json.dumps({
+                "count": len(collections), "collections": collections,
+            }, ensure_ascii=False, indent=2))
+        else:
+            print(f"{len(collections)} collection(s).")
+            for index, item in enumerate(collections, 1):
+                print(f"{index}. {item['name']} [{item['kind']}]")
+                print(
+                    f"   {item['active_record_count']} active / "
+                    f"{item['record_count']} total record(s); "
+                    f"{item['topic_count']} topic(s)"
+                )
+        return 0
+    finally:
+        con.close()
+
+
 def usage(root: Path) -> int:
     """Report what retrieval actually did, from .lore/retrieval.jsonl.
 
@@ -2690,6 +2732,10 @@ def main() -> int:
     p_topics.add_argument("--json", dest="json_output", action="store_true",
                           help="emit one machine-readable JSON document")
 
+    p_collections = sub.add_parser("collections", help="describe indexed collections")
+    p_collections.add_argument("--json", dest="json_output", action="store_true",
+                               help="emit one machine-readable JSON document")
+
     p_new = sub.add_parser("new", help="create a well-formed record skeleton")
     p_new.add_argument("--title", required=True)
     p_new.add_argument("--type", required=True, choices=sorted(ENTRY_TYPES))
@@ -2726,6 +2772,8 @@ def main() -> int:
                             args.topic, args.collection, args.json_output, args.status)
     if args.command == "topics":
         return list_topics(root, args.limit, args.collection, args.json_output)
+    if args.command == "collections":
+        return list_collections(root, args.json_output)
     if args.command == "stats":
         return stats(root)
     if args.command == "selftest":

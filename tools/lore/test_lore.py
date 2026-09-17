@@ -360,6 +360,18 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["topics"][0]["key"], "backend")
         self.assertEqual(payload["topics"][0]["record_count"], 2)
 
+    def test_collections_reports_record_and_topic_counts(self):
+        self.record("active", topics=["backend", "testing"])
+        self.record("old", status="deprecated", topics=["legacy"])
+        rc = lore.list_collections(self.root, json_output=True)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["count"], 1)
+        collection = payload["collections"][0]
+        self.assertEqual(collection["record_count"], 2)
+        self.assertEqual(collection["active_record_count"], 1)
+        self.assertEqual(collection["topic_count"], 3)
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",

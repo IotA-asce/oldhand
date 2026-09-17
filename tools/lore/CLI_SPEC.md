@@ -19,6 +19,7 @@ python tools/lore/lore.py search "query" --collection <name> --scope <scope> --t
 python tools/lore/lore.py show <id> [--json]
 python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py topics [--collection <name>] [--limit N] [--json]
+python tools/lore/lore.py collections [--json]
 python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
 python tools/lore/lore.py usage
@@ -122,6 +123,11 @@ topics attached to active records, ordered by record count and then name.
 Repeated topic names remain separate across collections. Use `--collection`
 to narrow the catalog, `--limit` to bound it, and `--json` for a document that
 separates the total matching count from the number returned.
+
+`lore collections` lists every indexed collection with its kind, active and
+total record counts, and topic count. The command is the discovery companion
+to `--collection`: its names are the exact values accepted by search, list,
+topics, and new. Pass `--json` for one structured document.
 
 Ranking runs in **two passes**:
 
