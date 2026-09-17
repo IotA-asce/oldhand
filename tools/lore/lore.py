@@ -3364,6 +3364,10 @@ def main() -> int:
     p_replay.add_argument("run_id")
     p_replay.add_argument("--policy", required=True, choices=experience.REPLAY_POLICIES)
     p_replay.add_argument("--budget", required=True, type=positive_int)
+    p_replay.add_argument("--workers", type=positive_int,
+                          help="parallel workers (default: run maximum)")
+    p_replay.add_argument("--beta-cost", type=float, default=0.0)
+    p_replay.add_argument("--beta-parallel", type=float, default=0.0)
     p_replay.add_argument("--json", dest="json_output", action="store_true")
 
     args = parser.parse_args()
@@ -3454,7 +3458,8 @@ def main() -> int:
         return experience.show_run(root, args.run_id, args.json_output)
     if args.command == "replay":
         return experience.replay_cmd(
-            root, args.run_id, args.policy, args.budget, args.json_output)
+            root, args.run_id, args.policy, args.budget, args.workers,
+            args.beta_cost, args.beta_parallel, args.json_output)
     return 2
 
 

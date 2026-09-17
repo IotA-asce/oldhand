@@ -557,6 +557,34 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(depth["revealed"], ["a", "a2"])
         self.assertEqual(depth["best_score"], 8)
 
+    def test_replay_objective_balances_cost_and_parallelism(self):
+        lore.experience.start_run(
+            self.root, "Tune", "bench", "manual", workers=2, run_id="run")
+        for node_id, parent, score in (("a", "root", 5), ("a2", "a", 8),
+                                       ("b", "root", 7)):
+            lore.experience.add_attempt(self.root, "run", node_id, parent, node_id)
+            lore.experience.evaluate_attempt(
+                self.root, "run", node_id, score, True, "success", cost=1)
+        lore.experience.finish_run(self.root, "run")
+        result = lore.experience.replay_run(
+            lore.experience.load_run(self.root, "run"), "depth", 3,
+            workers=2, beta_cost=1, beta_parallel=2)
+        self.assertEqual(result["rounds"], 2)
+        self.assertEqual(result["total_cost"], 3)
+        self.assertEqual(result["parallelism"], 1.5)
+        self.assertEqual(result["objective"], 8)
+
+    def test_replay_minimize_goal_converts_quality(self):
+        lore.experience.start_run(
+            self.root, "Tune", "bench", "manual", goal="minimize", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "a")
+        lore.experience.evaluate_attempt(self.root, "run", "a", 4, True, "success")
+        lore.experience.finish_run(self.root, "run")
+        result = lore.experience.replay_run(
+            lore.experience.load_run(self.root, "run"), "depth", 1)
+        self.assertEqual(result["best_score"], 4)
+        self.assertEqual(result["quality"], -4)
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])

@@ -448,12 +448,17 @@ def show_run(root: Path, run_id: str, json_output: bool = False) -> int:
 REPLAY_POLICIES = ("breadth", "depth", "score-greedy")
 
 
-def replay_run(run: dict[str, Any], policy: str, budget: int) -> dict[str, Any]:
+def replay_run(run: dict[str, Any], policy: str, budget: int, workers: int = 1,
+               beta_cost: float = 0.0, beta_parallel: float = 0.0) -> dict[str, Any]:
     """Reveal a recorded tree without exposing future nodes to the policy."""
     if policy not in REPLAY_POLICIES:
         raise ValueError(f"Unknown replay policy: {policy}")
     if budget < 1:
         raise ValueError("budget must be a positive integer")
+    if workers < 1:
+        raise ValueError("workers must be a positive integer")
+    if beta_cost < 0 or beta_parallel < 0:
+        raise ValueError("replay coefficients must be non-negative")
     nodes = sorted(run.get("nodes", []), key=lambda item: item["created_order"])
     by_id = {node["id"]: node for node in nodes}
     children: dict[str, list[str]] = {"root": []}
@@ -496,23 +501,25 @@ def replay_run(run: dict[str, Any], policy: str, budget: int) -> dict[str, Any]:
         if not candidates:
             break
         if policy == "breadth":
-            parent = min(candidates, key=lambda item: (depth(item), item))
+            ordered = sorted(candidates, key=lambda item: (depth(item), item))
         elif policy == "depth":
-            parent = max(candidates, key=lambda item: (depth(item), item != "root"))
+            ordered = sorted(candidates,
+                             key=lambda item: (depth(item), item != "root"), reverse=True)
         else:
-            parent = max(candidates, key=lambda item: (adjusted_score(item), depth(item)))
-        child = next((item for item in children[parent] if item not in observed_set), None)
-        if child is None:
-            exhausted.add(parent)
-            decisions.append({"round": len(decisions) + 1, "parent": parent, "revealed": None})
-            continue
-        observed.append(child)
-        observed_set.add(child)
-        decisions.append({"round": len(decisions) + 1, "parent": parent, "revealed": child})
-        if not children[child]:
-            # The environment learns exhaustion after the leaf is probed once;
-            # leave it selectable now so replay preserves that stopping signal.
-            pass
+            ordered = sorted(candidates,
+                             key=lambda item: (adjusted_score(item), depth(item)), reverse=True)
+        selected = ordered[:min(workers, budget - len(observed))]
+        revealed_this_round = []
+        for parent in selected:
+            child = next((item for item in children[parent] if item not in observed_set), None)
+            if child is None:
+                exhausted.add(parent)
+                continue
+            observed.append(child)
+            observed_set.add(child)
+            revealed_this_round.append(child)
+        decisions.append({"round": len(decisions) + 1, "selected": selected,
+                          "revealed": revealed_this_round})
 
     evaluations = [by_id[node_id]["evaluation"] for node_id in observed
                    if by_id[node_id].get("evaluation", {}).get("correct")]
@@ -522,15 +529,24 @@ def replay_run(run: dict[str, Any], policy: str, budget: int) -> dict[str, Any]:
         best_score = max(scores) if run.get("goal") == "maximize" else min(scores)
     quality = None if best_score is None else (
         best_score if run.get("goal") == "maximize" else -best_score)
+    total_cost = sum(float(by_id[node_id]["evaluation"].get("cost", 0))
+                     for node_id in observed)
+    parallelism = len(observed) / max(1, len(decisions))
+    objective = None if quality is None else (
+        quality - beta_cost * total_cost + beta_parallel * parallelism)
     return {
         "run_id": run["id"], "policy": policy, "budget": budget,
+        "workers": workers, "beta_cost": beta_cost, "beta_parallel": beta_parallel,
         "revealed": observed, "attempt_count": len(observed),
         "rounds": len(decisions), "decisions": decisions,
-        "best_score": best_score, "quality": quality,
+        "best_score": best_score, "quality": quality, "total_cost": total_cost,
+        "parallelism": parallelism, "objective": objective,
     }
 
 
 def replay_cmd(root: Path, run_id: str, policy: str, budget: int,
+               workers: int | None = None, beta_cost: float = 0.0,
+               beta_parallel: float = 0.0,
                json_output: bool = False) -> int:
     valid, errors = validate_runs(root, run_id)
     if errors:
@@ -541,11 +557,18 @@ def replay_cmd(root: Path, run_id: str, policy: str, budget: int,
     if run.get("status") != "completed":
         print("Replay requires a completed discovery run.", file=os.sys.stderr)
         return 1
-    result = replay_run(run, policy, budget)
+    effective_workers = workers or int(run["max_workers"])
+    try:
+        result = replay_run(run, policy, budget, effective_workers,
+                            beta_cost, beta_parallel)
+    except ValueError as error:
+        print(error, file=os.sys.stderr)
+        return 2
     if json_output:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         print(f"Replay {run_id} with {policy}: {len(result['revealed'])} attempt(s), "
-              f"{result['rounds']} round(s), best={result['best_score']}")
+              f"{result['rounds']} round(s), best={result['best_score']}, "
+              f"objective={result['objective']}")
         print("revealed: " + ", ".join(result["revealed"]))
     return 0

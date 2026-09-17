@@ -205,6 +205,13 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["revealed"], ["a", "a2"])
 
+        scored = self.lore("replay", "run", "--policy", "depth", "--budget", "2",
+                           "--workers", "2", "--beta-cost", "1",
+                           "--beta-parallel", "2", "--json")
+        payload = json.loads(scored.stdout)
+        self.assertIn("objective", payload)
+        self.assertLessEqual(payload["workers"], 2)
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")
