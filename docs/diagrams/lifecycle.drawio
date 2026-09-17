@@ -1,0 +1,42 @@
+<mxGraphModel adaptiveColors="auto" grid="1" gridSize="10" page="0">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="discover" value="Discover&#xa;collections · topics · list" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#bc8cff;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="40" y="40" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="retrieve" value="Retrieve&#xa;search · show · JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#58a6ff;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="220" y="40" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="create" value="Create&#xa;new · dry-run · JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#39c5cf;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="400" y="40" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="connect" value="Connect&#xa;relate · unrelate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#d29922;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="580" y="40" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="retire" value="Retire&#xa;status · supersede" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#f85149;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="760" y="40" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="measure" value="Validate &amp; measure&#xa;doctor · conflicts · metrics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#3fb950;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="400" y="160" width="140" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="e1" edge="1" parent="1" source="discover" target="retrieve" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e2" edge="1" parent="1" source="retrieve" target="create" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e3" edge="1" parent="1" source="create" target="connect" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e4" edge="1" parent="1" source="connect" target="retire" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e5" edge="1" parent="1" source="retire" target="measure" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e6" edge="1" parent="1" source="measure" target="discover" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6e7681;dashed=1;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>
