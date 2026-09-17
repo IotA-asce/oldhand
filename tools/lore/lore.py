@@ -1212,14 +1212,17 @@ def show(root: Path, rid: str, json_output: bool = False) -> int:
 
 def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
                  topic: str | None, collection: str | None,
-                 json_output: bool = False) -> int:
+                 json_output: bool = False, status: str | None = None) -> int:
     """Browse record metadata without requiring a full-text query."""
     con = ensure_db(root)
     try:
         warn_index_state(root, con)
         clauses = []
         params: list[Any] = []
-        if not history:
+        if status:
+            clauses.append("e.status = ?")
+            params.append(status)
+        elif not history:
             clauses.append("e.status NOT IN ('superseded','deprecated')")
         if entry_type:
             clauses.append("e.entry_type = ?")
@@ -1266,7 +1269,7 @@ def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
             print(json.dumps({
                 "filters": {
                     "history": history, "type": entry_type,
-                    "topic": topic, "collection": collection,
+                    "topic": topic, "collection": collection, "status": status,
                 },
                 "count": total, "returned": len(records), "records": records,
             }, ensure_ascii=False, indent=2))
@@ -2625,6 +2628,8 @@ def main() -> int:
     p_list.add_argument("--type", dest="entry_type", choices=sorted(ENTRY_TYPES))
     p_list.add_argument("--topic", help="restrict to one exact topic (case-insensitive)")
     p_list.add_argument("--collection", help="restrict to one collection by name")
+    p_list.add_argument("--status", choices=sorted(STATUSES),
+                        help="restrict to one exact status")
     p_list.add_argument("--json", dest="json_output", action="store_true",
                         help="emit one machine-readable JSON document")
 
@@ -2661,7 +2666,7 @@ def main() -> int:
         return show(root, args.id, json_output=args.json_output)
     if args.command == "list":
         return list_records(root, args.history, args.limit, args.entry_type,
-                            args.topic, args.collection, args.json_output)
+                            args.topic, args.collection, args.json_output, args.status)
     if args.command == "stats":
         return stats(root)
     if args.command == "selftest":

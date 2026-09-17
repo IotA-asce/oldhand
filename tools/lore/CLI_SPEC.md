@@ -17,7 +17,7 @@ python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
 python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --limit N [--json]
 python tools/lore/lore.py show <id> [--json]
-python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--collection <name>] [--limit N] [--json]
+python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
 python tools/lore/lore.py usage
@@ -107,6 +107,8 @@ Markdown mode.
 inventing a full-text query. It excludes superseded and deprecated records by
 default; pass `--history` to include them. Exact type, topic, and collection
 filters can be combined, and `--limit` bounds the output (50 by default).
+An explicit `--status` selects that state exactly and overrides the active-only
+default, including for retired states.
 
 Human output is a compact catalog with metadata, topics, and summaries.
 `--json` returns the matching count separately from the number returned, so a

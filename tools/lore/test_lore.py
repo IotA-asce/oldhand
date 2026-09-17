@@ -336,6 +336,18 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["returned"], 1)
         self.assertEqual(len(payload["records"]), 1)
 
+    def test_list_filters_by_exact_status(self):
+        self.record("current", status="current")
+        self.record("retired", status="deprecated")
+        rc = lore.list_records(self.root, history=False, limit=10,
+                               entry_type=None, topic=None, collection=None,
+                               json_output=True, status="deprecated")
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["records"][0]["id"], "retired")
+        self.assertEqual(payload["filters"]["status"], "deprecated")
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",

@@ -153,6 +153,13 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("positive integer", result.stderr)
 
+    def test_list_selects_retired_status(self):
+        self.record("old", status="deprecated")
+        result = self.lore("list", "--status", "deprecated", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual([record["id"] for record in payload["records"]], ["old"])
+
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")
 class InstallerTests(E2ETestCase):
