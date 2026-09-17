@@ -177,6 +177,7 @@ HEADING_RE = re.compile(r"^#\s+(.+?)\s*$", re.M)
 SECTION_RE = re.compile(r"^##\s+(.+?)\s*$", re.M)
 QUERY_WORD_RE = re.compile(r"[\w.:/+-]+")
 SLUG_STRIP_RE = re.compile(r"[^a-z0-9]+")
+RECORD_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 
 
 # --------------------------------------------------------------------------
@@ -2787,11 +2788,25 @@ def new_record(root: Path, args: argparse.Namespace) -> int:
     topics = [t.strip() for t in (args.topics or "").split(",") if t.strip()]
 
     taken = existing_ids(root)
-    base = "lore_" + slugify(args.title).replace("-", "_")
-    rid = base
-    while rid in taken:
-        suffix = hashlib.sha1(f"{rid}:{datetime.now().isoformat()}".encode()).hexdigest()[:4]
-        rid = f"{base}_{suffix}"
+    explicit_id = getattr(args, "id", None)
+    if explicit_id:
+        if not RECORD_ID_RE.fullmatch(explicit_id):
+            print(
+                "Invalid record id. Use 1-128 letters, numbers, dots, underscores, or hyphens; "
+                "start with a letter or number.",
+                file=sys.stderr,
+            )
+            return 2
+        if explicit_id in taken:
+            print(f"Record id already exists: {explicit_id}", file=sys.stderr)
+            return 1
+        rid = explicit_id
+    else:
+        base = "lore_" + slugify(args.title).replace("-", "_")
+        rid = base
+        while rid in taken:
+            suffix = hashlib.sha1(f"{rid}:{datetime.now().isoformat()}".encode()).hexdigest()[:4]
+            rid = f"{base}_{suffix}"
 
     now = datetime.now().astimezone().replace(microsecond=0).isoformat()
     directory = target_root / "memory" / TYPE_DIRS[args.type]
@@ -2983,6 +2998,7 @@ def main() -> int:
                                help="emit one machine-readable JSON document")
 
     p_new = sub.add_parser("new", help="create a well-formed record skeleton")
+    p_new.add_argument("--id", help="explicit portable record id (default: generated)")
     p_new.add_argument("--title", required=True)
     p_new.add_argument("--type", required=True, choices=sorted(ENTRY_TYPES))
     p_new.add_argument("--importance", required=True, choices=sorted(IMPORTANCE))

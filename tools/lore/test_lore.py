@@ -476,6 +476,23 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["id"], "lore_json_creation")
         self.assertEqual(payload["path"], "memory/lessons/json-creation.md")
 
+    def test_new_record_accepts_explicit_portable_id(self):
+        args = argparse.Namespace(
+            id="gateway.retry-policy_v2", title="Explicit identity", type="lesson",
+            importance="normal", topics="automation", status="current",
+            scope="subsystem", risk="low", durability="situational",
+            evidence="documented", summary=None, knowledge=None, verification=None,
+            collection=None, json_output=True, dry_run=False)
+        self.assertEqual(lore.new_record(self.root, args), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["id"], "gateway.retry-policy_v2")
+
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.new_record(self.root, args), 1)
+        args.id = "invalid id/with spaces"
+        self.assertEqual(lore.new_record(self.root, args), 2)
+
     def test_new_record_dry_run_writes_nothing(self):
         args = argparse.Namespace(
             title="Preview only", type="lesson", importance="normal",

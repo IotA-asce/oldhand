@@ -475,6 +475,11 @@ path, and collection instead of the human follow-up instructions. Pass
 or files. Combining both returns the Markdown in the JSON object's `content`
 field with `created: false`.
 
+Use `--id ID` when an automation or migration needs a deterministic identity.
+Portable ids are 1-128 characters, start with a letter or number, and contain
+only letters, numbers, dots, underscores, and hyphens. Collisions are refused;
+without `--id`, Lore keeps generating a unique id from the title.
+
 ## Relationship maintenance
 
 `lore relate SOURCE TYPE TARGET` adds one typed relationship to the canonical

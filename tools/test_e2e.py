@@ -142,6 +142,12 @@ class CoreCliTests(E2ETestCase):
         self.assertTrue(payload["created"])
         self.assertEqual(payload["id"], "lore_json_record")
 
+    def test_new_explicit_id(self):
+        result = self.lore("new", "--id", "stable.record-id", "--title", "Stable id",
+                           "--type", "lesson", "--importance", "normal", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["id"], "stable.record-id")
+
     def test_new_dry_run_json_writes_nothing(self):
         result = self.lore("new", "--title", "Preview record", "--type", "lesson",
                            "--importance", "normal", "--dry-run", "--json")
