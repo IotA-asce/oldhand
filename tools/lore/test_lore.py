@@ -401,6 +401,14 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(lore.rename_record_id(self.root, "old", "taken"), 1)
         self.assertEqual(old.read_bytes(), before)
 
+    def test_topic_add_and_remove_preserve_nonempty_topics(self):
+        path = self.record("record", topics=["testing"])
+        self.assertEqual(lore.curate_topic(self.root, "record", add="API Gateway"), 0)
+        meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["topics"], ["testing", "API Gateway"])
+        self.assertEqual(lore.curate_topic(self.root, "record", remove="api-gateway"), 0)
+        self.assertEqual(lore.curate_topic(self.root, "record", remove="testing"), 1)
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])

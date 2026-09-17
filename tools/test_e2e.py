@@ -247,6 +247,13 @@ class CoreCliTests(E2ETestCase):
         graph = self.lore("backlinks", "renamed", "--json")
         self.assertEqual(json.loads(graph.stdout)["incoming"][0]["id"], "source")
 
+    def test_topic_command_curates_topics(self):
+        path = self.record("record")
+        result = self.lore("topic", "record", "--add", "api-gateway")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertIn("api-gateway", meta["topics"])
+
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")
 class InstallerTests(E2ETestCase):

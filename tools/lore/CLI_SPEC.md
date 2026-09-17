@@ -31,6 +31,7 @@ python tools/lore/lore.py unrelate <source-id> <relation-type> <target-id>
 python tools/lore/lore.py supersede <old-id> --by <replacement-id>
 python tools/lore/lore.py status <id> <current|resolved|deprecated|historical>
 python tools/lore/lore.py rename <old-id> <new-id>
+python tools/lore/lore.py topic <id> (--add <topic> | --remove <topic>)
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -145,6 +146,10 @@ topics attached to active records, ordered by record count and then name.
 Repeated topic names remain separate across collections. Use `--collection`
 to narrow the catalog, `--limit` to bound it, and `--json` for a document that
 separates the total matching count from the number returned.
+
+`lore topic ID --add TOPIC` and `--remove TOPIC` safely curate a canonical
+record's vocabulary. Matching is case-insensitive and space/hyphen aware;
+Lore refuses to remove the final topic.
 
 `lore collections` lists every indexed collection with its kind, active and
 total record counts, and topic count. The command is the discovery companion

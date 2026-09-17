@@ -2702,6 +2702,46 @@ def rename_record_id(root: Path, old_id: str, new_id: str) -> int:
     return 0
 
 
+def curate_topic(root: Path, record_id: str, add: str | None = None,
+                 remove: str | None = None) -> int:
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if record_id not in records:
+        print(f"Unknown record id: {record_id}", file=sys.stderr)
+        return 1
+    topic = (add or remove or "").strip()
+    if not topic:
+        print("Topic cannot be empty.", file=sys.stderr)
+        return 2
+    meta = dict(records[record_id]["meta"])
+    raw_topics = meta.get("topics", [])
+    topics = [str(raw_topics)] if isinstance(raw_topics, str) else list(raw_topics)
+    key = topic.casefold().replace(" ", "-")
+    keys = [str(item).casefold().replace(" ", "-") for item in topics]
+    if add is not None:
+        if key in keys:
+            print(f"Record {record_id} already has topic {topic}")
+            return 0
+        topics.append(topic)
+        action = "Added"
+    else:
+        if key not in keys:
+            print(f"Record {record_id} does not have topic {topic}", file=sys.stderr)
+            return 1
+        if len(topics) == 1:
+            print("A record must retain at least one topic.", file=sys.stderr)
+            return 1
+        topics.pop(keys.index(key))
+        action = "Removed"
+    meta["topics"] = topics
+    meta["updated_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    if not _publish_record_updates(root, records, {record_id: meta}):
+        return 1
+    print(f"{action} topic {topic} {'to' if add is not None else 'from'} {record_id}")
+    return 0
+
+
 def relate(root: Path, source_id: str, relation_type: str, target_id: str) -> int:
     records = _records_for_mutation(root)
     if records is None:
@@ -3153,6 +3193,12 @@ def main() -> int:
     p_rename.add_argument("old_id")
     p_rename.add_argument("new_id")
 
+    p_topic = sub.add_parser("topic", help="add or remove a record topic")
+    p_topic.add_argument("id")
+    topic_action = p_topic.add_mutually_exclusive_group(required=True)
+    topic_action.add_argument("--add")
+    topic_action.add_argument("--remove")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3210,6 +3256,8 @@ def main() -> int:
         return set_record_status(root, args.id, args.new_status)
     if args.command == "rename":
         return rename_record_id(root, args.old_id, args.new_id)
+    if args.command == "topic":
+        return curate_topic(root, args.id, args.add, args.remove)
     return 2
 
 
