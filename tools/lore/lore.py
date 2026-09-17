@@ -928,7 +928,8 @@ def fts_query(text: str) -> tuple[str, set[str]]:
 
 
 def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
-           collection: str | None, log: bool = True) -> int:
+           collection: str | None, log: bool = True,
+           entry_type: str | None = None) -> int:
     """Ranked search. `log=False` for internal callers.
 
     The retrieval log answers which records real work retrieves. `doctor` and
@@ -950,6 +951,10 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         if collection:
             collection_clause = "AND c.name = ?"
             params.append(collection)
+        type_clause = ""
+        if entry_type:
+            type_clause = "AND e.entry_type = ?"
+            params.append(entry_type)
 
         select = """SELECT e.*, c.name AS collection_name,
                            f.topics AS fts_topics, bm25(entry_fts, 0.0, 8.0, 6.0, 1.0, 3.0) AS bm
@@ -960,7 +965,8 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
 
         # Pass 1: bounded relevance pool.
         relevance = con.execute(
-            f"{select} {status_clause} {collection_clause} ORDER BY bm25(entry_fts, 0.0, 8.0, 6.0, 1.0, 3.0) LIMIT ?",
+            f"{select} {status_clause} {collection_clause} {type_clause} "
+            "ORDER BY bm25(entry_fts, 0.0, 8.0, 6.0, 1.0, 3.0) LIMIT ?",
             (*params, RELEVANCE_POOL),
         ).fetchall()
 
@@ -969,7 +975,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         # Truncating the pool before this check meant the "always surfaces"
         # guarantee quietly stopped holding as the archive grew.
         safety = con.execute(
-            f"""{select} {status_clause} {collection_clause}
+            f"""{select} {status_clause} {collection_clause} {type_clause}
                 AND (e.importance='critical' OR (e.risk='critical' AND e.durability='invariant'))""",
             tuple(params),
         ).fetchall()
@@ -988,7 +994,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
             total = con.execute(
                 f"""SELECT COUNT(*) n FROM entries e
                     JOIN collections c ON c.id=e.collection_id
-                    WHERE 1=1 {status_clause} {collection_clause}""",
+                    WHERE 1=1 {status_clause} {collection_clause} {type_clause}""",
                 tuple(params[1:]),
             ).fetchone()["n"]
             # Busiest topics first, not alphabetical: the point is to show the
@@ -2416,6 +2422,8 @@ def main() -> int:
     p_search.add_argument("--limit", type=int, default=5)
     p_search.add_argument("--scope", choices=sorted(SCOPES))
     p_search.add_argument("--collection", help="restrict to one collection by name")
+    p_search.add_argument("--type", dest="entry_type", choices=sorted(ENTRY_TYPES),
+                          help="restrict to one record type")
 
     p_show = sub.add_parser("show")
     p_show.add_argument("id")
@@ -2446,7 +2454,8 @@ def main() -> int:
     if args.command == "validate":
         return validate_cmd(root)
     if args.command == "search":
-        return search(root, args.query, args.history, args.limit, args.scope, args.collection)
+        return search(root, args.query, args.history, args.limit, args.scope, args.collection,
+                      entry_type=args.entry_type)
     if args.command == "show":
         return show(root, args.id)
     if args.command == "stats":

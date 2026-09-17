@@ -237,6 +237,17 @@ class LoreTests(unittest.TestCase):
             self.assertIn("   id: uni\n", self.output.getvalue(), query)
             self.assertNotIn("No matching record", self.output.getvalue(), query)
 
+    def test_search_filters_by_entry_type(self):
+        self.record("lesson", type="lesson")
+        self.record("decision", type="decision")
+        rc = lore.search(self.root, "useful testing", history=False, limit=5,
+                         scope=None, collection=None, log=False,
+                         entry_type="decision")
+        self.assertEqual(rc, 0)
+        output = self.output.getvalue()
+        self.assertIn("   id: decision\n", output)
+        self.assertNotIn("   id: lesson\n", output)
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",

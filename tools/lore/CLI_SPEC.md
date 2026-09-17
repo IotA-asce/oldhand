@@ -15,7 +15,7 @@ python tools/lore/lore.py validate
 python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
-python tools/lore/lore.py search "query" --collection <name> --scope <scope> --limit N
+python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --limit N
 python tools/lore/lore.py show <id>
 python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
@@ -73,6 +73,10 @@ Default search:
 - combines textual relevance with topic, importance, risk, durability, status,
   and optional scope;
 - gives recency no authority in v1.
+
+Use `--type <type>` to restrict results to one record type, such as
+`constraint`, `decision`, or `lesson`. The filter applies before ranking, so
+scores are normalised only across records that can actually be returned.
 
 Ranking runs in **two passes**:
 
