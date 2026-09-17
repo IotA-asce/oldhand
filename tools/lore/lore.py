@@ -2624,6 +2624,18 @@ relations: {{}}
 
 -
 """
+    if getattr(args, "dry_run", False):
+        if getattr(args, "json_output", False):
+            print(json.dumps({
+                "created": False, "dry_run": True, "id": rid,
+                "path": display_path(root, path),
+                "collection": collection_name(root, target_root),
+                "content": content,
+            }, ensure_ascii=False, indent=2))
+        else:
+            print(content, end="")
+        return 0
+
     directory.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
@@ -2759,6 +2771,8 @@ def main() -> int:
     p_new.add_argument("--collection", help="target collection name (default: workspace root)")
     p_new.add_argument("--json", dest="json_output", action="store_true",
                        help="emit one machine-readable JSON document")
+    p_new.add_argument("--dry-run", action="store_true",
+                       help="preview the exact record without writing it")
 
     args = parser.parse_args()
     _force_utf8_output()

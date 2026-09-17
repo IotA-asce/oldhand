@@ -458,7 +458,10 @@ Fill in `## Knowledge`, `## Verification` and `## References`, then run
 validation, which is why this is the intended write path.
 
 Pass `--json` to receive a single object containing `created`, `dry_run`, id,
-path, and collection instead of the human follow-up instructions.
+path, and collection instead of the human follow-up instructions. Pass
+`--dry-run` to print the exact proposed Markdown without creating directories
+or files. Combining both returns the Markdown in the JSON object's `content`
+field with `created: false`.
 
 ## Intentionally deferred
 
