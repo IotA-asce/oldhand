@@ -33,6 +33,7 @@ python tools/lore/lore.py status <id> <current|resolved|deprecated|historical>
 python tools/lore/lore.py rename <old-id> <new-id>
 python tools/lore/lore.py topic <id> (--add <topic> | --remove <topic>)
 python tools/lore/lore.py classify <id> [--importance ...] [--scope ...] [--risk ...] [--durability ...] [--evidence ...]
+python tools/lore/lore.py compact --into <target-id> <source-id>... [--dry-run] [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -154,6 +155,11 @@ Lore refuses to remove the final topic.
 
 `lore classify ID` updates one or more ranking and governance fields in a
 single validated write. Enum choices are enforced by the CLI parser.
+
+`lore compact --into TARGET SOURCE...` is deliberately conservative: prepare
+the target's canonical prose first, then Lore atomically marks every source
+`superseded` and adds the reverse `supersedes` edges to the target. It never
+merges or deletes prose. Use `--dry-run --json` to inspect the complete plan.
 
 `lore collections` lists every indexed collection with its kind, active and
 total record counts, and topic count. The command is the discovery companion

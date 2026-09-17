@@ -262,6 +262,17 @@ class CoreCliTests(E2ETestCase):
         meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
         self.assertEqual((meta["importance"], meta["scope"]), ("critical", "workspace"))
 
+    def test_compact_command_retires_sources(self):
+        self.record("target")
+        source = self.record("source")
+        preview = self.lore("compact", "--into", "target", "source", "--dry-run", "--json")
+        self.assertEqual(preview.returncode, 0, preview.stderr)
+        self.assertTrue(json.loads(preview.stdout)["dry_run"])
+        result = self.lore("compact", "--into", "target", "source")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["status"], "superseded")
+
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")
 class InstallerTests(E2ETestCase):

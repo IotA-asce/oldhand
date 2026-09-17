@@ -2763,6 +2763,69 @@ def classify_record(root: Path, record_id: str, **changes: str | None) -> int:
     return 0
 
 
+def compact_records(root: Path, target_id: str, source_ids: list[str],
+                    dry_run: bool = False, json_output: bool = False) -> int:
+    """Retire several records into an already-prepared canonical target."""
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    sources = list(dict.fromkeys(source_ids))
+    if target_id not in records:
+        print(f"Unknown target record id: {target_id}", file=sys.stderr)
+        return 1
+    if str(records[target_id]["meta"].get("status")) in RETIRED_STATUSES:
+        print(f"Target record '{target_id}' is retired.", file=sys.stderr)
+        return 1
+    for source_id in sources:
+        if source_id == target_id:
+            print("Target cannot also be a source.", file=sys.stderr)
+            return 1
+        if source_id not in records:
+            print(f"Unknown source record id: {source_id}", file=sys.stderr)
+            return 1
+        if str(records[source_id]["meta"].get("status")) in RETIRED_STATUSES:
+            print(f"Source record '{source_id}' is already retired.", file=sys.stderr)
+            return 1
+
+    plan = {
+        "target": target_id, "sources": sources, "dry_run": dry_run,
+        "changes": {
+            target_id: {"add_relation": {"supersedes": sources}},
+            **{source_id: {"status": "superseded"} for source_id in sources},
+        },
+    }
+    if dry_run:
+        if json_output:
+            print(json.dumps(plan, ensure_ascii=False, indent=2))
+        else:
+            print(f"Would compact {', '.join(sources)} into {target_id}")
+            print("No record bodies would be changed.")
+        return 0
+
+    now = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    updates: dict[str, dict[str, Any]] = {}
+    target_meta = dict(records[target_id]["meta"])
+    relations = {key: list(values) for key, values in records[target_id]["relations"].items()}
+    relations["supersedes"] = sorted(set(relations.get("supersedes", [])) | set(sources))
+    target_meta["relations"] = relations
+    target_meta["updated_at"] = now
+    updates[target_id] = target_meta
+    for source_id in sources:
+        meta = dict(records[source_id]["meta"])
+        meta["status"] = "superseded"
+        meta["updated_at"] = now
+        updates[source_id] = meta
+    if not _publish_record_updates(root, records, updates):
+        return 1
+    plan["dry_run"] = False
+    if json_output:
+        print(json.dumps(plan, ensure_ascii=False, indent=2))
+    else:
+        print(f"Compacted {', '.join(sources)} into {target_id}")
+        print("Canonical bodies were preserved; sources are now superseded.")
+    return 0
+
+
 def relate(root: Path, source_id: str, relation_type: str, target_id: str) -> int:
     records = _records_for_mutation(root)
     if records is None:
@@ -3228,6 +3291,12 @@ def main() -> int:
     p_classify.add_argument("--durability", choices=sorted(DURABILITY))
     p_classify.add_argument("--evidence", choices=sorted(EVIDENCE))
 
+    p_compact = sub.add_parser("compact", help="retire sources into a prepared target")
+    p_compact.add_argument("--into", dest="target", required=True)
+    p_compact.add_argument("sources", nargs="+")
+    p_compact.add_argument("--dry-run", action="store_true")
+    p_compact.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3291,6 +3360,9 @@ def main() -> int:
         return classify_record(root, args.id, importance=args.importance,
                                scope=args.scope, risk=args.risk,
                                durability=args.durability, evidence=args.evidence)
+    if args.command == "compact":
+        return compact_records(root, args.target, args.sources,
+                               args.dry_run, args.json_output)
     return 2
 
 

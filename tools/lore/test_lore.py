@@ -424,6 +424,25 @@ class LoreTests(unittest.TestCase):
         self.record("record")
         self.assertEqual(lore.classify_record(self.root, "record"), 2)
 
+    def test_compact_dry_run_then_retires_sources(self):
+        target = self.record("target")
+        first = self.record("first")
+        second = self.record("second")
+        before = {path: path.read_bytes() for path in (target, first, second)}
+        self.assertEqual(lore.compact_records(
+            self.root, "target", ["first", "second"], True, True), 0)
+        self.assertEqual({path: path.read_bytes() for path in before}, before)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.compact_records(
+            self.root, "target", ["first", "second"], False, True), 0)
+        target_meta = yaml.safe_load(target.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(target_meta["relations"]["supersedes"], ["first", "second"])
+        for path in (first, second):
+            meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+            self.assertEqual(meta["status"], "superseded")
+            self.assertIn("Known facts.", path.read_text(encoding="utf-8"))
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])
