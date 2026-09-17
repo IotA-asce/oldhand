@@ -2,53 +2,55 @@
 
 # Lore
 
-### Durable engineering memory for coding agents
+### Your code remembers what survived. Lore remembers why.
 
-**Discover it. Retrieve it. Curate it. Retire it when truth changes.**
+**A local-first memory and experience layer for coding agents.**
 
 [![version](https://img.shields.io/badge/version-0.5.0-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
 [![license](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square&labelColor=0d1117)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
-[![dependencies](https://img.shields.io/badge/dependencies-1-8b949e?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
-[![network](https://img.shields.io/badge/network-none-39c5cf?style=flat-square&labelColor=0d1117)](#design-guarantees)
-[![storage](https://img.shields.io/badge/storage-Markdown-f0883e?style=flat-square&labelColor=0d1117)](#architecture)
+[![network](https://img.shields.io/badge/network-none-39c5cf?style=flat-square&labelColor=0d1117)](#what-lore-promises)
+[![source](https://img.shields.io/badge/source-Markdown-f0883e?style=flat-square&labelColor=0d1117)](#two-kinds-of-memory)
+
+*Keep the scar tissue. Preserve the reasoning. Replay the search.*
 
 </div>
 
-Lore is a local-first memory layer for software work. It keeps the constraint
-nobody documented, the failed approach worth avoiding, and the reason a
-surprising design is correct—then makes that knowledge cheap to retrieve
-before the next agent rediscovers it.
+![Markdown knowledge and replayable experience flow through Lore into the next engineering task](docs/img/architecture.svg)
+
+An engineering session leaves behind more than a diff. It leaves the constraint
+that nearly broke production, the approach that failed for a non-obvious reason,
+and the tiny piece of context that made the final solution possible. Most tools
+preserve the result. Lore preserves the expensive part of getting there.
 
 ```bash
 lore search "why did the consumer test pass without running"
 lore show a-green-test-that-never-ran
 ```
 
-![Markdown records flow through a disposable SQLite index into ranked summaries](docs/img/architecture.svg)
+Lore stores durable knowledge as ordinary Markdown, indexes it locally with
+SQLite FTS5, and records structured discovery runs that can be replayed without
+rerunning an agent or evaluator. Delete `.lore/`; the source survives.
 
-Canonical knowledge stays in ordinary Markdown. SQLite FTS5 is only a fast,
-disposable index: delete `.lore/lore.db` and Lore rebuilds it from the source
-files.
+> The point is not to remember everything. It is to stop paying twice for what
+> mattered.
 
 ## Why Lore exists
 
-An agent works inside a bounded session. When that session ends, expensive
-context disappears: undocumented constraints, rejected approaches, failure
-mechanisms, and rationale. Git says *what changed*. Current documentation says
-*how the system works now*. Lore answers a different question:
+Agents work inside bounded sessions. When the window closes, the most valuable
+context is often the least likely to appear in code: rationale, rejected paths,
+operational hazards, and exceptions to the obvious rule.
 
-> What is expensive or dangerous to forget before I touch this again?
-
-| Question | Canonical source |
+| If you need to know… | Look in… |
 |---|---|
-| Which commit changed this? | Git, CI, tickets |
-| How does it work today? | Current documentation |
+| What changed? | Git, CI, tickets |
+| How does it work now? | Current documentation |
 | What am I doing right now? | Temporary task state |
-| **What must not be rediscovered?** | **Lore records** |
+| **What is dangerous or expensive to rediscover?** | **Lore** |
 
-Routine changes should produce no record. If code, tests, Git, or current docs
-preserve a fact cheaply, they will usually keep it current better.
+Routine work should leave no Lore record. If code, tests, Git, or current docs
+already preserve a fact cheaply, they will usually keep it current better. Lore
+is for the knowledge that would otherwise disappear between sessions.
 
 ## Start in five minutes
 
@@ -62,7 +64,7 @@ python3 tools/lore/lore.py init ~/knowledge
 python3 tools/install.py ~/knowledge
 ```
 
-Open a new terminal, inspect the archive, and create a record:
+Open a new terminal, look around, and make the first memory:
 
 ```bash
 lore stats
@@ -79,59 +81,53 @@ lore new \
 lore search "why did one new setting remove the old ones"
 ```
 
-`lore init PATH` refuses to overwrite an existing `memory/` directory. Nothing
-is installed system-wide; no administrator access, server, account, or network
-connection is required. See [INSTALL.md](INSTALL.md) for PATH setup, Windows,
-manual installation, and uninstalling.
+`lore init PATH` refuses to overwrite an existing `memory/` directory. Lore
+needs no administrator access, server, account, or network connection. See
+[INSTALL.md](INSTALL.md) for PATH setup, Windows, manual installation, and
+uninstalling.
 
-## The complete curation loop
+## Two kinds of memory
 
-![Lore progresses from initialization through discovery, retrieval, creation, curation, consolidation, and measurement](docs/img/curation.svg)
+Lore separates what happened from what deserves to endure.
 
-The editable source for this figure is
-[docs/diagrams/curation.drawio](docs/diagrams/curation.drawio).
-
-1. **Initialize** an archive and validate its source records.
-2. **Discover** collections, topics, metadata, and lifecycle states.
-3. **Retrieve** ranked summaries, full records, and graph context.
-4. **Create** a record with a generated or stable explicit id.
-5. **Curate** taxonomy, classification, identity, and relationships.
-6. **Consolidate** prepared knowledge without silently merging prose.
-7. **Measure** health and retrieval quality, then improve the next pass.
-
-![Discover, retrieve, create, connect, retire, validate, and measure Lore records](docs/img/lifecycle.svg)
-
-## Command tour
-
-### Initialize and validate
-
-```bash
-lore init ~/knowledge
-lore init ~/knowledge --json
-lore validate
-lore validate --json
-lore rebuild --strict
+```text
+workspace/
+├── memory/                  durable, reviewed Markdown
+│   ├── constraints/
+│   ├── decisions/
+│   └── lessons/
+├── experience/runs/         immutable discovery trees
+│   └── planner-v1.json
+└── .lore/                   disposable local machinery
+    ├── lore.db
+    └── retrieval.jsonl
 ```
 
-Validation checks schema versions, ids, required sections, enum values,
-relationships, and supersession integrity. JSON validation preserves exit
-semantics while returning counts plus complete error and warning arrays.
+**Durable memory** is the compact, reviewed truth future work should retrieve.
+**Experience** is the larger tree of proposals, evaluations, costs, and outcomes
+that lets Lore study *how* the answer was found. They meet only when a human
+chooses to distill an evaluated result.
 
-### Discover the archive
+![A discovery task becomes a trace, is replayed under candidate policies, and can be distilled into durable memory](docs/img/replay-loop.svg)
 
-```bash
-lore collections --json
-lore topics --collection services/catalog --limit 25
-lore list --type constraint --status current
-lore list --importance critical --topic deployment --json
-```
+The editable source is
+[docs/diagrams/replay-loop.drawio](docs/diagrams/replay-loop.drawio).
 
-`collections` exposes exact archive names. `topics` exposes the vocabulary
-accepted by exact topic filters. `list` inventories records without inventing
-a full-text query; type, topic, status, importance, and collection filters
-compose.
+## The everyday loop
 
-### Search, read, and inspect the graph
+![Lore moves from discovery through retrieval, creation, curation, consolidation, and measurement](docs/img/curation.svg)
+
+1. **Discover** the collections, topics, and lifecycle states already present.
+2. **Retrieve** ranked summaries before doing non-trivial work.
+3. **Create** only when a finding would be expensive to rediscover.
+4. **Curate** identity, taxonomy, classification, and relationships.
+5. **Consolidate** prepared knowledge without silently merging prose.
+6. **Measure** findability and archive health, then repeat.
+
+The source Markdown is always canonical. SQLite is only the lens that makes it
+fast to search.
+
+### Search before solving
 
 ```bash
 lore search "gateway retries"
@@ -140,15 +136,13 @@ lore search "old authentication" --status superseded
 lore search "gateway retries" --topic "API Gateway" --json
 lore show gateway-retry-policy --json
 lore backlinks gateway-retry-policy
-lore backlinks gateway-retry-policy --json
 ```
 
-Search filters run before scoring. `backlinks` reports incoming and outgoing
-typed edges with the other record's title and lifecycle state.
+Search returns summaries first so an agent can decide what deserves context.
+Type, topic, collection, status, and importance filters run before ranking.
+`backlinks` exposes typed incoming and outgoing relations.
 
-![Lore serves readable terminal output and structured JSON through one local interface](docs/img/cli-tour.svg)
-
-### Create deliberately
+### Write for the future question
 
 ```bash
 lore new \
@@ -162,156 +156,217 @@ lore new \
   --topics "kafka,partitioning"
 
 lore new --title "Preview me" --type lesson --importance normal --dry-run
-lore new --title "Automate me" --type lesson --importance normal --json
 ```
 
-Explicit ids are portable and automation-friendly. `--dry-run` renders the
-exact proposed Markdown without writing. `--json` returns the creation state,
-id, path, and collection.
+The summary is the primary retrieval surface. Name the surprise, the consequence,
+and the action. Do not write a diary entry. The measured guidance lives in
+[WRITING_RECORDS.md](WRITING_RECORDS.md).
 
-### Curate metadata and identity
+### Keep truth alive
 
 ```bash
 lore topic producer-partition-key --add reliability
-lore topic producer-partition-key --remove kafka
-
-lore classify producer-partition-key \
-  --importance high \
-  --scope subsystem \
-  --risk high \
-  --durability long_lived \
-  --evidence verified
-
+lore classify producer-partition-key --importance high --evidence verified
 lore rename producer-partition-key kafka-producer-partition-key
-```
-
-Topic matching is case-insensitive and space/hyphen aware; Lore refuses to
-remove the final topic. `classify` validates every enum. `rename` changes the
-canonical id and every incoming relation reference in one transaction while
-leaving the filename stable.
-
-### Connect and consolidate
-
-```bash
 lore relate checkout-timeout caused_by gateway-retry-policy
-lore unrelate checkout-timeout related_to payment-runbook
-
-lore compact --into current-auth-model old-auth-model legacy-auth-notes --dry-run --json
-lore compact --into current-auth-model old-auth-model legacy-auth-notes
-
 lore supersede old-cache-model --by current-cache-model
-lore status investigation-closed resolved
+
+lore compact --into current-auth-model \
+  old-auth-model legacy-auth-notes --dry-run --json
 ```
 
-Relationship types are `supersedes`, `depends_on`, `related_to`, `caused_by`,
-and `contradicts`. Compaction is intentionally conservative: write the final
-canonical prose in the target first; Lore then marks each source `superseded`
-and adds reverse `supersedes` edges atomically. It never concatenates or
-deletes bodies.
+Compaction never invents a synthesis. Prepare the target record first; Lore then
+retires the sources and adds reverse `supersedes` edges atomically. Old truth is
+not deleted—it becomes history.
 
-### Maintain and measure
+## Replay discovery, not just conclusions
 
-```bash
-lore doctor        # findability and summary health
-lore conflicts     # possible contradictions and duplicate subjects
-lore stats         # archive size and metadata distribution
-lore usage         # what real retrieval has done
-lore metrics       # privacy-audited health snapshot
-lore eval          # retrieval against known answers
-lore obsidian      # generated topic navigation
-lore selftest      # ranking invariants
-```
-
-### Replay discovery before spending again
-
-Lore keeps distilled knowledge in `memory/` and structured discovery history
-in `experience/runs/`. The latter can be replayed without rerunning the agent
-or evaluator, following the history-as-simulator insight from
-[Dream-RSI](https://arxiv.org/abs/2609.14858).
+Lore 0.5.0 integrates the history-as-simulator insight from
+[Dream-RSI](https://arxiv.org/abs/2609.14858): a grounded search history can be
+reused to compare exploration policies offline. Lore adopts the practical idea,
+not autonomous self-modification.
 
 ```bash
 lore run-start --id planner-v1 --task "Tune query planner" \
   --evaluator bench-v2 --policy breadth --workers 4
+
 lore attempt-add planner-v1 --id branch-a --parent root \
   --proposal "Replace nested scan with indexed lookup"
+
 lore attempt-evaluate planner-v1 branch-a --score 81.4 --correct \
   --outcome success --cost 2 --diagnostics-ref results/branch-a.json
-lore run-finish planner-v1
 
-lore replay planner-v1 --policy depth --budget 20 \
-  --beta-cost 0.1 --beta-parallel 0.5 --json
+lore run-finish planner-v1
+lore replay planner-v1 --policy depth --budget 20 --json
 lore policy-compare depth score-greedy --incumbent breadth \
   --budget 20 --holdout 1 --evaluator bench-v2
 ```
 
-For parallel work, `explore-context` shares mandatory critical guardrails with
-every worker but sends directional history only to selected branches:
+A replay policy sees only the prefix it has revealed, never the full future
+tree. Breadth, depth, and score-greedy baselines are deterministic. Comparison
+keeps the incumbent visible, isolates newer histories as a holdout, and never
+rewrites or promotes policy code automatically.
+
+For parallel discovery, share guardrails without forcing every worker down the
+same remembered path:
 
 ```bash
 lore explore-context "query planner selectivity" \
   --workers 4 --history-branches 1 --json
 ```
 
-After review, promote an evaluated outcome into ordinary durable memory:
+Every worker receives critical constraints and invariants. Only selected
+branches receive directional decisions and lessons; the others stay free to
+explore. After review, close the loop:
 
 ```bash
 lore run-distill planner-v1 branch-a \
   --title "Indexed lookup avoids nested planner scans" \
-  --type lesson --importance high --topics "database,performance" --dry-run
+  --type lesson --importance high \
+  --topics "database,performance" --dry-run
 ```
 
-Replay is deterministic and prefix-only: a policy sees only nodes already
-revealed. Policy comparison keeps the incumbent in the candidate set and
-reports newer histories as a holdout; it never rewrites policy code
-automatically.
+Distillation accepts only an evaluated node from a completed run, cites the
+canonical trace, and uses the normal collision, validation, and dry-run safety
+checks. The human still decides what becomes memory.
 
-The complete command contract is in
-[tools/lore/CLI_SPEC.md](tools/lore/CLI_SPEC.md). `lore --help` is
-authoritative.
+## Proof, not vibes
 
-## Ten new improvement iterations
+Lore’s published evidence comes from one real archive. That makes the numbers
+useful engineering evidence, not a universal benchmark. The disclosure-safe
+metrics format exists so independent archives can test whether these findings
+travel.
 
-This release was improved in ten isolated, validated iterations:
+### Observed archive snapshot
 
-| # | Improvement | Practical outcome |
-|---:|---|---|
-| 1 | Archive initialization | `init PATH [--json]` creates a safe, empty archive |
-| 2 | Stable explicit ids | `new --id` supports durable external references |
-| 3 | Search importance filter | Restrict ranking to one importance tier |
-| 4 | List importance filter | Audit a tier without a text query |
-| 5 | Bidirectional graph inspection | `backlinks` shows incoming and outgoing edges |
-| 6 | Atomic id rename | Rename an id and repair all backlinks together |
-| 7 | Topic curation | Add or remove taxonomy without hand-editing YAML |
-| 8 | Metadata classification | Update importance, scope, risk, durability, and evidence |
-| 9 | Conservative compaction | Retire several sources into a prepared target safely |
-| 10 | JSON validation | Consume complete validation results programmatically |
+These are operational measurements from `METRICS.md`, not controlled benchmark
+results.
 
-These additions extend the lifecycle without changing the record schema,
-index schema, ranking constants, or canonical Markdown model.
+| Signal | Observed value | What it says |
+|---|---:|---|
+| Records | **293** across **4** collections | one workspace, several knowledge domains |
+| Index rows | **3,751** · 12.8 per record | section indexing exposes secondary findings |
+| Record tokens | p50 **2,070** · p90 **5,704** · max **13,439** | the archive contains substantial records |
+| Summary length | p50 **335** characters · **0** thin summaries | the retrieval surface is maintained |
+| Searches | **47** over **9** active days | real usage, not synthetic query volume |
+| Search misses | **6%** | most queries returned at least one candidate |
+| Full-record open rate | **22%** | summaries usually prevented unnecessary opens |
+| Archive coverage | **31%** | most records had not yet appeared in retrieval logs |
+| Critical records | **4 / 293** · 1% | critical remains a scarce signal |
 
-## Mutation safety
+Coverage and open rate describe behavior, not quality. A low open rate may mean
+excellent summaries—or weak user engagement. Lore reports the signal and avoids
+inventing the story.
 
-Read commands fail open so one malformed record cannot take retrieval offline.
-Write commands take the opposite posture:
+### Controlled interventions
+
+The experiments in `LESSONS.md` isolate specific retrieval and curation changes.
+
+| Intervention | Measured effect |
+|---|---:|
+| Reject metadata blocks masquerading as summaries | **126** records repaired |
+| Index meaningful sections, not only whole records | secondary reachability **36% → 82%** |
+| Split code identifiers into searchable words | two collections reached **100% recall@1** |
+| Rewrite one weak summary | **unfindable → rank 1** |
+| Tune the ranker for three rounds | one collection’s recall@1 changed by **0** |
+| First-pass conflict detection | **4** genuine defects among **29** flags |
+
+![Retrieval before and after summary, identifier, and section-indexing improvements](docs/img/beforeafter.svg)
+
+The lesson was not “tune harder.” It was that the shape of the knowledge—good
+summaries, searchable identifiers, reachable sections—matters more than another
+round of ranking arithmetic.
+
+### Critical cannot mean everything
+
+In a controlled inflation test, recall@5 fell from **92%** with no records marked
+critical to **17%** when half the archive carried that label.
+
+![Recall declines as the share of critical records rises from zero to half the archive](docs/img/inflation.svg)
+
+That result shaped Lore’s two-pass ranking model: a bounded text-relevance pool
+plus an unbounded safety pass for truly critical knowledge. Text relevance can
+contribute 60 points; all metadata combined is capped at 44. Metadata breaks
+ties between plausible matches—it cannot make an unrelated record win.
+
+![Text relevance has a larger scoring budget than all metadata signals combined](docs/img/budget.svg)
+
+Health tools are intentionally advisory. The first conflict detector was right
+only four times in 29 flags; automatic “cleanup” would have damaged the archive.
+
+![Four genuine defects were found among 29 initial conflict flags](docs/img/precision.svg)
+
+## How retrieval works
 
 ```text
-validate existing archive
-        ↓
-resolve canonical ids
-        ↓
-build the complete proposed state
-        ↓
-atomically replace file(s)
-        ↓
-validate the complete archive
-   ↙ failure       success ↘
-restore originals     rebuild SQLite
+Markdown records
+      │
+      ├── whole-record index
+      ├── meaningful ## / ### sections
+      └── identifier expansion: totalCost → total · cost · totalCost
+      │
+      ▼
+SQLite FTS5 candidate set
+      │
+      ├── bounded relevance pass
+      └── unbounded critical-safety pass
+      │
+      ▼
+deduplicate by record → score → return summaries
 ```
 
-Lore refuses to mutate an already-invalid archive. A failed multi-record
-publication restores every original file before returning an error.
+Recency has no authority. An old invariant remains authoritative until someone
+explicitly resolves, deprecates, or supersedes it. Malformed records are reported
+and skipped so one bad note cannot take retrieval offline.
 
-## Record format
+## The CLI, by intent
+
+| Intent | Commands |
+|---|---|
+| Begin and verify | `init`, `validate`, `rebuild`, `selftest` |
+| Discover | `collections`, `topics`, `list`, `stats` |
+| Retrieve | `search`, `show`, `backlinks` |
+| Create and classify | `new`, `topic`, `classify`, `rename` |
+| Connect and retire | `relate`, `unrelate`, `status`, `supersede`, `compact` |
+| Record experience | `run-start`, `attempt-add`, `attempt-evaluate`, `run-finish` |
+| Inspect and replay | `runs`, `run-show`, `run-validate`, `replay`, `policy-compare` |
+| Reuse experience | `explore-context`, `run-distill` |
+| Diagnose and measure | `doctor`, `conflicts`, `usage`, `eval`, `metrics`, `obsidian` |
+
+Most agent-facing reads and writes support `--json`; previewable mutations
+support `--dry-run`. The complete contract is in
+[tools/lore/CLI_SPEC.md](tools/lore/CLI_SPEC.md), and `lore --help` is
+authoritative.
+
+## What Lore promises
+
+- **Local-first.** Indexing, retrieval, replay, and curation require no network.
+- **Portable.** Markdown and YAML remain readable without Lore.
+- **Disposable machinery.** SQLite can always be rebuilt from canonical files.
+- **Fail-open reads.** One malformed record does not take healthy memory offline.
+- **Fail-closed writes.** Mutations require a valid archive and validate the
+  complete result.
+- **Rollback protection.** A failed multi-record publication restores every
+  original file.
+- **Explicit retirement.** Stale knowledge stays inspectable as history.
+- **No autonomous promotion.** Replay produces evidence; people choose policy
+  and durable memory.
+- **Privacy-audited metrics.** Exports exclude titles, ids, paths, summaries,
+  queries, topics, and collection names.
+
+Mutation follows one conservative path:
+
+```text
+validate archive → resolve ids → build proposed state → publish atomically
+                                                        │
+                                  failure ───────────────┴──── success
+                                     │                           │
+                               restore files              rebuild index
+```
+
+Lore refuses to mutate an archive that is already invalid.
+
+## Record anatomy
 
 ```markdown
 ---
@@ -340,117 +395,56 @@ mapping; it does not merge keys. Restate every required key in the override.
 
 ## Knowledge
 
-The loader treats the selected file as the whole configuration source...
+The loader treats the selected file as the whole configuration source…
 ```
 
-The summary is the primary retrieval surface. Write it for the question a
-future stranger will ask, not as a diary. See
-[WRITING_RECORDS.md](WRITING_RECORDS.md) for measured guidance.
-
-## Architecture
-
-Lore indexes whole records and meaningful `##`/`###` sections. It expands
-code identifiers (`totalCost` becomes `total`, `cost`, and `totalCost`) and
-uses two candidate passes: a bounded relevance pool and an unbounded safety
-pass for critical knowledge. Results are deduplicated by record after scoring.
-
-Text relevance contributes up to 60 points; all metadata combined contributes
-at most 44. Metadata breaks ties between comparable matches—it cannot make an
-unrelated record win. Recency contributes nothing, so an old invariant remains
-authoritative until explicitly retired.
-
-![Text relevance has a larger scoring budget than every metadata signal combined](docs/img/budget.svg)
-
-![The everyday workflow keeps source Markdown central and the SQLite index disposable](docs/img/workflow.svg)
-
-## Evidence, not intuition
-
-Lore was tuned against a real archive of 293 records across four collections.
-Record quality and indexing granularity mattered more than repeated ranker
-tuning.
-
-![Retrieval before and after summary, identifier, and section indexing improvements](docs/img/beforeafter.svg)
-
-| Intervention | Measured effect |
-|---|---:|
-| Stop admitting metadata blocks as summaries | 126 records repaired |
-| Index sections as well as whole records | secondary-finding reachability 36% → 82% |
-| Split code identifiers into words | two collections reached 100% recall@1 |
-| Rewrite one weak summary | that record moved from unfindable → rank 1 |
-| Three rounds of ranker tuning | one collection's recall@1 changed by 0 |
-
-An archive average can hide a weak collection:
-
-![Per-collection recall varies even when the archive average looks healthy](docs/img/collections.svg)
-
-Importance inflation can also destroy ranking signal:
-
-![Recall degrades as too many records are labeled critical](docs/img/inflation.svg)
-
-Health tools remain advisory. A first conflict detector flagged 29 items and
-only four were genuine defects:
-
-![First-pass conflict detection found four genuine defects among 29 flags](docs/img/precision.svg)
-
-Read a flagged record before changing it. A false detection costs a minute; a
-false automatic resolution silently destroys knowledge.
+Stable ids make automation safe. Lifecycle state keeps history without letting
+it pollute normal search. Evidence describes how strongly the claim is grounded;
+importance describes how costly it is to miss. They are not the same thing.
 
 ## Privacy and measurement
 
-Commands append at most one daily health snapshot to `metrics/daily.jsonl`.
-Search and show events stay local in `.lore/retrieval.jsonl`.
+Search and show events remain local in `.lore/retrieval.jsonl`. At most one
+daily health snapshot is appended to `metrics/daily.jsonl`.
 
 ```bash
+lore usage
 lore metrics --full
 lore metrics --export mine.json
 ```
 
-Exports contain counts, rates, percentiles, versions, timestamps, platform,
-and schema values. They exclude titles, ids, paths, summaries, query text,
-topic names, and collection names. Lore audits every string and refuses an
-export containing anything outside the disclosure allowlist.
+Exports contain aggregate counts, rates, percentiles, versions, timestamps,
+platform, and schema values. Lore audits every string and refuses to export
+anything outside the disclosure allowlist. The exact contract is in
+[METRICS.md](METRICS.md).
 
-![Lore's measurement program moves from one archive toward independent validation](docs/img/stages.svg)
-
-See [METRICS.md](METRICS.md) for the exact disclosure contract.
-
-## Design guarantees
-
-- **Local-first:** indexing, retrieval, and curation require no network.
-- **Portable:** Markdown and YAML remain useful without Lore.
-- **Disposable index:** SQLite can always be rebuilt from canonical files.
-- **Fail-open reads:** malformed records are reported and skipped while valid
-  knowledge remains searchable.
-- **Fail-closed writes:** mutations require a valid archive and validate the
-  complete result.
-- **Rollback protection:** failed multi-record publication restores originals.
-- **Stable automation:** major read, create, and validation flows offer JSON.
-- **Measured invariants:** `lore selftest` guards scoring and retirement rules.
+![Lore’s evidence program moves from one archive toward independent validation](docs/img/stages.svg)
 
 ## Repository map
 
 ```text
 .
-├── memory/                    # example canonical archive
-├── experience/runs/           # replayable discovery trees
-├── tools/lore/lore.py         # CLI, retrieval, and curation engine
-├── tools/lore/schema.sql      # disposable SQLite schema
-├── tools/migrate/             # archive import and reconciliation
-├── agent/                     # harness-neutral operating policies
-├── docs/img/                  # README-ready SVG figures
-├── docs/diagrams/             # editable draw.io sources
-└── tools/verify.py            # syntax, unit, integration, invariant checks
+├── memory/                    example canonical archive
+├── experience/runs/           replayable discovery trees
+├── tools/lore/lore.py         CLI, retrieval, and curation engine
+├── tools/lore/experience.py   experience schema and replay logic
+├── tools/lore/schema.sql      disposable SQLite schema
+├── tools/migrate/             import and reconciliation tools
+├── agent/                     harness-neutral operating policies
+├── docs/img/                  rendered README figures
+├── docs/diagrams/             editable draw.io sources
+└── tools/verify.py            full project verifier
 ```
 
 | Read next | Purpose |
 |---|---|
-| [START_HERE.md](START_HERE.md) | Five-minute operating guide |
-| [WRITING_RECORDS.md](WRITING_RECORDS.md) | Write records people can find |
-| [INSTALL.md](INSTALL.md) | Install, configure PATH, and uninstall |
-| [MIGRATING_AN_ARCHIVE.md](MIGRATING_AN_ARCHIVE.md) | Adopt Lore in phases |
-| [RECONCILING_AN_EXISTING_ARCHIVE.md](RECONCILING_AN_EXISTING_ARCHIVE.md) | Resolve imported contradictions |
-| [memory/SCHEMA.md](memory/SCHEMA.md) | Canonical record schema |
-| [LESSONS.md](LESSONS.md) | What the project measured and learned |
+| [START_HERE.md](START_HERE.md) | the five-minute operating guide |
+| [WRITING_RECORDS.md](WRITING_RECORDS.md) | write records people can find |
+| [INSTALL.md](INSTALL.md) | install, configure PATH, and uninstall |
+| [MIGRATING_AN_ARCHIVE.md](MIGRATING_AN_ARCHIVE.md) | adopt Lore in phases |
+| [RECONCILING_AN_EXISTING_ARCHIVE.md](RECONCILING_AN_EXISTING_ARCHIVE.md) | resolve imported contradictions |
+| [memory/SCHEMA.md](memory/SCHEMA.md) | canonical record schema |
+| [LESSONS.md](LESSONS.md) | the experiments and what they taught |
 
 ## Development
 
@@ -460,24 +454,27 @@ python3 -B tools/verify.py --clean-checkout
 ```
 
 The verifier parses every Python file as Python 3.10, runs unit, migration,
-installer, and end-to-end suites, then executes ranking self-tests. Clean
-checkout mode applies the current patch to a temporary clone without stashing
-or resetting the working tree.
+installer, and end-to-end suites, then executes ranking invariants. Clean
+checkout mode applies the working patch to a temporary clone without stashing
+or resetting the current tree.
 
-## Honest limitations
+## Honest limits
 
-- Retrieval only helps when a human or agent searches. Give agents a concrete
-  trigger: search before non-trivial work and whenever a surprise looks
-  familiar.
-- Compaction does not synthesize or merge prose. The target must already hold
-  the intended canonical knowledge before sources are retired.
-- Published measurements come from one archive. Privacy-audited exports exist
-  to test whether the findings survive independent archives.
-- Lifecycle commands preserve semantic YAML data but may normalize
-  frontmatter formatting when they rewrite a record.
+- Retrieval only helps when someone searches. Give agents a real trigger:
+  search before non-trivial work and whenever a surprise feels familiar.
+- Replay evaluates policies against recorded trees; it does not execute unseen
+  proposals or prove a policy will generalize to a new task.
+- Compaction does not synthesize prose. The target must already contain the
+  intended canonical knowledge.
+- Published measurements come from one archive. They are transparent findings,
+  not claims of universal performance.
+- Lifecycle commands preserve semantic YAML data but may normalize frontmatter
+  formatting when rewriting a record.
 
 <div align="center">
 
-Built to make rediscovery optional—and curation explicit. MIT licensed.
+### Build the thing. Keep the reason.
+
+MIT licensed. Local by design. Made for the next mind that opens the repo.
 
 </div>

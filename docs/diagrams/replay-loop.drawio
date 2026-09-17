@@ -1,0 +1,36 @@
+<mxGraphModel adaptiveColors="auto" grid="1" gridSize="10" page="0">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="task" value="Live discovery&#xa;task + fixed evaluator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#bc8cff;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="40" y="80" width="170" height="70" as="geometry"/>
+    </mxCell>
+    <mxCell id="trace" value="Experience trace&#xa;proposals + grounded results" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#58a6ff;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="270" y="80" width="190" height="70" as="geometry"/>
+    </mxCell>
+    <mxCell id="replay" value="Offline replay&#xa;breadth · depth · score-greedy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#39c5cf;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="520" y="80" width="200" height="70" as="geometry"/>
+    </mxCell>
+    <mxCell id="compare" value="Policy evidence&#xa;budget · cost · holdout" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#d29922;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="780" y="80" width="170" height="70" as="geometry"/>
+    </mxCell>
+    <mxCell id="distill" value="Human-reviewed distillation&#xa;durable Markdown memory" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#161b22;strokeColor=#3fb950;fontColor=#e6edf3;" vertex="1" parent="1">
+      <mxGeometry x="390" y="220" width="220" height="70" as="geometry"/>
+    </mxCell>
+    <mxCell id="e1" edge="1" parent="1" source="task" target="trace" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e2" edge="1" parent="1" source="trace" target="replay" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e3" edge="1" parent="1" source="replay" target="compare" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e4" edge="1" parent="1" source="compare" target="distill" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8b949e;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e5" edge="1" parent="1" source="distill" target="task" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6e7681;dashed=1;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>
