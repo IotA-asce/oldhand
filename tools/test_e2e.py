@@ -160,6 +160,17 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(old_meta["status"], "superseded")
         self.assertEqual(new_meta["relations"]["supersedes"], ["old"])
 
+    def test_status_command_updates_record(self):
+        path = self.record("record")
+        result = self.lore("status", "record", "resolved")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["status"], "resolved")
+
+        result = self.lore("status", "record", "superseded")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("invalid choice", result.stderr)
+
     def test_search_json_output(self):
         self.record("good")
         result = self.lore("search", "database", "--json")

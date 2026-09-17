@@ -54,6 +54,7 @@ RELATION_TYPES = {"supersedes", "depends_on", "related_to", "caused_by", "contra
 
 # A record is retired once it carries one of these statuses.
 RETIRED_STATUSES = {"superseded", "deprecated"}
+DIRECT_STATUSES = STATUSES - {"superseded"}
 
 # Directory each entry type is filed under by `lore new`.
 TYPE_DIRS = {
@@ -2686,6 +2687,32 @@ def supersede_record(root: Path, old_id: str, new_id: str) -> int:
     print(f"Superseded {old_id} with {new_id}")
     return 0
 
+
+def set_record_status(root: Path, record_id: str, status: str) -> int:
+    if status not in DIRECT_STATUSES:
+        print(
+            "Status 'superseded' requires `lore supersede OLD --by NEW`.",
+            file=sys.stderr,
+        )
+        return 1
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if record_id not in records:
+        print(f"Unknown record id: {record_id}", file=sys.stderr)
+        return 1
+    current = str(records[record_id]["meta"].get("status"))
+    if current == status:
+        print(f"Record {record_id} already has status {status}")
+        return 0
+    meta = dict(records[record_id]["meta"])
+    meta["status"] = status
+    meta["updated_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    if not _publish_record_updates(root, records, {record_id: meta}):
+        return 1
+    print(f"Changed {record_id}: {current} -> {status}")
+    return 0
+
 def slugify(text: str, max_len: int = 48) -> str:
     s = SLUG_STRIP_RE.sub("-", text.lower()).strip("-")
     if len(s) > max_len:
@@ -2958,6 +2985,10 @@ def main() -> int:
     p_supersede.add_argument("--by", dest="new_id", required=True,
                              help="id of the replacement record")
 
+    p_status = sub.add_parser("status", help="change a record lifecycle status")
+    p_status.add_argument("id")
+    p_status.add_argument("new_status", choices=sorted(DIRECT_STATUSES))
+
     args = parser.parse_args()
     _force_utf8_output()
     root = workspace_root(args.root)
@@ -3005,6 +3036,8 @@ def main() -> int:
         return unrelate(root, args.source, args.relation_type, args.target)
     if args.command == "supersede":
         return supersede_record(root, args.old_id, args.new_id)
+    if args.command == "status":
+        return set_record_status(root, args.id, args.new_status)
     return 2
 
 

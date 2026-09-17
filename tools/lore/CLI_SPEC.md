@@ -27,6 +27,7 @@ python tools/lore/lore.py new --title "..." --type <type> --importance <level> [
 python tools/lore/lore.py relate <source-id> <relation-type> <target-id>
 python tools/lore/lore.py unrelate <source-id> <relation-type> <target-id>
 python tools/lore/lore.py supersede <old-id> --by <replacement-id>
+python tools/lore/lore.py status <id> <current|resolved|deprecated|historical>
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -485,6 +486,12 @@ it changes `OLD` to `status: superseded` and adds `NEW supersedes OLD`. Both
 ids and the replacement's active status are checked before anything is
 written. Both files receive the same timestamp, validation sees the complete
 transition, and any publication failure restores both originals.
+
+`lore status ID STATUS` changes ordinary lifecycle states with the same safe
+mutation path. It accepts `current`, `resolved`, `deprecated`, and `historical`.
+`superseded` is intentionally excluded: that state is only valid together
+with a replacement's `supersedes` relationship, so use the atomic command.
+An idempotent status request succeeds without rewriting the file.
 
 ## Intentionally deferred
 

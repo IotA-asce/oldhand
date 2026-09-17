@@ -419,6 +419,16 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(lore.supersede_record(self.root, "old", "missing"), 1)
         self.assertEqual(old.read_bytes(), before)
 
+    def test_status_command_manages_non_supersession_states(self):
+        path = self.record("record")
+        for status in ("resolved", "historical", "deprecated", "current"):
+            self.assertEqual(lore.set_record_status(self.root, "record", status), 0)
+            meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+            self.assertEqual(meta["status"], status)
+        before = path.read_bytes()
+        self.assertEqual(lore.set_record_status(self.root, "record", "superseded"), 1)
+        self.assertEqual(path.read_bytes(), before)
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",

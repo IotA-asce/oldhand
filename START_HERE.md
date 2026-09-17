@@ -108,6 +108,8 @@ lore conflicts    # does anything contradict itself or another record?
 lore stats        # size, distribution, critical share
 lore usage        # what has retrieval actually done?
 lore eval         # score against questions with known answers
+lore status <id> resolved
+lore supersede <old-id> --by <new-id>
 ```
 
 Nothing here changes a record. All of it is advisory and some of it is wrong:
