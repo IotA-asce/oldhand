@@ -932,7 +932,8 @@ def fts_query(text: str) -> tuple[str, set[str]]:
 def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
            collection: str | None, log: bool = True,
            entry_type: str | None = None, topic: str | None = None,
-           json_output: bool = False, status: str | None = None) -> int:
+           json_output: bool = False, status: str | None = None,
+           importance: str | None = None) -> int:
     """Ranked search. `log=False` for internal callers.
 
     The retrieval log answers which records real work retrieves. `doctor` and
@@ -962,6 +963,10 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         if entry_type:
             type_clause = "AND e.entry_type = ?"
             params.append(entry_type)
+        importance_clause = ""
+        if importance:
+            importance_clause = "AND e.importance = ?"
+            params.append(importance)
         topic_clause = ""
         if topic:
             topic_key = topic.lower().strip().replace(" ", "-")
@@ -981,7 +986,8 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
 
         # Pass 1: bounded relevance pool.
         relevance = con.execute(
-            f"{select} {status_clause} {collection_clause} {type_clause} {topic_clause} "
+            f"{select} {status_clause} {collection_clause} {type_clause} "
+            f"{importance_clause} {topic_clause} "
             "ORDER BY bm25(entry_fts, 0.0, 8.0, 6.0, 1.0, 3.0) LIMIT ?",
             (*params, RELEVANCE_POOL),
         ).fetchall()
@@ -991,7 +997,8 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         # Truncating the pool before this check meant the "always surfaces"
         # guarantee quietly stopped holding as the archive grew.
         safety = con.execute(
-            f"""{select} {status_clause} {collection_clause} {type_clause} {topic_clause}
+            f"""{select} {status_clause} {collection_clause} {type_clause}
+                {importance_clause} {topic_clause}
                 AND (e.importance='critical' OR (e.risk='critical' AND e.durability='invariant'))""",
             tuple(params),
         ).fetchall()
@@ -1010,7 +1017,8 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
             total = con.execute(
                 f"""SELECT COUNT(*) n FROM entries e
                     JOIN collections c ON c.id=e.collection_id
-                    WHERE 1=1 {status_clause} {collection_clause} {type_clause} {topic_clause}""",
+                    WHERE 1=1 {status_clause} {collection_clause} {type_clause}
+                    {importance_clause} {topic_clause}""",
                 tuple(params[1:]),
             ).fetchone()["n"]
             # Busiest topics first, not alphabetical: the point is to show the
@@ -1020,7 +1028,8 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                 JOIN entry_topics et ON et.topic_id=t.id
                 JOIN entries e ON e.id=et.entry_id
                 JOIN collections c ON c.id=e.collection_id
-                WHERE 1=1 {status_clause} {collection_clause} {type_clause} {topic_clause}"""
+                WHERE 1=1 {status_clause} {collection_clause} {type_clause}
+                {importance_clause} {topic_clause}"""
             filter_params = tuple(params[1:])
             topics = [r["topic_key"] for r in con.execute(
                 f"""SELECT t.topic_key, COUNT(DISTINCT et.entry_id) n {topic_base}
@@ -1036,6 +1045,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                     "filters": {
                         "history": history, "scope": scope, "collection": collection,
                         "type": entry_type, "topic": topic, "status": status,
+                        "importance": importance,
                     },
                     "count": 0,
                     "searched": total,
@@ -1133,6 +1143,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                 "filters": {
                     "history": history, "scope": scope, "collection": collection,
                     "type": entry_type, "topic": topic, "status": status,
+                    "importance": importance,
                 },
                 "count": len(results),
                 "results": results,
@@ -2967,6 +2978,8 @@ def main() -> int:
     p_search.add_argument("--topic", help="restrict to one exact topic (case-insensitive)")
     p_search.add_argument("--status", choices=sorted(STATUSES),
                           help="restrict to one exact status")
+    p_search.add_argument("--importance", choices=sorted(IMPORTANCE),
+                          help="restrict to one exact importance level")
     p_search.add_argument("--json", dest="json_output", action="store_true",
                           help="emit one machine-readable JSON document")
 
@@ -3051,7 +3064,8 @@ def main() -> int:
     if args.command == "search":
         return search(root, args.query, args.history, args.limit, args.scope, args.collection,
                       entry_type=args.entry_type, topic=args.topic,
-                      json_output=args.json_output, status=args.status)
+                      json_output=args.json_output, status=args.status,
+                      importance=args.importance)
     if args.command == "show":
         return show(root, args.id, json_output=args.json_output)
     if args.command == "list":

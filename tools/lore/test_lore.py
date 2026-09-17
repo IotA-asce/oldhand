@@ -260,6 +260,17 @@ class LoreTests(unittest.TestCase):
         self.assertIn("   id: resolved\n", output)
         self.assertNotIn("   id: current\n", output)
 
+    def test_search_filters_by_exact_importance(self):
+        self.record("normal", importance="normal")
+        self.record("critical", importance="critical")
+        rc = lore.search(self.root, "useful testing", history=False, limit=5,
+                         scope=None, collection=None, log=False,
+                         importance="critical", json_output=True)
+        self.assertEqual(rc, 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["filters"]["importance"], "critical")
+        self.assertEqual([item["id"] for item in payload["results"]], ["critical"])
+
     def test_search_filters_by_exact_topic(self):
         self.record("backend", topics=["API Gateway"])
         self.record("frontend", topics=["interface"])

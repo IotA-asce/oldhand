@@ -16,7 +16,7 @@ python tools/lore/lore.py validate
 python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
-python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --limit N [--json]
+python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --importance <level> --limit N [--json]
 python tools/lore/lore.py show <id> [--json]
 python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py topics [--collection <name>] [--limit N] [--json]
@@ -101,6 +101,9 @@ be combined.
 Use `--status <status>` to select one lifecycle state exactly. An explicit
 status overrides the default active-only behavior and `--history`, so
 `--status superseded` returns only superseded records.
+
+Use `--importance <level>` to restrict the candidate pool to one exact
+importance level. It composes with every other search filter.
 
 Pass `--json` when another tool or agent will consume the results. Lore emits
 one JSON document with the query, active filters, result count, and result
