@@ -43,6 +43,7 @@ python tools/lore/lore.py runs [--status active|completed] [--json]
 python tools/lore/lore.py run-show <run-id> [--json]
 python tools/lore/lore.py replay <run-id> --policy <breadth|depth|score-greedy> --budget N [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
 python tools/lore/lore.py policy-compare <policy>... --budget N [--incumbent <policy>] [--holdout N] [--evaluator <name>] [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
+python tools/lore/lore.py explore-context <query> --workers N [--history-branches N] [--per-branch N] [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -91,6 +92,12 @@ exceed the selected worker count.
 completed histories. The newest `--holdout N` traces are reported separately;
 Lore never rewrites or promotes policy code automatically. Histories from
 different evaluators must be selected explicitly rather than averaged.
+
+`lore explore-context` prevents one historical direction from collapsing every
+parallel branch. Query-relevant critical constraints and critical invariants
+are shared with all workers. Directional decisions and lessons go only to the
+selected history-guided branches; the remaining branches receive no
+directional records and can explore independently.
 
 ## Initialize
 

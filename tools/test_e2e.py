@@ -229,6 +229,18 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(payload["holdout_runs"], ["run2"])
         self.assertEqual(len(payload["comparisons"]), 2)
 
+    def test_explore_context_preserves_independent_branch(self):
+        self.record("guard", type="constraint", importance="critical",
+                    risk="critical", durability="invariant")
+        self.record("direction", type="decision")
+        result = self.lore("explore-context", "database retries", "--workers", "2",
+                           "--history-branches", "1", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["branches"][1]["mode"], "independent")
+        self.assertEqual(payload["branches"][1]["records"], [])
+        self.assertEqual(payload["branches"][1]["shared_guardrail_ids"], ["guard"])
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")

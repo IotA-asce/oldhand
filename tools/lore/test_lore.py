@@ -321,6 +321,21 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["searched"], 1)
         self.assertEqual(payload["results"], [])
 
+    def test_explore_context_shares_guardrails_without_collapsing_diversity(self):
+        self.record("guard", type="constraint", importance="critical",
+                    risk="critical", durability="invariant")
+        self.record("direction", type="decision", importance="normal")
+        self.assertEqual(lore.explore_context(
+            self.root, "useful testing", workers=3, history_branches=1,
+            per_branch=5, json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual([item["id"] for item in payload["shared_guardrails"]], ["guard"])
+        self.assertEqual(payload["branches"][0]["mode"], "history-guided")
+        self.assertIn("direction", [item["id"] for item in payload["branches"][0]["records"]])
+        self.assertEqual(payload["branches"][1]["mode"], "independent")
+        self.assertEqual(payload["branches"][1]["records"], [])
+        self.assertEqual(payload["branches"][2]["shared_guardrail_ids"], ["guard"])
+
     def test_show_json_returns_record_and_relationships(self):
         self.record("target", topics=["database"])
         self.record("source", type="decision", topics=["API Gateway"],

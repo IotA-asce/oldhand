@@ -1179,6 +1179,59 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         con.close()
 
 
+def explore_context(root: Path, query: str, workers: int,
+                    history_branches: int = 1, per_branch: int = 5,
+                    json_output: bool = False) -> int:
+    """Build parallel context without forcing directional history on every branch."""
+    if history_branches < 0 or history_branches > workers:
+        print("history branches must be between zero and workers", file=sys.stderr)
+        return 2
+    from contextlib import redirect_stdout
+    from io import StringIO
+
+    buffer = StringIO()
+    with redirect_stdout(buffer):
+        rc = search(root, query, history=False,
+                    limit=max(50, workers * per_branch), scope=None,
+                    collection=None, log=False, json_output=True)
+    if rc != 0:
+        return rc
+    payload = json.loads(buffer.getvalue())
+    results = payload["results"]
+    guardrails = [item for item in results if (
+        (item["type"] == "constraint" and item["importance"] == "critical")
+        or (item["risk"] == "critical" and item["durability"] == "invariant")
+    )]
+    guardrail_ids = {item["id"] for item in guardrails}
+    directional = [item for item in results if item["id"] not in guardrail_ids]
+    branches = []
+    for index in range(workers):
+        guided = index < history_branches
+        branches.append({
+            "worker": index + 1,
+            "mode": "history-guided" if guided else "independent",
+            "shared_guardrail_ids": [item["id"] for item in guardrails],
+            "records": directional[:per_branch] if guided else [],
+        })
+    context = {
+        "query": query, "workers": workers,
+        "history_branches": history_branches,
+        "shared_guardrails": guardrails,
+        "branches": branches,
+        "principle": "Guardrails are shared; directional history is isolated to selected branches.",
+    }
+    if json_output:
+        print(json.dumps(context, ensure_ascii=False, indent=2))
+    else:
+        print(f"Exploration context for {workers} worker(s)")
+        print("Shared guardrails: " +
+              (", ".join(item["id"] for item in guardrails) or "none"))
+        for branch in branches:
+            ids = ", ".join(item["id"] for item in branch["records"]) or "none"
+            print(f"- worker {branch['worker']} [{branch['mode']}]: {ids}")
+    return 0
+
+
 def show(root: Path, rid: str, json_output: bool = False) -> int:
     con = ensure_db(root)
     try:
@@ -3382,6 +3435,14 @@ def main() -> int:
     p_compare.add_argument("--beta-parallel", type=float, default=0.0)
     p_compare.add_argument("--json", dest="json_output", action="store_true")
 
+    p_context = sub.add_parser(
+        "explore-context", help="build a diversity-preserving context pack")
+    p_context.add_argument("query")
+    p_context.add_argument("--workers", required=True, type=positive_int)
+    p_context.add_argument("--history-branches", type=int, default=1)
+    p_context.add_argument("--per-branch", type=positive_int, default=5)
+    p_context.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3477,6 +3538,10 @@ def main() -> int:
             root, args.policies, args.incumbent, args.budget, args.holdout,
             args.evaluator, args.workers, args.beta_cost, args.beta_parallel,
             args.json_output)
+    if args.command == "explore-context":
+        return explore_context(root, args.query, args.workers,
+                               args.history_branches, args.per_branch,
+                               args.json_output)
     return 2
 
 
