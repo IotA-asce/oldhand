@@ -6,7 +6,7 @@
 
 **Discover it. Retrieve it. Curate it. Retire it when truth changes.**
 
-[![version](https://img.shields.io/badge/version-0.4.4-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
+[![version](https://img.shields.io/badge/version-0.5.0-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
 [![license](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square&labelColor=0d1117)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
 [![dependencies](https://img.shields.io/badge/dependencies-1-8b949e?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
@@ -222,6 +222,49 @@ lore obsidian      # generated topic navigation
 lore selftest      # ranking invariants
 ```
 
+### Replay discovery before spending again
+
+Lore keeps distilled knowledge in `memory/` and structured discovery history
+in `experience/runs/`. The latter can be replayed without rerunning the agent
+or evaluator, following the history-as-simulator insight from
+[Dream-RSI](https://arxiv.org/abs/2609.14858).
+
+```bash
+lore run-start --id planner-v1 --task "Tune query planner" \
+  --evaluator bench-v2 --policy breadth --workers 4
+lore attempt-add planner-v1 --id branch-a --parent root \
+  --proposal "Replace nested scan with indexed lookup"
+lore attempt-evaluate planner-v1 branch-a --score 81.4 --correct \
+  --outcome success --cost 2 --diagnostics-ref results/branch-a.json
+lore run-finish planner-v1
+
+lore replay planner-v1 --policy depth --budget 20 \
+  --beta-cost 0.1 --beta-parallel 0.5 --json
+lore policy-compare depth score-greedy --incumbent breadth \
+  --budget 20 --holdout 1 --evaluator bench-v2
+```
+
+For parallel work, `explore-context` shares mandatory critical guardrails with
+every worker but sends directional history only to selected branches:
+
+```bash
+lore explore-context "query planner selectivity" \
+  --workers 4 --history-branches 1 --json
+```
+
+After review, promote an evaluated outcome into ordinary durable memory:
+
+```bash
+lore run-distill planner-v1 branch-a \
+  --title "Indexed lookup avoids nested planner scans" \
+  --type lesson --importance high --topics "database,performance" --dry-run
+```
+
+Replay is deterministic and prefix-only: a policy sees only nodes already
+revealed. Policy comparison keeps the incumbent in the candidate set and
+reports newer histories as a holdout; it never rewrites policy code
+automatically.
+
 The complete command contract is in
 [tools/lore/CLI_SPEC.md](tools/lore/CLI_SPEC.md). `lore --help` is
 authoritative.
@@ -389,6 +432,7 @@ See [METRICS.md](METRICS.md) for the exact disclosure contract.
 ```text
 .
 ├── memory/                    # example canonical archive
+├── experience/runs/           # replayable discovery trees
 ├── tools/lore/lore.py         # CLI, retrieval, and curation engine
 ├── tools/lore/schema.sql      # disposable SQLite schema
 ├── tools/migrate/             # archive import and reconciliation

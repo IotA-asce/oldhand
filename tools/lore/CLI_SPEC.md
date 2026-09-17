@@ -34,6 +34,17 @@ python tools/lore/lore.py rename <old-id> <new-id>
 python tools/lore/lore.py topic <id> (--add <topic> | --remove <topic>)
 python tools/lore/lore.py classify <id> [--importance ...] [--scope ...] [--risk ...] [--durability ...] [--evidence ...]
 python tools/lore/lore.py compact --into <target-id> <source-id>... [--dry-run] [--json]
+python tools/lore/lore.py run-start --task <text> --evaluator <name> [--id <id>] [--policy <name>] [--goal maximize|minimize] [--workers N] [--workspace-ref <ref>] [--json]
+python tools/lore/lore.py attempt-add <run-id> --id <attempt-id> --parent <root|attempt-id> --proposal <text> [--artifact-ref <ref>] [--policy-version <name>] [--json]
+python tools/lore/lore.py attempt-evaluate <run-id> <attempt-id> --score N (--correct|--incorrect) --outcome <success|failure|error> [--cost N] [--duration-ms N] [--diagnostics-ref <ref>] [--json]
+python tools/lore/lore.py run-finish <run-id> [--json]
+python tools/lore/lore.py run-validate [<run-id>] [--json]
+python tools/lore/lore.py runs [--status active|completed] [--json]
+python tools/lore/lore.py run-show <run-id> [--json]
+python tools/lore/lore.py replay <run-id> --policy <breadth|depth|score-greedy> --budget N [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
+python tools/lore/lore.py policy-compare <policy>... --budget N [--incumbent <policy>] [--holdout N] [--evaluator <name>] [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
+python tools/lore/lore.py explore-context <query> --workers N [--history-branches N] [--per-branch N] [--json]
+python tools/lore/lore.py run-distill <run-id> <attempt-id> --title <text> --type <type> --importance <level> --topics <csv> [--id <id>] [--dry-run] [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -43,6 +54,58 @@ python tools/lore/lore.py obsidian
 
 Each has its own section below. `lore --help` is authoritative if this list
 and the parser ever disagree.
+
+## Discovery experience
+
+`lore run-start` creates a canonical discovery trace under `experience/runs/`.
+Traces are deliberately separate from distilled `memory/` records and from the
+disposable `.lore/` index. A run records its task, fixed evaluator, exploration
+policy, score direction, worker budget, and optional workspace reference.
+
+`lore attempt-add` appends an immutable proposal node. Root may open several
+branches; a non-root attempt has at most one recorded continuation so offline
+replay can reveal the historical trajectory without ambiguous future choices.
+
+`lore attempt-evaluate` attaches the fixed evaluator's grounded result exactly
+once. Correctness is explicit and separate from score; cost, elapsed time, and
+diagnostic artifacts remain available to replay and later audit.
+
+`lore run-finish` closes only a nonempty run whose attempts all have grounded
+evaluations. `run-validate` checks one trace or the entire experience archive,
+including parent order, unique ids, continuation shape, score integrity, and
+completion state.
+
+`lore runs` is the deterministic discovery catalog, including attempt,
+correctness, best-score, cost, and duration aggregates. `run-show` renders the
+parent/continuation tree or returns the complete trace and a nested tree as
+JSON.
+
+`lore replay` evaluates a deterministic exploration policy against a completed
+tree without executing the agent or evaluator. Only the revealed prefix is
+visible at each decision. Breadth, depth, and score-greedy baselines make the
+trade-off inspectable before user-authored policies are considered.
+Its objective is `quality - beta_cost*recorded_cost +
+beta_parallel*attempts/rounds`; minimize-goal scores are negated for objective
+comparison while the original best score remains in output. Batches never
+exceed the selected worker count.
+
+`lore policy-compare` evaluates the incumbent and every candidate on the same
+completed histories. The newest `--holdout N` traces are reported separately;
+Lore never rewrites or promotes policy code automatically. Histories from
+different evaluators must be selected explicitly rather than averaged.
+
+`lore explore-context` prevents one historical direction from collapsing every
+parallel branch. Query-relevant critical constraints and critical invariants
+are shared with all workers. Directional decisions and lessons go only to the
+selected history-guided branches; the remaining branches receive no
+directional records and can explore independently.
+
+`lore run-distill` closes the experience-to-memory loop. It accepts only an
+evaluated node from a completed run, reuses normal record creation and its
+dry-run/collision protections, cites the canonical trace, and derives evidence
+as `verified` for evaluator-correct outcomes or `observed` otherwise. The user
+still chooses the durable title, type, importance, topics, and whether to
+publish.
 
 ## Initialize
 

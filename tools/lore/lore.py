@@ -26,6 +26,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+LORE_DIR = Path(__file__).resolve().parent
+if str(LORE_DIR) not in sys.path:
+    sys.path.insert(0, str(LORE_DIR))
+import experience
+
 try:
     import yaml
 except ImportError:
@@ -34,7 +39,7 @@ except ImportError:
 
 # Bumped when indexing or scoring changes in a way that moves retrieval, so
 # metrics from different archives can be compared like with like.
-LORE_VERSION = "0.4.4"
+LORE_VERSION = "0.5.0"
 
 ENTRY_TYPES = {
     "topic_summary", "decision", "constraint", "fix",
@@ -1172,6 +1177,59 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
         return 0
     finally:
         con.close()
+
+
+def explore_context(root: Path, query: str, workers: int,
+                    history_branches: int = 1, per_branch: int = 5,
+                    json_output: bool = False) -> int:
+    """Build parallel context without forcing directional history on every branch."""
+    if history_branches < 0 or history_branches > workers:
+        print("history branches must be between zero and workers", file=sys.stderr)
+        return 2
+    from contextlib import redirect_stdout
+    from io import StringIO
+
+    buffer = StringIO()
+    with redirect_stdout(buffer):
+        rc = search(root, query, history=False,
+                    limit=max(50, workers * per_branch), scope=None,
+                    collection=None, log=False, json_output=True)
+    if rc != 0:
+        return rc
+    payload = json.loads(buffer.getvalue())
+    results = payload["results"]
+    guardrails = [item for item in results if (
+        (item["type"] == "constraint" and item["importance"] == "critical")
+        or (item["risk"] == "critical" and item["durability"] == "invariant")
+    )]
+    guardrail_ids = {item["id"] for item in guardrails}
+    directional = [item for item in results if item["id"] not in guardrail_ids]
+    branches = []
+    for index in range(workers):
+        guided = index < history_branches
+        branches.append({
+            "worker": index + 1,
+            "mode": "history-guided" if guided else "independent",
+            "shared_guardrail_ids": [item["id"] for item in guardrails],
+            "records": directional[:per_branch] if guided else [],
+        })
+    context = {
+        "query": query, "workers": workers,
+        "history_branches": history_branches,
+        "shared_guardrails": guardrails,
+        "branches": branches,
+        "principle": "Guardrails are shared; directional history is isolated to selected branches.",
+    }
+    if json_output:
+        print(json.dumps(context, ensure_ascii=False, indent=2))
+    else:
+        print(f"Exploration context for {workers} worker(s)")
+        print("Shared guardrails: " +
+              (", ".join(item["id"] for item in guardrails) or "none"))
+        for branch in branches:
+            ids = ", ".join(item["id"] for item in branch["records"]) or "none"
+            print(f"- worker {branch['worker']} [{branch['mode']}]: {ids}")
+    return 0
 
 
 def show(root: Path, rid: str, json_output: bool = False) -> int:
@@ -3059,6 +3117,7 @@ def new_record(root: Path, args: argparse.Namespace) -> int:
         "Git, tests, or current documentation already preserve cheaply."
     )
     verification = args.verification or "How this was established, and what was not verified."
+    references = getattr(args, "references", None) or "-"
 
     content = f"""---
 schema_version: 1
@@ -3094,7 +3153,7 @@ relations: {{}}
 
 ## References
 
--
+{references}
 """
     if getattr(args, "dry_run", False):
         if getattr(args, "json_output", False):
@@ -3123,6 +3182,56 @@ relations: {{}}
         print("Fill in Summary, Knowledge, Verification and References,")
         print("then run: lore rebuild")
     return 0
+
+
+def distill_run(root: Path, args: argparse.Namespace) -> int:
+    valid, errors = experience.validate_runs(root, args.run_id)
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    run = valid[0]
+    if run.get("status") != "completed":
+        print("Distillation requires a completed discovery run.", file=sys.stderr)
+        return 1
+    node = next((item for item in run["nodes"] if item["id"] == args.node_id), None)
+    if node is None:
+        print(f"Unknown attempt: {args.node_id}", file=sys.stderr)
+        return 1
+    evaluation = node.get("evaluation")
+    if not evaluation:
+        print(f"Attempt is not evaluated: {args.node_id}", file=sys.stderr)
+        return 1
+    state = "correct" if evaluation["correct"] else "incorrect"
+    summary = args.summary or (
+        f"Discovery attempt '{node['proposal']}' evaluated {state} with score "
+        f"{evaluation['score']:g} under {run['evaluator']}."
+    )
+    knowledge = (
+        f"Proposal: {node['proposal']}\n\n"
+        f"Recorded outcome: {evaluation['outcome']}. Score: {evaluation['score']:g}. "
+        f"Recorded cost: {evaluation['cost']}."
+    )
+    if node.get("artifact_ref"):
+        knowledge += f"\n\nArtifact: {node['artifact_ref']}"
+    verification = (
+        f"Evaluator: {run['evaluator']}. Correctness: {state}. "
+        f"Duration: {evaluation['duration_ms']} ms."
+    )
+    if evaluation.get("diagnostics_ref"):
+        verification += f" Diagnostics: {evaluation['diagnostics_ref']}."
+    record_args = argparse.Namespace(
+        id=args.id, title=args.title, type=args.entry_type,
+        importance=args.importance, topics=args.topics,
+        status="current", scope=args.scope, risk=args.risk,
+        durability=args.durability,
+        evidence="verified" if evaluation["correct"] else "observed",
+        summary=summary, knowledge=knowledge, verification=verification,
+        references=f"- experience/runs/{run['id']}.json (attempt `{node['id']}`)",
+        collection=args.collection, json_output=args.json_output,
+        dry_run=args.dry_run,
+    )
+    return new_record(root, record_args)
 
 
 # --------------------------------------------------------------------------
@@ -3306,6 +3415,104 @@ def main() -> int:
     p_compact.add_argument("--dry-run", action="store_true")
     p_compact.add_argument("--json", dest="json_output", action="store_true")
 
+    p_run_start = sub.add_parser("run-start", help="start a structured discovery run")
+    p_run_start.add_argument("--id")
+    p_run_start.add_argument("--task", required=True)
+    p_run_start.add_argument("--evaluator", required=True)
+    p_run_start.add_argument("--policy", default="manual")
+    p_run_start.add_argument("--goal", choices=("maximize", "minimize"), default="maximize")
+    p_run_start.add_argument("--workers", type=positive_int, default=1)
+    p_run_start.add_argument("--workspace-ref")
+    p_run_start.add_argument("--json", dest="json_output", action="store_true")
+
+    p_attempt_add = sub.add_parser("attempt-add", help="add a node to a discovery run")
+    p_attempt_add.add_argument("run_id")
+    p_attempt_add.add_argument("--id", required=True, dest="node_id")
+    p_attempt_add.add_argument("--parent", required=True)
+    p_attempt_add.add_argument("--proposal", required=True)
+    p_attempt_add.add_argument("--artifact-ref")
+    p_attempt_add.add_argument("--policy-version")
+    p_attempt_add.add_argument("--json", dest="json_output", action="store_true")
+
+    p_attempt_eval = sub.add_parser("attempt-evaluate", help="attach an evaluation to an attempt")
+    p_attempt_eval.add_argument("run_id")
+    p_attempt_eval.add_argument("node_id")
+    p_attempt_eval.add_argument("--score", required=True, type=float)
+    correctness = p_attempt_eval.add_mutually_exclusive_group(required=True)
+    correctness.add_argument("--correct", dest="correct", action="store_true")
+    correctness.add_argument("--incorrect", dest="correct", action="store_false")
+    p_attempt_eval.add_argument("--outcome", required=True,
+                                choices=("success", "failure", "error"))
+    p_attempt_eval.add_argument("--cost", type=int, default=1)
+    p_attempt_eval.add_argument("--duration-ms", type=int, default=0)
+    p_attempt_eval.add_argument("--diagnostics-ref")
+    p_attempt_eval.add_argument("--json", dest="json_output", action="store_true")
+
+    p_run_finish = sub.add_parser("run-finish", help="complete a fully evaluated run")
+    p_run_finish.add_argument("run_id")
+    p_run_finish.add_argument("--json", dest="json_output", action="store_true")
+
+    p_run_validate = sub.add_parser("run-validate", help="validate discovery traces")
+    p_run_validate.add_argument("run_id", nargs="?")
+    p_run_validate.add_argument("--json", dest="json_output", action="store_true")
+
+    p_runs = sub.add_parser("runs", help="browse discovery histories")
+    p_runs.add_argument("--status", choices=("active", "completed"))
+    p_runs.add_argument("--json", dest="json_output", action="store_true")
+
+    p_run_show = sub.add_parser("run-show", help="show one discovery tree")
+    p_run_show.add_argument("run_id")
+    p_run_show.add_argument("--json", dest="json_output", action="store_true")
+
+    p_replay = sub.add_parser("replay", help="replay an exploration policy offline")
+    p_replay.add_argument("run_id")
+    p_replay.add_argument("--policy", required=True, choices=experience.REPLAY_POLICIES)
+    p_replay.add_argument("--budget", required=True, type=positive_int)
+    p_replay.add_argument("--workers", type=positive_int,
+                          help="parallel workers (default: run maximum)")
+    p_replay.add_argument("--beta-cost", type=float, default=0.0)
+    p_replay.add_argument("--beta-parallel", type=float, default=0.0)
+    p_replay.add_argument("--json", dest="json_output", action="store_true")
+
+    p_compare = sub.add_parser("policy-compare", help="compare replay policies on history")
+    p_compare.add_argument("policies", nargs="+", choices=experience.REPLAY_POLICIES)
+    p_compare.add_argument("--incumbent", choices=experience.REPLAY_POLICIES,
+                           default="breadth")
+    p_compare.add_argument("--budget", required=True, type=positive_int)
+    p_compare.add_argument("--holdout", type=int, default=1)
+    p_compare.add_argument("--evaluator")
+    p_compare.add_argument("--workers", type=positive_int)
+    p_compare.add_argument("--beta-cost", type=float, default=0.0)
+    p_compare.add_argument("--beta-parallel", type=float, default=0.0)
+    p_compare.add_argument("--json", dest="json_output", action="store_true")
+
+    p_context = sub.add_parser(
+        "explore-context", help="build a diversity-preserving context pack")
+    p_context.add_argument("query")
+    p_context.add_argument("--workers", required=True, type=positive_int)
+    p_context.add_argument("--history-branches", type=int, default=1)
+    p_context.add_argument("--per-branch", type=positive_int, default=5)
+    p_context.add_argument("--json", dest="json_output", action="store_true")
+
+    p_distill = sub.add_parser(
+        "run-distill", help="distill one reviewed attempt into durable memory")
+    p_distill.add_argument("run_id")
+    p_distill.add_argument("node_id")
+    p_distill.add_argument("--id")
+    p_distill.add_argument("--title", required=True)
+    p_distill.add_argument("--type", dest="entry_type", required=True,
+                           choices=sorted(ENTRY_TYPES))
+    p_distill.add_argument("--importance", required=True, choices=sorted(IMPORTANCE))
+    p_distill.add_argument("--topics", required=True)
+    p_distill.add_argument("--summary")
+    p_distill.add_argument("--scope", default="subsystem", choices=sorted(SCOPES))
+    p_distill.add_argument("--risk", default="low", choices=sorted(RISKS))
+    p_distill.add_argument("--durability", default="situational",
+                           choices=sorted(DURABILITY))
+    p_distill.add_argument("--collection")
+    p_distill.add_argument("--dry-run", action="store_true")
+    p_distill.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3372,6 +3579,41 @@ def main() -> int:
     if args.command == "compact":
         return compact_records(root, args.target, args.sources,
                                args.dry_run, args.json_output)
+    if args.command == "run-start":
+        return experience.start_run(
+            root, args.task, args.evaluator, args.policy, args.goal, args.workers,
+            args.id, args.workspace_ref, args.json_output)
+    if args.command == "attempt-add":
+        return experience.add_attempt(
+            root, args.run_id, args.node_id, args.parent, args.proposal,
+            args.artifact_ref, args.policy_version, args.json_output)
+    if args.command == "attempt-evaluate":
+        return experience.evaluate_attempt(
+            root, args.run_id, args.node_id, args.score, args.correct, args.outcome,
+            args.cost, args.duration_ms, args.diagnostics_ref, args.json_output)
+    if args.command == "run-finish":
+        return experience.finish_run(root, args.run_id, args.json_output)
+    if args.command == "run-validate":
+        return experience.validate_runs_cmd(root, args.run_id, args.json_output)
+    if args.command == "runs":
+        return experience.list_runs(root, args.status, args.json_output)
+    if args.command == "run-show":
+        return experience.show_run(root, args.run_id, args.json_output)
+    if args.command == "replay":
+        return experience.replay_cmd(
+            root, args.run_id, args.policy, args.budget, args.workers,
+            args.beta_cost, args.beta_parallel, args.json_output)
+    if args.command == "policy-compare":
+        return experience.compare_policies(
+            root, args.policies, args.incumbent, args.budget, args.holdout,
+            args.evaluator, args.workers, args.beta_cost, args.beta_parallel,
+            args.json_output)
+    if args.command == "explore-context":
+        return explore_context(root, args.query, args.workers,
+                               args.history_branches, args.per_branch,
+                               args.json_output)
+    if args.command == "run-distill":
+        return distill_run(root, args)
     return 2
 
 

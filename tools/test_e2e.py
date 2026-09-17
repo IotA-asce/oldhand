@@ -142,6 +142,123 @@ class CoreCliTests(E2ETestCase):
         self.assertTrue(payload["created"])
         self.assertTrue((target / "memory" / "README.md").exists())
 
+    def test_run_start_creates_structured_trace(self):
+        result = self.lore("run-start", "--id", "planner-run", "--task", "Tune planner",
+                           "--evaluator", "bench-v2", "--workers", "3", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        trace = json.loads((self.archive / payload["path"]).read_text(encoding="utf-8"))
+        self.assertEqual((trace["id"], trace["max_workers"]), ("planner-run", 3))
+
+    def test_attempt_add_records_parent_and_proposal(self):
+        self.lore("run-start", "--id", "run", "--task", "Tune",
+                  "--evaluator", "bench")
+        result = self.lore("attempt-add", "run", "--id", "branch-a",
+                           "--parent", "root", "--proposal", "Try an index", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        node = json.loads(result.stdout)["node"]
+        self.assertEqual((node["id"], node["parent_id"]), ("branch-a", "root"))
+
+    def test_attempt_evaluate_records_evidence(self):
+        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+                  "--proposal", "Try it")
+        result = self.lore("attempt-evaluate", "run", "a", "--score", "8.5",
+                           "--correct", "--outcome", "success", "--cost", "2", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        evaluation = json.loads(result.stdout)["evaluation"]
+        self.assertEqual((evaluation["score"], evaluation["cost"]), (8.5, 2))
+
+    def test_run_finish_and_validate(self):
+        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+                  "--proposal", "Try it")
+        self.lore("attempt-evaluate", "run", "a", "--score", "8", "--correct",
+                  "--outcome", "success")
+        finished = self.lore("run-finish", "run", "--json")
+        self.assertEqual(finished.returncode, 0, finished.stderr)
+        self.assertTrue(json.loads(finished.stdout)["completed"])
+        checked = self.lore("run-validate", "--json")
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+        self.assertTrue(json.loads(checked.stdout)["valid"])
+
+    def test_runs_and_run_show_json(self):
+        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+                  "--proposal", "Try it")
+        self.lore("attempt-evaluate", "run", "a", "--score", "8", "--correct",
+                  "--outcome", "success")
+        catalog = self.lore("runs", "--status", "active", "--json")
+        self.assertEqual(json.loads(catalog.stdout)["runs"][0]["id"], "run")
+        detail = self.lore("run-show", "run", "--json")
+        self.assertEqual(json.loads(detail.stdout)["tree"][0]["id"], "a")
+
+    def test_replay_command_reveals_prefix(self):
+        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        for node, parent, score in (("a", "root", "5"), ("a2", "a", "8")):
+            self.lore("attempt-add", "run", "--id", node, "--parent", parent,
+                      "--proposal", node)
+            self.lore("attempt-evaluate", "run", node, "--score", score, "--correct",
+                      "--outcome", "success")
+        self.lore("run-finish", "run")
+        result = self.lore("replay", "run", "--policy", "depth", "--budget", "2", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["revealed"], ["a", "a2"])
+
+        scored = self.lore("replay", "run", "--policy", "depth", "--budget", "2",
+                           "--workers", "2", "--beta-cost", "1",
+                           "--beta-parallel", "2", "--json")
+        payload = json.loads(scored.stdout)
+        self.assertIn("objective", payload)
+        self.assertLessEqual(payload["workers"], 2)
+
+    def test_policy_compare_uses_holdout_runs(self):
+        for run_id in ("run1", "run2"):
+            self.lore("run-start", "--id", run_id, "--task", "Tune",
+                      "--evaluator", "bench")
+            self.lore("attempt-add", run_id, "--id", "a", "--parent", "root",
+                      "--proposal", "a")
+            self.lore("attempt-evaluate", run_id, "a", "--score", "5", "--correct",
+                      "--outcome", "success")
+            self.lore("run-finish", run_id)
+        result = self.lore("policy-compare", "depth", "--incumbent", "breadth",
+                           "--budget", "1", "--holdout", "1",
+                           "--evaluator", "bench", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["holdout_runs"], ["run2"])
+        self.assertEqual(len(payload["comparisons"]), 2)
+
+    def test_explore_context_preserves_independent_branch(self):
+        self.record("guard", type="constraint", importance="critical",
+                    risk="critical", durability="invariant")
+        self.record("direction", type="decision")
+        result = self.lore("explore-context", "database retries", "--workers", "2",
+                           "--history-branches", "1", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["branches"][1]["mode"], "independent")
+        self.assertEqual(payload["branches"][1]["records"], [])
+        self.assertEqual(payload["branches"][1]["shared_guardrail_ids"], ["guard"])
+
+    def test_run_distill_publishes_canonical_memory(self):
+        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+                  "--proposal", "Use an indexed lookup", "--artifact-ref", "git:abc")
+        self.lore("attempt-evaluate", "run", "a", "--score", "9", "--correct",
+                  "--outcome", "success", "--diagnostics-ref", "results/a.json")
+        self.lore("run-finish", "run")
+        result = self.lore("run-distill", "run", "a", "--id", "indexed-lookup",
+                           "--title", "Use indexed lookup", "--type", "lesson",
+                           "--importance", "normal", "--topics", "database,performance",
+                           "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        receipt = json.loads(result.stdout)
+        record = self.archive / receipt["path"]
+        text = record.read_text(encoding="utf-8")
+        self.assertIn("evidence: verified", text)
+        self.assertIn("experience/runs/run.json", text)
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")

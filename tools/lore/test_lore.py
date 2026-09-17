@@ -321,6 +321,21 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(payload["searched"], 1)
         self.assertEqual(payload["results"], [])
 
+    def test_explore_context_shares_guardrails_without_collapsing_diversity(self):
+        self.record("guard", type="constraint", importance="critical",
+                    risk="critical", durability="invariant")
+        self.record("direction", type="decision", importance="normal")
+        self.assertEqual(lore.explore_context(
+            self.root, "useful testing", workers=3, history_branches=1,
+            per_branch=5, json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual([item["id"] for item in payload["shared_guardrails"]], ["guard"])
+        self.assertEqual(payload["branches"][0]["mode"], "history-guided")
+        self.assertIn("direction", [item["id"] for item in payload["branches"][0]["records"]])
+        self.assertEqual(payload["branches"][1]["mode"], "independent")
+        self.assertEqual(payload["branches"][1]["records"], [])
+        self.assertEqual(payload["branches"][2]["shared_guardrail_ids"], ["guard"])
+
     def test_show_json_returns_record_and_relationships(self):
         self.record("target", topics=["database"])
         self.record("source", type="decision", topics=["API Gateway"],
@@ -455,6 +470,185 @@ class LoreTests(unittest.TestCase):
             meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
             self.assertEqual(meta["status"], "superseded")
             self.assertIn("Known facts.", path.read_text(encoding="utf-8"))
+
+    def test_start_discovery_run_is_canonical_and_collision_safe(self):
+        self.assertEqual(lore.experience.start_run(
+            self.root, "Tune planner", "bench-v2", "manual", "minimize", 3,
+            "planner-run", "git:abc", True), 0)
+        receipt = json.loads(self.output.getvalue())
+        self.assertEqual(receipt["id"], "planner-run")
+        path = self.root / receipt["path"]
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(payload["task"], "Tune planner")
+        self.assertEqual(payload["goal"], "minimize")
+        self.assertEqual(payload["max_workers"], 3)
+        self.assertEqual(payload["nodes"], [])
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.start_run(
+            self.root, "Again", "bench-v2", "manual", run_id="planner-run"), 1)
+        self.assertEqual(lore.experience.start_run(
+            self.root, "", "bench-v2", "manual", run_id="empty"), 2)
+
+    def test_add_attempt_builds_a_tree_and_enforces_one_continuation(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        self.assertEqual(lore.experience.add_attempt(
+            self.root, "run", "branch-a", "root", "Try an index"), 0)
+        self.assertEqual(lore.experience.add_attempt(
+            self.root, "run", "refine-a", "branch-a", "Tune selectivity"), 0)
+        self.assertEqual(lore.experience.add_attempt(
+            self.root, "run", "other-a", "branch-a", "Duplicate continuation"), 1)
+        self.assertEqual(lore.experience.add_attempt(
+            self.root, "run", "missing", "unknown", "Bad parent"), 1)
+        run = lore.experience.load_run(self.root, "run")
+        self.assertEqual([(node["id"], node["parent_id"]) for node in run["nodes"]],
+                         [("branch-a", "root"), ("refine-a", "branch-a")])
+
+    def test_evaluate_attempt_records_grounded_outcome_once(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "Try it")
+        self.assertEqual(lore.experience.evaluate_attempt(
+            self.root, "run", "a", 8.5, True, "success", 2, 1500,
+            "results/a.json", True), 0)
+        evaluation = lore.experience.load_run(self.root, "run")["nodes"][0]["evaluation"]
+        self.assertEqual(evaluation["score"], 8.5)
+        self.assertTrue(evaluation["correct"])
+        self.assertEqual((evaluation["cost"], evaluation["duration_ms"]), (2, 1500))
+        self.assertEqual(lore.experience.evaluate_attempt(
+            self.root, "run", "a", 9, True, "success"), 1)
+
+    def test_finish_requires_evaluations_and_validates_trace(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "Try it")
+        self.assertEqual(lore.experience.finish_run(self.root, "run"), 1)
+        lore.experience.evaluate_attempt(self.root, "run", "a", 8, True, "success")
+        self.assertEqual(lore.experience.finish_run(self.root, "run", True), 0)
+        run = lore.experience.load_run(self.root, "run")
+        self.assertEqual(run["status"], "completed")
+        self.assertIsNotNone(run["finished_at"])
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.validate_runs_cmd(self.root, None, True), 0)
+        self.assertTrue(json.loads(self.output.getvalue())["valid"])
+
+    def test_run_validation_reports_malformed_trace(self):
+        path = self.root / "experience" / "runs" / "bad.json"
+        path.parent.mkdir(parents=True)
+        path.write_text('{"schema_version": 99, "id": "bad", "nodes": []}\n',
+                        encoding="utf-8")
+        _, errors = lore.experience.validate_runs(self.root)
+        self.assertTrue(any("schema_version" in error for error in errors))
+        self.assertTrue(any("missing fields" in error for error in errors))
+
+    def test_browse_runs_reports_aggregates_and_nested_tree(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "Try index")
+        lore.experience.evaluate_attempt(self.root, "run", "a", 8, True, "success", 2)
+        lore.experience.add_attempt(self.root, "run", "b", "a", "Tune index")
+        lore.experience.evaluate_attempt(self.root, "run", "b", 9, True, "success", 3)
+        lore.experience.finish_run(self.root, "run")
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.list_runs(self.root, "completed", True), 0)
+        catalog = json.loads(self.output.getvalue())
+        self.assertEqual(catalog["runs"][0]["best_score"], 9)
+        self.assertEqual(catalog["runs"][0]["total_cost"], 5)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.show_run(self.root, "run", True), 0)
+        detail = json.loads(self.output.getvalue())
+        self.assertEqual(detail["tree"][0]["children"][0]["id"], "b")
+
+    def test_replay_policies_reveal_only_selected_prefixes(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        for node_id, parent, score in (("a", "root", 5), ("a2", "a", 8),
+                                       ("b", "root", 7), ("b2", "b", 9)):
+            lore.experience.add_attempt(self.root, "run", node_id, parent, node_id)
+            lore.experience.evaluate_attempt(
+                self.root, "run", node_id, score, True, "success")
+        lore.experience.finish_run(self.root, "run")
+        run = lore.experience.load_run(self.root, "run")
+        breadth = lore.experience.replay_run(run, "breadth", 2)
+        depth = lore.experience.replay_run(run, "depth", 2)
+        self.assertEqual(breadth["revealed"], ["a", "b"])
+        self.assertEqual(depth["revealed"], ["a", "a2"])
+        self.assertEqual(depth["best_score"], 8)
+
+    def test_replay_objective_balances_cost_and_parallelism(self):
+        lore.experience.start_run(
+            self.root, "Tune", "bench", "manual", workers=2, run_id="run")
+        for node_id, parent, score in (("a", "root", 5), ("a2", "a", 8),
+                                       ("b", "root", 7)):
+            lore.experience.add_attempt(self.root, "run", node_id, parent, node_id)
+            lore.experience.evaluate_attempt(
+                self.root, "run", node_id, score, True, "success", cost=1)
+        lore.experience.finish_run(self.root, "run")
+        result = lore.experience.replay_run(
+            lore.experience.load_run(self.root, "run"), "depth", 3,
+            workers=2, beta_cost=1, beta_parallel=2)
+        self.assertEqual(result["rounds"], 2)
+        self.assertEqual(result["total_cost"], 3)
+        self.assertEqual(result["parallelism"], 1.5)
+        self.assertEqual(result["objective"], 8)
+
+    def test_replay_minimize_goal_converts_quality(self):
+        lore.experience.start_run(
+            self.root, "Tune", "bench", "manual", goal="minimize", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "a")
+        lore.experience.evaluate_attempt(self.root, "run", "a", 4, True, "success")
+        lore.experience.finish_run(self.root, "run")
+        result = lore.experience.replay_run(
+            lore.experience.load_run(self.root, "run"), "depth", 1)
+        self.assertEqual(result["best_score"], 4)
+        self.assertEqual(result["quality"], -4)
+
+    def test_policy_compare_includes_incumbent_and_holdout(self):
+        for run_id, offset in (("run1", 0), ("run2", 1), ("run3", 2)):
+            lore.experience.start_run(
+                self.root, "Tune", "bench", "breadth", workers=1, run_id=run_id)
+            for node_id, parent, score in (("a", "root", 5 + offset),
+                                           ("a2", "a", 9 + offset),
+                                           ("b", "root", 7 + offset)):
+                lore.experience.add_attempt(self.root, run_id, node_id, parent, node_id)
+                lore.experience.evaluate_attempt(
+                    self.root, run_id, node_id, score, True, "success")
+            lore.experience.finish_run(self.root, run_id)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.compare_policies(
+            self.root, ["depth"], "breadth", 2, holdout=1,
+            evaluator="bench", json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["holdout_runs"], ["run3"])
+        self.assertEqual({item["policy"] for item in payload["comparisons"]},
+                         {"breadth", "depth"})
+        winner = payload["comparisons"][0]
+        self.assertEqual(winner["policy"], "depth")
+        self.assertFalse(winner["incumbent"])
+        self.assertEqual(lore.experience.compare_policies(
+            self.root, ["depth"], "breadth", 2, holdout=1,
+            evaluator="bench", beta_cost=-1), 2)
+
+    def test_run_distill_builds_verified_record_with_provenance(self):
+        lore.experience.start_run(self.root, "Tune", "bench-v2", "depth", run_id="run")
+        lore.experience.add_attempt(
+            self.root, "run", "a", "root", "Use an indexed lookup", "git:abc")
+        lore.experience.evaluate_attempt(
+            self.root, "run", "a", 9, True, "success", 2, 150,
+            "results/a.json")
+        lore.experience.finish_run(self.root, "run")
+        self.output.seek(0)
+        self.output.truncate()
+        args = argparse.Namespace(
+            run_id="run", node_id="a", id="indexed-lookup", title="Use indexed lookup",
+            entry_type="lesson", importance="normal", topics="database,performance",
+            summary=None, scope="subsystem", risk="low", durability="long_lived",
+            collection=None, dry_run=True, json_output=True)
+        self.assertEqual(lore.distill_run(self.root, args), 0)
+        content = json.loads(self.output.getvalue())["content"]
+        self.assertIn("evidence: verified", content)
+        self.assertIn("experience/runs/run.json (attempt `a`)", content)
+        self.assertIn("Evaluator: bench-v2", content)
 
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
