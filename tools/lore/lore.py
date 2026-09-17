@@ -2655,6 +2655,53 @@ def _publish_record_updates(root: Path, records: dict[str, dict[str, Any]],
     return True
 
 
+def rename_record_id(root: Path, old_id: str, new_id: str) -> int:
+    """Rename an id and rewrite every incoming relation atomically."""
+    if not RECORD_ID_RE.fullmatch(new_id):
+        print("Invalid id: use 1-128 letters, digits, dots, underscores, or hyphens; start with a letter or digit.",
+              file=sys.stderr)
+        return 2
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if old_id not in records:
+        print(f"Unknown record id: {old_id}", file=sys.stderr)
+        return 1
+    if old_id == new_id:
+        print(f"Record already has id {old_id}")
+        return 0
+    if new_id in records:
+        print(f"Record id already exists: {new_id}", file=sys.stderr)
+        return 1
+
+    now = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    updates: dict[str, dict[str, Any]] = {}
+    renamed = dict(records[old_id]["meta"])
+    renamed["id"] = new_id
+    renamed["updated_at"] = now
+    updates[old_id] = renamed
+    for rid, record in records.items():
+        if rid == old_id:
+            continue
+        changed = False
+        relations = {key: list(values) for key, values in record["relations"].items()}
+        for relation_type, targets in relations.items():
+            if old_id in targets:
+                relations[relation_type] = sorted(set(
+                    new_id if target == old_id else target for target in targets
+                ))
+                changed = True
+        if changed:
+            meta = dict(record["meta"])
+            meta["relations"] = relations
+            meta["updated_at"] = now
+            updates[rid] = meta
+    if not _publish_record_updates(root, records, updates):
+        return 1
+    print(f"Renamed {old_id} -> {new_id}; updated {len(updates) - 1} backlink record(s)")
+    return 0
+
+
 def relate(root: Path, source_id: str, relation_type: str, target_id: str) -> int:
     records = _records_for_mutation(root)
     if records is None:
@@ -3102,6 +3149,10 @@ def main() -> int:
     p_status.add_argument("id")
     p_status.add_argument("new_status", choices=sorted(DIRECT_STATUSES))
 
+    p_rename = sub.add_parser("rename", help="rename a record id and its backlinks")
+    p_rename.add_argument("old_id")
+    p_rename.add_argument("new_id")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3157,6 +3208,8 @@ def main() -> int:
         return supersede_record(root, args.old_id, args.new_id)
     if args.command == "status":
         return set_record_status(root, args.id, args.new_status)
+    if args.command == "rename":
+        return rename_record_id(root, args.old_id, args.new_id)
     return 2
 
 

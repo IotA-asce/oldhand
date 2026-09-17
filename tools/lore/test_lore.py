@@ -382,6 +382,25 @@ class LoreTests(unittest.TestCase):
         self.assertEqual([(e["type"], e["id"]) for e in payload["outgoing"]],
                          [("depends_on", "target")])
 
+    def test_rename_updates_id_and_all_backlinks(self):
+        target = self.record("old")
+        source = self.record("source", relations={"depends_on": ["old"]})
+        self.assertEqual(lore.rename_record_id(self.root, "old", "stable.id"), 0)
+        target_meta = yaml.safe_load(target.read_text(encoding="utf-8").split("---\n")[1])
+        source_meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(target_meta["id"], "stable.id")
+        self.assertEqual(source_meta["relations"]["depends_on"], ["stable.id"])
+        records, errors, _ = lore.validate_records(self.root)
+        self.assertFalse(errors)
+        self.assertIn("stable.id", {record["meta"]["id"] for record in records})
+
+    def test_rename_rejects_collision_without_changes(self):
+        old = self.record("old")
+        self.record("taken")
+        before = old.read_bytes()
+        self.assertEqual(lore.rename_record_id(self.root, "old", "taken"), 1)
+        self.assertEqual(old.read_bytes(), before)
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])

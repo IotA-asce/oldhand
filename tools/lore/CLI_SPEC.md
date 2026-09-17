@@ -30,6 +30,7 @@ python tools/lore/lore.py relate <source-id> <relation-type> <target-id>
 python tools/lore/lore.py unrelate <source-id> <relation-type> <target-id>
 python tools/lore/lore.py supersede <old-id> --by <replacement-id>
 python tools/lore/lore.py status <id> <current|resolved|deprecated|historical>
+python tools/lore/lore.py rename <old-id> <new-id>
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -191,6 +192,10 @@ metadata distinction that is checkable at write time rather than predicted,
 which makes it the one worth trusting.
 
 ## Identifier expansion
+
+`lore rename OLD NEW` changes a canonical record id and every incoming
+relation reference in one validated transaction. It rejects collisions and
+invalid portable ids; filenames are intentionally left stable.
 
 Code identifiers are indexed by their component words as well as whole.
 FTS5's tokenizer splits on punctuation and nothing else, so `totalCost` is the

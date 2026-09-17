@@ -239,6 +239,14 @@ class CoreCliTests(E2ETestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["incoming"][0]["id"], "source")
 
+    def test_rename_command_updates_backlinks(self):
+        self.record("source", relations={"related_to": ["old"]})
+        self.record("old")
+        result = self.lore("rename", "old", "renamed")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        graph = self.lore("backlinks", "renamed", "--json")
+        self.assertEqual(json.loads(graph.stdout)["incoming"][0]["id"], "source")
+
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")
 class InstallerTests(E2ETestCase):
