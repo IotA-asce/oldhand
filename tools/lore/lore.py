@@ -26,6 +26,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+LORE_DIR = Path(__file__).resolve().parent
+if str(LORE_DIR) not in sys.path:
+    sys.path.insert(0, str(LORE_DIR))
+import experience
+
 try:
     import yaml
 except ImportError:
@@ -3306,6 +3311,16 @@ def main() -> int:
     p_compact.add_argument("--dry-run", action="store_true")
     p_compact.add_argument("--json", dest="json_output", action="store_true")
 
+    p_run_start = sub.add_parser("run-start", help="start a structured discovery run")
+    p_run_start.add_argument("--id")
+    p_run_start.add_argument("--task", required=True)
+    p_run_start.add_argument("--evaluator", required=True)
+    p_run_start.add_argument("--policy", default="manual")
+    p_run_start.add_argument("--goal", choices=("maximize", "minimize"), default="maximize")
+    p_run_start.add_argument("--workers", type=positive_int, default=1)
+    p_run_start.add_argument("--workspace-ref")
+    p_run_start.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3372,6 +3387,10 @@ def main() -> int:
     if args.command == "compact":
         return compact_records(root, args.target, args.sources,
                                args.dry_run, args.json_output)
+    if args.command == "run-start":
+        return experience.start_run(
+            root, args.task, args.evaluator, args.policy, args.goal, args.workers,
+            args.id, args.workspace_ref, args.json_output)
     return 2
 
 

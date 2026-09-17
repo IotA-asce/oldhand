@@ -142,6 +142,14 @@ class CoreCliTests(E2ETestCase):
         self.assertTrue(payload["created"])
         self.assertTrue((target / "memory" / "README.md").exists())
 
+    def test_run_start_creates_structured_trace(self):
+        result = self.lore("run-start", "--id", "planner-run", "--task", "Tune planner",
+                           "--evaluator", "bench-v2", "--workers", "3", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        trace = json.loads((self.archive / payload["path"]).read_text(encoding="utf-8"))
+        self.assertEqual((trace["id"], trace["max_workers"]), ("planner-run", 3))
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")

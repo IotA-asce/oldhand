@@ -34,6 +34,7 @@ python tools/lore/lore.py rename <old-id> <new-id>
 python tools/lore/lore.py topic <id> (--add <topic> | --remove <topic>)
 python tools/lore/lore.py classify <id> [--importance ...] [--scope ...] [--risk ...] [--durability ...] [--evidence ...]
 python tools/lore/lore.py compact --into <target-id> <source-id>... [--dry-run] [--json]
+python tools/lore/lore.py run-start --task <text> --evaluator <name> [--id <id>] [--policy <name>] [--goal maximize|minimize] [--workers N] [--workspace-ref <ref>] [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -43,6 +44,13 @@ python tools/lore/lore.py obsidian
 
 Each has its own section below. `lore --help` is authoritative if this list
 and the parser ever disagree.
+
+## Discovery experience
+
+`lore run-start` creates a canonical discovery trace under `experience/runs/`.
+Traces are deliberately separate from distilled `memory/` records and from the
+disposable `.lore/` index. A run records its task, fixed evaluator, exploration
+policy, score direction, worker budget, and optional workspace reference.
 
 ## Initialize
 

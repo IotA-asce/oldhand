@@ -456,6 +456,23 @@ class LoreTests(unittest.TestCase):
             self.assertEqual(meta["status"], "superseded")
             self.assertIn("Known facts.", path.read_text(encoding="utf-8"))
 
+    def test_start_discovery_run_is_canonical_and_collision_safe(self):
+        self.assertEqual(lore.experience.start_run(
+            self.root, "Tune planner", "bench-v2", "manual", "minimize", 3,
+            "planner-run", "git:abc", True), 0)
+        receipt = json.loads(self.output.getvalue())
+        self.assertEqual(receipt["id"], "planner-run")
+        path = self.root / receipt["path"]
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(payload["task"], "Tune planner")
+        self.assertEqual(payload["goal"], "minimize")
+        self.assertEqual(payload["max_workers"], 3)
+        self.assertEqual(payload["nodes"], [])
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.start_run(
+            self.root, "Again", "bench-v2", "manual", run_id="planner-run"), 1)
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])
