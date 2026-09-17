@@ -169,6 +169,9 @@ def start_run(root: Path, task: str, evaluator: str, policy: str,
               run_id: str | None = None, workspace_ref: str | None = None,
               json_output: bool = False) -> int:
     run_id = run_id or generated_run_id()
+    if not task.strip() or not evaluator.strip() or not policy.strip():
+        print("task, evaluator, and policy cannot be empty", file=os.sys.stderr)
+        return 2
     if not TRACE_ID_RE.fullmatch(run_id):
         print("Invalid run id: use 1-128 portable id characters.", file=os.sys.stderr)
         return 2
@@ -582,6 +585,9 @@ def compare_policies(root: Path, policies: list[str], incumbent: str,
     if holdout < 0:
         print("holdout must be non-negative", file=os.sys.stderr)
         return 2
+    if beta_cost < 0 or beta_parallel < 0:
+        print("replay coefficients must be non-negative", file=os.sys.stderr)
+        return 2
     requested = list(dict.fromkeys([incumbent, *policies]))
     unknown = [policy for policy in requested if policy not in REPLAY_POLICIES]
     if unknown:
@@ -633,11 +639,11 @@ def compare_policies(root: Path, policies: list[str], incumbent: str,
             "holdout": evaluate_group(policy, test),
         })
     ranking_key = "holdout" if test else "train"
-    comparisons.sort(
-        key=lambda item: (item[ranking_key]["mean_objective"] is not None,
-                          item[ranking_key]["mean_objective"] or float("-inf")),
-        reverse=True,
-    )
+    def comparison_key(item: dict[str, Any]) -> tuple[bool, float]:
+        value = item[ranking_key]["mean_objective"]
+        return value is not None, float(value) if value is not None else float("-inf")
+
+    comparisons.sort(key=comparison_key, reverse=True)
     payload = {
         "evaluator": evaluator or evaluators[0], "incumbent": incumbent,
         "budget": budget, "holdout_count": len(test),

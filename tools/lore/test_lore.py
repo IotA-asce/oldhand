@@ -487,6 +487,8 @@ class LoreTests(unittest.TestCase):
         self.output.truncate()
         self.assertEqual(lore.experience.start_run(
             self.root, "Again", "bench-v2", "manual", run_id="planner-run"), 1)
+        self.assertEqual(lore.experience.start_run(
+            self.root, "", "bench-v2", "manual", run_id="empty"), 2)
 
     def test_add_attempt_builds_a_tree_and_enforces_one_continuation(self):
         lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
@@ -623,6 +625,9 @@ class LoreTests(unittest.TestCase):
         winner = payload["comparisons"][0]
         self.assertEqual(winner["policy"], "depth")
         self.assertFalse(winner["incumbent"])
+        self.assertEqual(lore.experience.compare_policies(
+            self.root, ["depth"], "breadth", 2, holdout=1,
+            evaluator="bench", beta_cost=-1), 2)
 
     def test_run_distill_builds_verified_record_with_provenance(self):
         lore.experience.start_run(self.root, "Tune", "bench-v2", "depth", run_id="run")

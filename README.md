@@ -6,7 +6,7 @@
 
 **Discover it. Retrieve it. Curate it. Retire it when truth changes.**
 
-[![version](https://img.shields.io/badge/version-0.4.4-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
+[![version](https://img.shields.io/badge/version-0.5.0-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
 [![license](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square&labelColor=0d1117)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
 [![dependencies](https://img.shields.io/badge/dependencies-1-8b949e?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)

@@ -39,7 +39,7 @@ except ImportError:
 
 # Bumped when indexing or scoring changes in a way that moves retrieval, so
 # metrics from different archives can be compared like with like.
-LORE_VERSION = "0.4.4"
+LORE_VERSION = "0.5.0"
 
 ENTRY_TYPES = {
     "topic_summary", "decision", "constraint", "fix",
