@@ -3352,6 +3352,14 @@ def main() -> int:
     p_run_validate.add_argument("run_id", nargs="?")
     p_run_validate.add_argument("--json", dest="json_output", action="store_true")
 
+    p_runs = sub.add_parser("runs", help="browse discovery histories")
+    p_runs.add_argument("--status", choices=("active", "completed"))
+    p_runs.add_argument("--json", dest="json_output", action="store_true")
+
+    p_run_show = sub.add_parser("run-show", help="show one discovery tree")
+    p_run_show.add_argument("run_id")
+    p_run_show.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3434,6 +3442,10 @@ def main() -> int:
         return experience.finish_run(root, args.run_id, args.json_output)
     if args.command == "run-validate":
         return experience.validate_runs_cmd(root, args.run_id, args.json_output)
+    if args.command == "runs":
+        return experience.list_runs(root, args.status, args.json_output)
+    if args.command == "run-show":
+        return experience.show_run(root, args.run_id, args.json_output)
     return 2
 
 

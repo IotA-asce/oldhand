@@ -356,3 +356,90 @@ def validate_runs_cmd(root: Path, run_id: str | None = None,
     else:
         print(f"Discovery validation passed: {len(valid)} run(s).")
     return 1 if errors else 0
+
+
+def run_summary(run: dict[str, Any]) -> dict[str, Any]:
+    evaluations = [node["evaluation"] for node in run.get("nodes", [])
+                   if isinstance(node, dict) and isinstance(node.get("evaluation"), dict)]
+    correct_scores = [item["score"] for item in evaluations if item.get("correct")]
+    best_score = None
+    if correct_scores:
+        best_score = (max(correct_scores) if run.get("goal") == "maximize"
+                      else min(correct_scores))
+    return {
+        "id": run["id"], "task": run["task"], "status": run["status"],
+        "evaluator": run["evaluator"], "policy": run["policy"],
+        "goal": run["goal"], "max_workers": run["max_workers"],
+        "attempt_count": len(run.get("nodes", [])),
+        "evaluated_count": len(evaluations),
+        "correct_count": sum(1 for item in evaluations if item.get("correct")),
+        "best_score": best_score,
+        "total_cost": sum(item.get("cost", 0) for item in evaluations),
+        "total_duration_ms": sum(item.get("duration_ms", 0) for item in evaluations),
+        "created_at": run["created_at"], "updated_at": run["updated_at"],
+        "finished_at": run.get("finished_at"),
+    }
+
+
+def _tree_nodes(run: dict[str, Any], parent_id: str = "root") -> list[dict[str, Any]]:
+    children = []
+    for node in run.get("nodes", []):
+        if node.get("parent_id") == parent_id:
+            item = dict(node)
+            item["children"] = _tree_nodes(run, str(node["id"]))
+            children.append(item)
+    return children
+
+
+def list_runs(root: Path, status: str | None = None,
+              json_output: bool = False) -> int:
+    valid, errors = validate_runs(root)
+    if errors:
+        for error in errors:
+            print(error, file=os.sys.stderr)
+        return 1
+    summaries = [run_summary(run) for run in valid if status is None or run["status"] == status]
+    summaries.sort(key=lambda item: (item["created_at"], item["id"]), reverse=True)
+    if json_output:
+        print(json.dumps({"count": len(summaries), "status": status, "runs": summaries},
+                         ensure_ascii=False, indent=2))
+    else:
+        print(f"{len(summaries)} discovery run(s).")
+        for item in summaries:
+            score = "n/a" if item["best_score"] is None else f"{item['best_score']:g}"
+            print(f"- {item['id']} [{item['status']}] {item['task']}")
+            print(f"  attempts {item['evaluated_count']}/{item['attempt_count']} · "
+                  f"correct {item['correct_count']} · best {score} · cost {item['total_cost']}")
+    return 0
+
+
+def show_run(root: Path, run_id: str, json_output: bool = False) -> int:
+    valid, errors = validate_runs(root, run_id)
+    if errors:
+        for error in errors:
+            print(error, file=os.sys.stderr)
+        return 1
+    run = valid[0]
+    summary = run_summary(run)
+    tree = _tree_nodes(run)
+    if json_output:
+        print(json.dumps({"summary": summary, "run": run, "tree": tree},
+                         ensure_ascii=False, indent=2))
+        return 0
+    print(f"{run['task']} ({run_id}) [{run['status']}]")
+    print(f"evaluator: {run['evaluator']} · policy: {run['policy']} · goal: {run['goal']}")
+    print(f"attempts: {summary['evaluated_count']}/{summary['attempt_count']} evaluated · "
+          f"correct: {summary['correct_count']} · cost: {summary['total_cost']}")
+
+    def render(nodes: list[dict[str, Any]], depth: int) -> None:
+        for node in nodes:
+            evaluation = node.get("evaluation")
+            result = "pending"
+            if evaluation:
+                mark = "✓" if evaluation["correct"] else "✗"
+                result = f"{mark} score={evaluation['score']:g} cost={evaluation['cost']}"
+            print(f"{'  ' * depth}- {node['id']}: {node['proposal']} [{result}]")
+            render(node["children"], depth + 1)
+
+    render(tree, 0)
+    return 0

@@ -523,6 +523,25 @@ class LoreTests(unittest.TestCase):
         self.assertTrue(any("schema_version" in error for error in errors))
         self.assertTrue(any("missing fields" in error for error in errors))
 
+    def test_browse_runs_reports_aggregates_and_nested_tree(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "Try index")
+        lore.experience.evaluate_attempt(self.root, "run", "a", 8, True, "success", 2)
+        lore.experience.add_attempt(self.root, "run", "b", "a", "Tune index")
+        lore.experience.evaluate_attempt(self.root, "run", "b", 9, True, "success", 3)
+        lore.experience.finish_run(self.root, "run")
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.list_runs(self.root, "completed", True), 0)
+        catalog = json.loads(self.output.getvalue())
+        self.assertEqual(catalog["runs"][0]["best_score"], 9)
+        self.assertEqual(catalog["runs"][0]["total_cost"], 5)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.show_run(self.root, "run", True), 0)
+        detail = json.loads(self.output.getvalue())
+        self.assertEqual(detail["tree"][0]["children"][0]["id"], "b")
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])

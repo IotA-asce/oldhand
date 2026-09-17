@@ -182,6 +182,17 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(checked.returncode, 0, checked.stderr)
         self.assertTrue(json.loads(checked.stdout)["valid"])
 
+    def test_runs_and_run_show_json(self):
+        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+                  "--proposal", "Try it")
+        self.lore("attempt-evaluate", "run", "a", "--score", "8", "--correct",
+                  "--outcome", "success")
+        catalog = self.lore("runs", "--status", "active", "--json")
+        self.assertEqual(json.loads(catalog.stdout)["runs"][0]["id"], "run")
+        detail = self.lore("run-show", "run", "--json")
+        self.assertEqual(json.loads(detail.stdout)["tree"][0]["id"], "a")
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")

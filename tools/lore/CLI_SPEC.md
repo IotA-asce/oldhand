@@ -39,6 +39,8 @@ python tools/lore/lore.py attempt-add <run-id> --id <attempt-id> --parent <root|
 python tools/lore/lore.py attempt-evaluate <run-id> <attempt-id> --score N (--correct|--incorrect) --outcome <success|failure|error> [--cost N] [--duration-ms N] [--diagnostics-ref <ref>] [--json]
 python tools/lore/lore.py run-finish <run-id> [--json]
 python tools/lore/lore.py run-validate [<run-id>] [--json]
+python tools/lore/lore.py runs [--status active|completed] [--json]
+python tools/lore/lore.py run-show <run-id> [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -68,6 +70,11 @@ diagnostic artifacts remain available to replay and later audit.
 evaluations. `run-validate` checks one trace or the entire experience archive,
 including parent order, unique ids, continuation shape, score integrity, and
 completion state.
+
+`lore runs` is the deterministic discovery catalog, including attempt,
+correctness, best-score, cost, and duration aggregates. `run-show` renders the
+parent/continuation tree or returns the complete trace and a nested tree as
+JSON.
 
 ## Initialize
 
