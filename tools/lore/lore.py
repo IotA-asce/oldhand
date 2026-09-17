@@ -2607,6 +2607,38 @@ def relate(root: Path, source_id: str, relation_type: str, target_id: str) -> in
     print(f"Related {source_id} {relation_type} {target_id}")
     return 0
 
+
+def unrelate(root: Path, source_id: str, relation_type: str, target_id: str) -> int:
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if source_id not in records:
+        print(f"Unknown source record id: {source_id}", file=sys.stderr)
+        return 1
+    if target_id not in records:
+        print(f"Unknown target record id: {target_id}", file=sys.stderr)
+        return 1
+    relations = {key: list(values) for key, values in records[source_id]["relations"].items()}
+    targets = relations.get(relation_type, [])
+    if target_id not in targets:
+        print(
+            f"Relation does not exist: {source_id} {relation_type} {target_id}",
+            file=sys.stderr,
+        )
+        return 1
+    targets.remove(target_id)
+    if targets:
+        relations[relation_type] = targets
+    else:
+        relations.pop(relation_type, None)
+    meta = dict(records[source_id]["meta"])
+    meta["relations"] = relations
+    meta["updated_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    if not _publish_record_updates(root, records, {source_id: meta}):
+        return 1
+    print(f"Removed relation {source_id} {relation_type} {target_id}")
+    return 0
+
 def slugify(text: str, max_len: int = 48) -> str:
     s = SLUG_STRIP_RE.sub("-", text.lower()).strip("-")
     if len(s) > max_len:
@@ -2869,6 +2901,11 @@ def main() -> int:
     p_relate.add_argument("relation_type", choices=sorted(RELATION_TYPES))
     p_relate.add_argument("target")
 
+    p_unrelate = sub.add_parser("unrelate", help="remove a relationship between records")
+    p_unrelate.add_argument("source")
+    p_unrelate.add_argument("relation_type", choices=sorted(RELATION_TYPES))
+    p_unrelate.add_argument("target")
+
     args = parser.parse_args()
     _force_utf8_output()
     root = workspace_root(args.root)
@@ -2912,6 +2949,8 @@ def main() -> int:
         return new_record(root, args)
     if args.command == "relate":
         return relate(root, args.source, args.relation_type, args.target)
+    if args.command == "unrelate":
+        return unrelate(root, args.source, args.relation_type, args.target)
     return 2
 
 

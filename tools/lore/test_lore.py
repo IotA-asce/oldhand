@@ -391,6 +391,16 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(lore.relate(self.root, "source", "depends_on", "source"), 1)
         self.assertEqual(source.read_bytes(), before)
 
+    def test_unrelate_removes_relationship_and_rejects_missing(self):
+        source = self.record("source", relations={"depends_on": ["target"]})
+        self.record("target")
+        self.assertEqual(lore.unrelate(self.root, "source", "depends_on", "target"), 0)
+        meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["relations"], {})
+        after = source.read_bytes()
+        self.assertEqual(lore.unrelate(self.root, "source", "depends_on", "target"), 1)
+        self.assertEqual(source.read_bytes(), after)
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",

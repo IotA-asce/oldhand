@@ -25,6 +25,7 @@ python tools/lore/lore.py selftest
 python tools/lore/lore.py usage
 python tools/lore/lore.py new --title "..." --type <type> --importance <level> [...]
 python tools/lore/lore.py relate <source-id> <relation-type> <target-id>
+python tools/lore/lore.py unrelate <source-id> <relation-type> <target-id>
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -472,6 +473,11 @@ are idempotent, and `supersedes` is reserved for the atomic lifecycle command
 unless the target is already retired. Lore refuses to mutate an archive that
 does not currently validate, updates `updated_at`, validates the proposed
 state, publishes with rollback protection, and rebuilds the derived index.
+
+`lore unrelate SOURCE TYPE TARGET` removes one existing relationship and
+prunes the relation type when its final target is removed. Missing ids and
+missing relationships are errors; successful changes use the same validation,
+rollback, timestamp, and rebuild path as `relate`.
 
 ## Intentionally deferred
 
