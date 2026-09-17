@@ -249,6 +249,17 @@ class LoreTests(unittest.TestCase):
         self.assertIn("   id: decision\n", output)
         self.assertNotIn("   id: lesson\n", output)
 
+    def test_search_filters_by_exact_status(self):
+        self.record("current", status="current")
+        self.record("resolved", status="resolved")
+        rc = lore.search(self.root, "useful testing", history=False, limit=5,
+                         scope=None, collection=None, log=False,
+                         status="resolved")
+        self.assertEqual(rc, 0)
+        output = self.output.getvalue()
+        self.assertIn("   id: resolved\n", output)
+        self.assertNotIn("   id: current\n", output)
+
     def test_search_filters_by_exact_topic(self):
         self.record("backend", topics=["API Gateway"])
         self.record("frontend", topics=["interface"])

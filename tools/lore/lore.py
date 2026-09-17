@@ -930,7 +930,7 @@ def fts_query(text: str) -> tuple[str, set[str]]:
 def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
            collection: str | None, log: bool = True,
            entry_type: str | None = None, topic: str | None = None,
-           json_output: bool = False) -> int:
+           json_output: bool = False, status: str | None = None) -> int:
     """Ranked search. `log=False` for internal callers.
 
     The retrieval log answers which records real work retrieves. `doctor` and
@@ -946,9 +946,13 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
             print(str(e), file=sys.stderr)
             return 2
 
-        status_clause = "" if history else "AND e.status NOT IN ('superseded','deprecated')"
-        collection_clause = ""
         params: list[Any] = [fq]
+        if status:
+            status_clause = "AND e.status = ?"
+            params.append(status)
+        else:
+            status_clause = "" if history else "AND e.status NOT IN ('superseded','deprecated')"
+        collection_clause = ""
         if collection:
             collection_clause = "AND c.name = ?"
             params.append(collection)
@@ -1029,7 +1033,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                     "query": query,
                     "filters": {
                         "history": history, "scope": scope, "collection": collection,
-                        "type": entry_type, "topic": topic,
+                        "type": entry_type, "topic": topic, "status": status,
                     },
                     "count": 0,
                     "searched": total,
@@ -1126,7 +1130,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
                 "query": query,
                 "filters": {
                     "history": history, "scope": scope, "collection": collection,
-                    "type": entry_type, "topic": topic,
+                    "type": entry_type, "topic": topic, "status": status,
                 },
                 "count": len(results),
                 "results": results,
@@ -2604,6 +2608,8 @@ def main() -> int:
     p_search.add_argument("--type", dest="entry_type", choices=sorted(ENTRY_TYPES),
                           help="restrict to one record type")
     p_search.add_argument("--topic", help="restrict to one exact topic (case-insensitive)")
+    p_search.add_argument("--status", choices=sorted(STATUSES),
+                          help="restrict to one exact status")
     p_search.add_argument("--json", dest="json_output", action="store_true",
                           help="emit one machine-readable JSON document")
 
@@ -2650,7 +2656,7 @@ def main() -> int:
     if args.command == "search":
         return search(root, args.query, args.history, args.limit, args.scope, args.collection,
                       entry_type=args.entry_type, topic=args.topic,
-                      json_output=args.json_output)
+                      json_output=args.json_output, status=args.status)
     if args.command == "show":
         return show(root, args.id, json_output=args.json_output)
     if args.command == "list":

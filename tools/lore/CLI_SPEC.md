@@ -15,7 +15,7 @@ python tools/lore/lore.py validate
 python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
 python tools/lore/lore.py search --history "query"
-python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --limit N [--json]
+python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --limit N [--json]
 python tools/lore/lore.py show <id> [--json]
 python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py stats
@@ -83,6 +83,10 @@ Use `--topic <topic>` for an exact, case-insensitive topic match. Unlike adding
 the topic words to the query, this is a true filter: records without that topic
 never enter the ranking pool. Type, topic, collection, and history filters can
 be combined.
+
+Use `--status <status>` to select one lifecycle state exactly. An explicit
+status overrides the default active-only behavior and `--history`, so
+`--status superseded` returns only superseded records.
 
 Pass `--json` when another tool or agent will consume the results. Lore emits
 one JSON document with the query, active filters, result count, and result
