@@ -254,6 +254,14 @@ class CoreCliTests(E2ETestCase):
         meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
         self.assertIn("api-gateway", meta["topics"])
 
+    def test_classify_command_updates_metadata(self):
+        path = self.record("record")
+        result = self.lore("classify", "record", "--importance", "critical",
+                           "--scope", "workspace")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual((meta["importance"], meta["scope"]), ("critical", "workspace"))
+
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")
 class InstallerTests(E2ETestCase):

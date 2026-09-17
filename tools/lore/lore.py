@@ -2742,6 +2742,27 @@ def curate_topic(root: Path, record_id: str, add: str | None = None,
     return 0
 
 
+def classify_record(root: Path, record_id: str, **changes: str | None) -> int:
+    selected = {key: value for key, value in changes.items() if value is not None}
+    if not selected:
+        print("Provide at least one classification option.", file=sys.stderr)
+        return 2
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if record_id not in records:
+        print(f"Unknown record id: {record_id}", file=sys.stderr)
+        return 1
+    meta = dict(records[record_id]["meta"])
+    meta.update(selected)
+    meta["updated_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    if not _publish_record_updates(root, records, {record_id: meta}):
+        return 1
+    rendered = ", ".join(f"{key}={value}" for key, value in selected.items())
+    print(f"Classified {record_id}: {rendered}")
+    return 0
+
+
 def relate(root: Path, source_id: str, relation_type: str, target_id: str) -> int:
     records = _records_for_mutation(root)
     if records is None:
@@ -3199,6 +3220,14 @@ def main() -> int:
     topic_action.add_argument("--add")
     topic_action.add_argument("--remove")
 
+    p_classify = sub.add_parser("classify", help="update record classification metadata")
+    p_classify.add_argument("id")
+    p_classify.add_argument("--importance", choices=sorted(IMPORTANCE))
+    p_classify.add_argument("--scope", choices=sorted(SCOPES))
+    p_classify.add_argument("--risk", choices=sorted(RISKS))
+    p_classify.add_argument("--durability", choices=sorted(DURABILITY))
+    p_classify.add_argument("--evidence", choices=sorted(EVIDENCE))
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3258,6 +3287,10 @@ def main() -> int:
         return rename_record_id(root, args.old_id, args.new_id)
     if args.command == "topic":
         return curate_topic(root, args.id, args.add, args.remove)
+    if args.command == "classify":
+        return classify_record(root, args.id, importance=args.importance,
+                               scope=args.scope, risk=args.risk,
+                               durability=args.durability, evidence=args.evidence)
     return 2
 
 

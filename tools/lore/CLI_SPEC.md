@@ -32,6 +32,7 @@ python tools/lore/lore.py supersede <old-id> --by <replacement-id>
 python tools/lore/lore.py status <id> <current|resolved|deprecated|historical>
 python tools/lore/lore.py rename <old-id> <new-id>
 python tools/lore/lore.py topic <id> (--add <topic> | --remove <topic>)
+python tools/lore/lore.py classify <id> [--importance ...] [--scope ...] [--risk ...] [--durability ...] [--evidence ...]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -150,6 +151,9 @@ separates the total matching count from the number returned.
 `lore topic ID --add TOPIC` and `--remove TOPIC` safely curate a canonical
 record's vocabulary. Matching is case-insensitive and space/hyphen aware;
 Lore refuses to remove the final topic.
+
+`lore classify ID` updates one or more ranking and governance fields in a
+single validated write. Enum choices are enforced by the CLI parser.
 
 `lore collections` lists every indexed collection with its kind, active and
 total record counts, and topic count. The command is the discovery companion

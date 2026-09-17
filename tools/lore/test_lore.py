@@ -409,6 +409,21 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(lore.curate_topic(self.root, "record", remove="api-gateway"), 0)
         self.assertEqual(lore.curate_topic(self.root, "record", remove="testing"), 1)
 
+    def test_classify_updates_multiple_metadata_fields(self):
+        path = self.record("record")
+        self.assertEqual(lore.classify_record(
+            self.root, "record", importance="critical", risk="high",
+            durability="invariant", evidence="observed"), 0)
+        meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(
+            {key: meta[key] for key in ("importance", "risk", "durability", "evidence")},
+            {"importance": "critical", "risk": "high",
+             "durability": "invariant", "evidence": "observed"})
+
+    def test_classify_requires_a_change(self):
+        self.record("record")
+        self.assertEqual(lore.classify_record(self.root, "record"), 2)
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])
