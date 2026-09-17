@@ -42,6 +42,7 @@ python tools/lore/lore.py run-validate [<run-id>] [--json]
 python tools/lore/lore.py runs [--status active|completed] [--json]
 python tools/lore/lore.py run-show <run-id> [--json]
 python tools/lore/lore.py replay <run-id> --policy <breadth|depth|score-greedy> --budget N [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
+python tools/lore/lore.py policy-compare <policy>... --budget N [--incumbent <policy>] [--holdout N] [--evaluator <name>] [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -85,6 +86,11 @@ Its objective is `quality - beta_cost*recorded_cost +
 beta_parallel*attempts/rounds`; minimize-goal scores are negated for objective
 comparison while the original best score remains in output. Batches never
 exceed the selected worker count.
+
+`lore policy-compare` evaluates the incumbent and every candidate on the same
+completed histories. The newest `--holdout N` traces are reported separately;
+Lore never rewrites or promotes policy code automatically. Histories from
+different evaluators must be selected explicitly rather than averaged.
 
 ## Initialize
 

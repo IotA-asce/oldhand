@@ -585,6 +585,30 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(result["best_score"], 4)
         self.assertEqual(result["quality"], -4)
 
+    def test_policy_compare_includes_incumbent_and_holdout(self):
+        for run_id, offset in (("run1", 0), ("run2", 1), ("run3", 2)):
+            lore.experience.start_run(
+                self.root, "Tune", "bench", "breadth", workers=1, run_id=run_id)
+            for node_id, parent, score in (("a", "root", 5 + offset),
+                                           ("a2", "a", 9 + offset),
+                                           ("b", "root", 7 + offset)):
+                lore.experience.add_attempt(self.root, run_id, node_id, parent, node_id)
+                lore.experience.evaluate_attempt(
+                    self.root, run_id, node_id, score, True, "success")
+            lore.experience.finish_run(self.root, run_id)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.compare_policies(
+            self.root, ["depth"], "breadth", 2, holdout=1,
+            evaluator="bench", json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["holdout_runs"], ["run3"])
+        self.assertEqual({item["policy"] for item in payload["comparisons"]},
+                         {"breadth", "depth"})
+        winner = payload["comparisons"][0]
+        self.assertEqual(winner["policy"], "depth")
+        self.assertFalse(winner["incumbent"])
+
     def test_topics_lists_active_topic_counts_as_json(self):
         self.record("one", topics=["Backend", "testing"])
         self.record("two", topics=["Backend"])

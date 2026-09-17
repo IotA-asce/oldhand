@@ -572,3 +572,86 @@ def replay_cmd(root: Path, run_id: str, policy: str, budget: int,
               f"objective={result['objective']}")
         print("revealed: " + ", ".join(result["revealed"]))
     return 0
+
+
+def compare_policies(root: Path, policies: list[str], incumbent: str,
+                     budget: int, holdout: int = 1, evaluator: str | None = None,
+                     workers: int | None = None, beta_cost: float = 0.0,
+                     beta_parallel: float = 0.0,
+                     json_output: bool = False) -> int:
+    if holdout < 0:
+        print("holdout must be non-negative", file=os.sys.stderr)
+        return 2
+    requested = list(dict.fromkeys([incumbent, *policies]))
+    unknown = [policy for policy in requested if policy not in REPLAY_POLICIES]
+    if unknown:
+        print(f"Unknown replay policies: {', '.join(unknown)}", file=os.sys.stderr)
+        return 2
+    valid, errors = validate_runs(root)
+    if errors:
+        for error in errors:
+            print(error, file=os.sys.stderr)
+        return 1
+    runs = [run for run in valid if run.get("status") == "completed"
+            and (evaluator is None or run.get("evaluator") == evaluator)]
+    evaluators = sorted({str(run.get("evaluator")) for run in runs})
+    if evaluator is None and len(evaluators) > 1:
+        print("Multiple evaluators found; select one with --evaluator: " +
+              ", ".join(evaluators), file=os.sys.stderr)
+        return 1
+    runs.sort(key=lambda run: (run["created_at"], run["id"]))
+    if not runs:
+        print("No completed discovery runs match the comparison.", file=os.sys.stderr)
+        return 1
+    if holdout >= len(runs):
+        print("holdout must leave at least one training run", file=os.sys.stderr)
+        return 2
+    train = runs[:-holdout] if holdout else runs
+    test = runs[-holdout:] if holdout else []
+
+    def evaluate_group(policy: str, group: list[dict[str, Any]]) -> dict[str, Any]:
+        values = []
+        results = []
+        for run in group:
+            result = replay_run(
+                run, policy, budget, workers or int(run["max_workers"]),
+                beta_cost, beta_parallel)
+            results.append(result)
+            if result["objective"] is not None:
+                values.append(float(result["objective"]))
+        return {
+            "run_count": len(group), "scored_count": len(values),
+            "mean_objective": (sum(values) / len(values)) if values else None,
+            "results": results,
+        }
+
+    comparisons = []
+    for policy in requested:
+        comparisons.append({
+            "policy": policy, "incumbent": policy == incumbent,
+            "train": evaluate_group(policy, train),
+            "holdout": evaluate_group(policy, test),
+        })
+    ranking_key = "holdout" if test else "train"
+    comparisons.sort(
+        key=lambda item: (item[ranking_key]["mean_objective"] is not None,
+                          item[ranking_key]["mean_objective"] or float("-inf")),
+        reverse=True,
+    )
+    payload = {
+        "evaluator": evaluator or evaluators[0], "incumbent": incumbent,
+        "budget": budget, "holdout_count": len(test),
+        "train_runs": [run["id"] for run in train],
+        "holdout_runs": [run["id"] for run in test],
+        "ranking_basis": ranking_key, "comparisons": comparisons,
+    }
+    if json_output:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print(f"Policy comparison on {len(train)} training and {len(test)} holdout run(s)")
+        for index, item in enumerate(comparisons, 1):
+            marker = " (incumbent)" if item["incumbent"] else ""
+            train_value = item["train"]["mean_objective"]
+            test_value = item["holdout"]["mean_objective"]
+            print(f"{index}. {item['policy']}{marker}: train={train_value} holdout={test_value}")
+    return 0

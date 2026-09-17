@@ -3370,6 +3370,18 @@ def main() -> int:
     p_replay.add_argument("--beta-parallel", type=float, default=0.0)
     p_replay.add_argument("--json", dest="json_output", action="store_true")
 
+    p_compare = sub.add_parser("policy-compare", help="compare replay policies on history")
+    p_compare.add_argument("policies", nargs="+", choices=experience.REPLAY_POLICIES)
+    p_compare.add_argument("--incumbent", choices=experience.REPLAY_POLICIES,
+                           default="breadth")
+    p_compare.add_argument("--budget", required=True, type=positive_int)
+    p_compare.add_argument("--holdout", type=int, default=1)
+    p_compare.add_argument("--evaluator")
+    p_compare.add_argument("--workers", type=positive_int)
+    p_compare.add_argument("--beta-cost", type=float, default=0.0)
+    p_compare.add_argument("--beta-parallel", type=float, default=0.0)
+    p_compare.add_argument("--json", dest="json_output", action="store_true")
+
     args = parser.parse_args()
     _force_utf8_output()
     if args.command == "init":
@@ -3460,6 +3472,11 @@ def main() -> int:
         return experience.replay_cmd(
             root, args.run_id, args.policy, args.budget, args.workers,
             args.beta_cost, args.beta_parallel, args.json_output)
+    if args.command == "policy-compare":
+        return experience.compare_policies(
+            root, args.policies, args.incumbent, args.budget, args.holdout,
+            args.evaluator, args.workers, args.beta_cost, args.beta_parallel,
+            args.json_output)
     return 2
 
 

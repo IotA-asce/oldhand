@@ -212,6 +212,23 @@ class CoreCliTests(E2ETestCase):
         self.assertIn("objective", payload)
         self.assertLessEqual(payload["workers"], 2)
 
+    def test_policy_compare_uses_holdout_runs(self):
+        for run_id in ("run1", "run2"):
+            self.lore("run-start", "--id", run_id, "--task", "Tune",
+                      "--evaluator", "bench")
+            self.lore("attempt-add", run_id, "--id", "a", "--parent", "root",
+                      "--proposal", "a")
+            self.lore("attempt-evaluate", run_id, "a", "--score", "5", "--correct",
+                      "--outcome", "success")
+            self.lore("run-finish", run_id)
+        result = self.lore("policy-compare", "depth", "--incumbent", "breadth",
+                           "--budget", "1", "--holdout", "1",
+                           "--evaluator", "bench", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["holdout_runs"], ["run2"])
+        self.assertEqual(len(payload["comparisons"]), 2)
+
     def test_new_json_output(self):
         result = self.lore("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")
