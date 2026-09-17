@@ -538,15 +538,3 @@ mutation path. It accepts `current`, `resolved`, `deprecated`, and `historical`.
 `superseded` is intentionally excluded: that state is only valid together
 with a replacement's `supersedes` relationship, so use the atomic command.
 An idempotent status request succeeds without rewriting the file.
-
-## Intentionally deferred
-
-This operation remains specified but not implemented:
-
-```bash
-lore compact
-```
-
-`validate` reports supersession drift with the exact edit to make, so the manual
-path is workable in the meantime. Add these only after real usage shows what
-ergonomics are actually needed.

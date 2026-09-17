@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+  <title id="title">Lore curation loop</title>
+  <desc id="desc">A seven-stage loop from initialization through discovery, retrieval, creation, curation, consolidation, and measurement around canonical Markdown.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0d1117"/><stop offset="1" stop-color="#161b22"/></linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#8b949e"/></marker>
+    <filter id="shadow" x="-10%" y="-20%" width="120%" height="150%"><feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#000" flood-opacity=".25"/></filter>
+  </defs>
+  <rect width="1200" height="430" rx="22" fill="url(#bg)"/>
+  <text x="48" y="54" fill="#f0f6fc" font-family="Inter,Segoe UI,sans-serif" font-size="26" font-weight="700">The Lore curation loop</text>
+  <text x="48" y="82" fill="#8b949e" font-family="Inter,Segoe UI,sans-serif" font-size="14">Every command protects canonical Markdown; the index remains disposable.</text>
+  <g stroke="#8b949e" stroke-width="2" fill="none" marker-end="url(#arrow)">
+    <path d="M190 155H218"/><path d="M350 155H378"/><path d="M510 155H538"/><path d="M670 155H698"/><path d="M830 155H858"/><path d="M990 155h30c28 0 42 18 42 45v96c0 30-20 48-48 48h-14"/>
+    <path d="M858 344H302c-30 0-48-18-48-48v-34" stroke="#3fb950" stroke-dasharray="7 7"/>
+  </g>
+  <g filter="url(#shadow)" font-family="Inter,Segoe UI,sans-serif" text-anchor="middle">
+    <g><rect x="58" y="115" width="132" height="80" rx="13" fill="#0c4a6e" stroke="#38bdf8"/><text x="124" y="148" fill="#e0f2fe" font-size="16" font-weight="700">Initialize</text><text x="124" y="173" fill="#bae6fd" font-size="12">init · validate</text></g>
+    <g><rect x="218" y="115" width="132" height="80" rx="13" fill="#164e63" stroke="#22d3ee"/><text x="284" y="148" fill="#ecfeff" font-size="16" font-weight="700">Discover</text><text x="284" y="173" fill="#a5f3fc" font-size="12">topics · list</text></g>
+    <g><rect x="378" y="115" width="132" height="80" rx="13" fill="#312e81" stroke="#818cf8"/><text x="444" y="148" fill="#eef2ff" font-size="16" font-weight="700">Retrieve</text><text x="444" y="173" fill="#c7d2fe" font-size="12">search · backlinks</text></g>
+    <g><rect x="538" y="115" width="132" height="80" rx="13" fill="#4c1d95" stroke="#a78bfa"/><text x="604" y="148" fill="#f5f3ff" font-size="16" font-weight="700">Create</text><text x="604" y="173" fill="#ddd6fe" font-size="12">new · dry-run</text></g>
+    <g><rect x="698" y="115" width="132" height="80" rx="13" fill="#831843" stroke="#f472b6"/><text x="764" y="148" fill="#fdf2f8" font-size="16" font-weight="700">Curate</text><text x="764" y="173" fill="#fbcfe8" font-size="12">topic · classify · rename</text></g>
+    <g><rect x="858" y="115" width="132" height="80" rx="13" fill="#7c2d12" stroke="#fb923c"/><text x="924" y="148" fill="#fff7ed" font-size="16" font-weight="700">Consolidate</text><text x="924" y="173" fill="#fed7aa" font-size="12">relate · compact</text></g>
+    <g><rect x="858" y="304" width="142" height="80" rx="13" fill="#14532d" stroke="#4ade80"/><text x="929" y="337" fill="#ecfdf5" font-size="16" font-weight="700">Measure</text><text x="929" y="362" fill="#bbf7d0" font-size="12">doctor · metrics · eval</text></g>
+  </g>
+  <path d="M444 195v68" stroke="#8b949e" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arrow)"/>
+  <path d="M604 263v-68" stroke="#8b949e" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)"><path d="M425 263h198v89H425z" fill="#21262d" stroke="#c9d1d9"/><path d="M425 263h198v12c-30 12-64-12-99 0-34 12-67-12-99 0z" fill="#30363d"/><text x="524" y="305" fill="#f0f6fc" font-family="Inter,Segoe UI,sans-serif" font-size="17" font-weight="700" text-anchor="middle">Canonical Markdown</text><text x="524" y="331" fill="#8b949e" font-family="Inter,Segoe UI,sans-serif" font-size="12" text-anchor="middle">portable · reviewable · durable</text></g>
+  <text x="279" y="283" fill="#3fb950" font-family="Inter,Segoe UI,sans-serif" font-size="12">improve the next pass</text>
+</svg>
