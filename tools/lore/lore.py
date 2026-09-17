@@ -2517,6 +2517,96 @@ def validate_cmd(root: Path) -> int:
 # Record creation
 # --------------------------------------------------------------------------
 
+def _records_for_mutation(root: Path) -> dict[str, dict[str, Any]] | None:
+    records, errors, _ = validate_records(root)
+    if errors:
+        print("Refusing to modify an invalid archive. Run `lore validate`:", file=sys.stderr)
+        for error in errors:
+            print(f"  - {error}", file=sys.stderr)
+        return None
+    return {str(record["meta"]["id"]): record for record in records}
+
+
+def _render_record(record: dict[str, Any], meta: dict[str, Any]) -> str:
+    frontmatter = yaml.safe_dump(
+        meta, sort_keys=False, allow_unicode=True, default_flow_style=False
+    ).rstrip()
+    return f"---\n{frontmatter}\n---\n\n{record['body'].rstrip()}\n"
+
+
+def _atomic_write(path: Path, data: bytes) -> None:
+    fd, temporary_name = tempfile.mkstemp(prefix=path.name + ".updating.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            temporary.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def _publish_record_updates(root: Path, records: dict[str, dict[str, Any]],
+                            updates: dict[str, dict[str, Any]]) -> bool:
+    originals = {rid: records[rid]["path"].read_bytes() for rid in updates}
+    try:
+        for rid, meta in updates.items():
+            rendered = _render_record(records[rid], meta).encode("utf-8")
+            _atomic_write(records[rid]["path"], rendered)
+        _, errors, _ = validate_records(root)
+        if errors:
+            raise ValueError("; ".join(errors))
+    except BaseException as error:
+        for rid, data in originals.items():
+            _atomic_write(records[rid]["path"], data)
+        print(f"Record update failed and was rolled back: {error}", file=sys.stderr)
+        return False
+    rebuild(root, strict=True, quiet=True)
+    return True
+
+
+def relate(root: Path, source_id: str, relation_type: str, target_id: str) -> int:
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if source_id not in records:
+        print(f"Unknown source record id: {source_id}", file=sys.stderr)
+        return 1
+    if target_id not in records:
+        print(f"Unknown target record id: {target_id}", file=sys.stderr)
+        return 1
+    if source_id == target_id:
+        print("A record cannot relate to itself.", file=sys.stderr)
+        return 1
+    if relation_type == "supersedes" and str(
+        records[target_id]["meta"].get("status")
+    ) not in RETIRED_STATUSES:
+        print(
+            f"Cannot supersede active record '{target_id}'; use `lore supersede`.",
+            file=sys.stderr,
+        )
+        return 1
+
+    meta = dict(records[source_id]["meta"])
+    relations = {key: list(values) for key, values in records[source_id]["relations"].items()}
+    targets = relations.setdefault(relation_type, [])
+    if target_id in targets:
+        print(f"Relation already exists: {source_id} {relation_type} {target_id}")
+        return 0
+    targets.append(target_id)
+    targets.sort()
+    meta["relations"] = relations
+    meta["updated_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    if not _publish_record_updates(root, records, {source_id: meta}):
+        return 1
+    print(f"Related {source_id} {relation_type} {target_id}")
+    return 0
+
 def slugify(text: str, max_len: int = 48) -> str:
     s = SLUG_STRIP_RE.sub("-", text.lower()).strip("-")
     if len(s) > max_len:
@@ -2774,6 +2864,11 @@ def main() -> int:
     p_new.add_argument("--dry-run", action="store_true",
                        help="preview the exact record without writing it")
 
+    p_relate = sub.add_parser("relate", help="add a relationship between records")
+    p_relate.add_argument("source")
+    p_relate.add_argument("relation_type", choices=sorted(RELATION_TYPES))
+    p_relate.add_argument("target")
+
     args = parser.parse_args()
     _force_utf8_output()
     root = workspace_root(args.root)
@@ -2815,6 +2910,8 @@ def main() -> int:
         return evaluate(root, args.save, args.against)
     if args.command == "new":
         return new_record(root, args)
+    if args.command == "relate":
+        return relate(root, args.source, args.relation_type, args.target)
     return 2
 
 

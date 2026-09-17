@@ -372,6 +372,25 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(collection["active_record_count"], 1)
         self.assertEqual(collection["topic_count"], 3)
 
+    def test_relate_adds_one_valid_relationship(self):
+        source = self.record("source")
+        self.record("target")
+        self.assertEqual(lore.relate(self.root, "source", "depends_on", "target"), 0)
+        meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["relations"], {"depends_on": ["target"]})
+        self.assertNotEqual(str(meta["updated_at"]), "2026-09-17 00:00:00+00:00")
+
+        self.assertEqual(lore.relate(self.root, "source", "depends_on", "target"), 0)
+        meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["relations"], {"depends_on": ["target"]})
+
+    def test_relate_rejects_unknown_and_self_targets(self):
+        source = self.record("source")
+        before = source.read_bytes()
+        self.assertEqual(lore.relate(self.root, "source", "depends_on", "missing"), 1)
+        self.assertEqual(lore.relate(self.root, "source", "depends_on", "source"), 1)
+        self.assertEqual(source.read_bytes(), before)
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",

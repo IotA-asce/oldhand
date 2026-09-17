@@ -24,6 +24,7 @@ python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
 python tools/lore/lore.py usage
 python tools/lore/lore.py new --title "..." --type <type> --importance <level> [...]
+python tools/lore/lore.py relate <source-id> <relation-type> <target-id>
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -462,6 +463,15 @@ path, and collection instead of the human follow-up instructions. Pass
 `--dry-run` to print the exact proposed Markdown without creating directories
 or files. Combining both returns the Markdown in the JSON object's `content`
 field with `created: false`.
+
+## Relationship maintenance
+
+`lore relate SOURCE TYPE TARGET` adds one typed relationship to the canonical
+source record. Both ids must exist, self-relations are rejected, duplicates
+are idempotent, and `supersedes` is reserved for the atomic lifecycle command
+unless the target is already retired. Lore refuses to mutate an archive that
+does not currently validate, updates `updated_at`, validates the proposed
+state, publishes with rollback protection, and rebuilds the derived index.
 
 ## Intentionally deferred
 

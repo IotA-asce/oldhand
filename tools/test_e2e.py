@@ -142,6 +142,14 @@ class CoreCliTests(E2ETestCase):
         self.assertIn("# Preview record", payload["content"])
         self.assertFalse((self.archive / "memory" / "lessons" / "preview-record.md").exists())
 
+    def test_relate_command_updates_canonical_record(self):
+        source = self.record("source")
+        self.record("target")
+        result = self.lore("relate", "source", "depends_on", "target")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(meta["relations"], {"depends_on": ["target"]})
+
     def test_search_json_output(self):
         self.record("good")
         result = self.lore("search", "database", "--json")
