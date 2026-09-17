@@ -26,6 +26,7 @@ python tools/lore/lore.py usage
 python tools/lore/lore.py new --title "..." --type <type> --importance <level> [...]
 python tools/lore/lore.py relate <source-id> <relation-type> <target-id>
 python tools/lore/lore.py unrelate <source-id> <relation-type> <target-id>
+python tools/lore/lore.py supersede <old-id> --by <replacement-id>
 python tools/lore/lore.py doctor [--limit N]
 python tools/lore/lore.py conflicts
 python tools/lore/lore.py eval [--save <name>] [--against <name>]
@@ -479,12 +480,17 @@ prunes the relation type when its final target is removed. Missing ids and
 missing relationships are errors; successful changes use the same validation,
 rollback, timestamp, and rebuild path as `relate`.
 
+`lore supersede OLD --by NEW` performs the two sides of supersession together:
+it changes `OLD` to `status: superseded` and adds `NEW supersedes OLD`. Both
+ids and the replacement's active status are checked before anything is
+written. Both files receive the same timestamp, validation sees the complete
+transition, and any publication failure restores both originals.
+
 ## Intentionally deferred
 
-These operations are specified but not implemented:
+This operation remains specified but not implemented:
 
 ```bash
-lore supersede
 lore compact
 ```
 

@@ -401,6 +401,24 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(lore.unrelate(self.root, "source", "depends_on", "target"), 1)
         self.assertEqual(source.read_bytes(), after)
 
+    def test_supersede_updates_both_records_atomically(self):
+        old = self.record("old")
+        new = self.record("new")
+        self.assertEqual(lore.supersede_record(self.root, "old", "new"), 0)
+        old_meta = yaml.safe_load(old.read_text(encoding="utf-8").split("---\n")[1])
+        new_meta = yaml.safe_load(new.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(old_meta["status"], "superseded")
+        self.assertEqual(new_meta["relations"], {"supersedes": ["old"]})
+        valid, errors, _ = lore.validate_records(self.root)
+        self.assertEqual(len(valid), 2)
+        self.assertEqual(errors, [])
+
+    def test_supersede_unknown_id_changes_nothing(self):
+        old = self.record("old")
+        before = old.read_bytes()
+        self.assertEqual(lore.supersede_record(self.root, "old", "missing"), 1)
+        self.assertEqual(old.read_bytes(), before)
+
     def test_new_record_topics_round_trip(self):
         args = argparse.Namespace(
             title="A topic test", type="lesson", importance="normal",

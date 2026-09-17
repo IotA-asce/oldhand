@@ -180,10 +180,10 @@ surprising or looks like it has been hit before.* Asking someone to search
 "when history might matter" asks them to suspect the trap before looking, and
 the traps worth recording are the ones nobody suspects.
 
-**`compact` and `supersede` are not implemented.** Nothing yet stops an archive
-accumulating stale records at scale. `validate` catches a half-finished
-retirement and `conflicts` finds contradictions, so the manual path works, but
-this is the known gap.
+**`compact` is not implemented.** `lore supersede OLD --by NEW` now performs a
+validated two-record retirement, and `conflicts` still finds contradictions,
+but nothing automatically decides when several old records should be merged.
+That judgment remains deliberately manual.
 
 ## Harness adapters
 

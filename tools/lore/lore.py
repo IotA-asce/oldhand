@@ -2639,6 +2639,53 @@ def unrelate(root: Path, source_id: str, relation_type: str, target_id: str) -> 
     print(f"Removed relation {source_id} {relation_type} {target_id}")
     return 0
 
+
+def supersede_record(root: Path, old_id: str, new_id: str) -> int:
+    records = _records_for_mutation(root)
+    if records is None:
+        return 1
+    if old_id not in records:
+        print(f"Unknown old record id: {old_id}", file=sys.stderr)
+        return 1
+    if new_id not in records:
+        print(f"Unknown replacement record id: {new_id}", file=sys.stderr)
+        return 1
+    if old_id == new_id:
+        print("A record cannot supersede itself.", file=sys.stderr)
+        return 1
+    if str(records[new_id]["meta"].get("status")) in RETIRED_STATUSES:
+        print(f"Replacement record '{new_id}' is retired.", file=sys.stderr)
+        return 1
+
+    new_relations = {
+        key: list(values) for key, values in records[new_id]["relations"].items()
+    }
+    superseded = new_relations.setdefault("supersedes", [])
+    already_complete = (
+        str(records[old_id]["meta"].get("status")) == "superseded"
+        and old_id in superseded
+    )
+    if already_complete:
+        print(f"Supersession already exists: {new_id} supersedes {old_id}")
+        return 0
+    if old_id not in superseded:
+        superseded.append(old_id)
+        superseded.sort()
+
+    now = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    old_meta = dict(records[old_id]["meta"])
+    old_meta["status"] = "superseded"
+    old_meta["updated_at"] = now
+    new_meta = dict(records[new_id]["meta"])
+    new_meta["relations"] = new_relations
+    new_meta["updated_at"] = now
+    if not _publish_record_updates(
+        root, records, {old_id: old_meta, new_id: new_meta}
+    ):
+        return 1
+    print(f"Superseded {old_id} with {new_id}")
+    return 0
+
 def slugify(text: str, max_len: int = 48) -> str:
     s = SLUG_STRIP_RE.sub("-", text.lower()).strip("-")
     if len(s) > max_len:
@@ -2906,6 +2953,11 @@ def main() -> int:
     p_unrelate.add_argument("relation_type", choices=sorted(RELATION_TYPES))
     p_unrelate.add_argument("target")
 
+    p_supersede = sub.add_parser("supersede", help="retire a record with its replacement")
+    p_supersede.add_argument("old_id")
+    p_supersede.add_argument("--by", dest="new_id", required=True,
+                             help="id of the replacement record")
+
     args = parser.parse_args()
     _force_utf8_output()
     root = workspace_root(args.root)
@@ -2951,6 +3003,8 @@ def main() -> int:
         return relate(root, args.source, args.relation_type, args.target)
     if args.command == "unrelate":
         return unrelate(root, args.source, args.relation_type, args.target)
+    if args.command == "supersede":
+        return supersede_record(root, args.old_id, args.new_id)
     return 2
 
 

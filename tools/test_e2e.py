@@ -150,6 +150,16 @@ class CoreCliTests(E2ETestCase):
         meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
         self.assertEqual(meta["relations"], {"depends_on": ["target"]})
 
+    def test_supersede_command_updates_old_and_new_records(self):
+        old = self.record("old")
+        new = self.record("new")
+        result = self.lore("supersede", "old", "--by", "new")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        old_meta = yaml.safe_load(old.read_text(encoding="utf-8").split("---\n")[1])
+        new_meta = yaml.safe_load(new.read_text(encoding="utf-8").split("---\n")[1])
+        self.assertEqual(old_meta["status"], "superseded")
+        self.assertEqual(new_meta["relations"]["supersedes"], ["old"])
+
     def test_search_json_output(self):
         self.record("good")
         result = self.lore("search", "database", "--json")
