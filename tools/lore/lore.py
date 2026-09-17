@@ -1294,6 +1294,57 @@ def list_records(root: Path, history: bool, limit: int, entry_type: str | None,
         con.close()
 
 
+def list_topics(root: Path, limit: int, collection: str | None,
+                json_output: bool = False) -> int:
+    """Browse the active topic vocabulary, busiest first."""
+    con = ensure_db(root)
+    try:
+        warn_index_state(root, con)
+        collection_clause = "AND c.name = ?" if collection else ""
+        params: tuple[Any, ...] = (collection,) if collection else ()
+        base = f"""FROM topics t
+            JOIN collections c ON c.id=t.collection_id
+            JOIN entry_topics et ON et.topic_id=t.id
+            JOIN entries e ON e.id=et.entry_id
+            WHERE e.status NOT IN ('superseded','deprecated') {collection_clause}"""
+        total = con.execute(
+            f"""SELECT COUNT(*) n FROM (
+                SELECT t.id {base} GROUP BY t.id
+            )""", params,
+        ).fetchone()["n"]
+        rows = con.execute(
+            f"""SELECT t.topic_key, t.display_name, c.name AS collection_name,
+                       COUNT(et.entry_id) AS record_count
+                {base}
+                GROUP BY t.id
+                ORDER BY record_count DESC, t.display_name COLLATE NOCASE,
+                         c.name COLLATE NOCASE
+                LIMIT ?""",
+            (*params, limit),
+        ).fetchall()
+        topics = [{
+            "key": row["topic_key"], "name": row["display_name"],
+            "collection": row["collection_name"], "record_count": row["record_count"],
+        } for row in rows]
+        if json_output:
+            print(json.dumps({
+                "collection": collection, "count": total,
+                "returned": len(topics), "topics": topics,
+            }, ensure_ascii=False, indent=2))
+        else:
+            print(f"{total} active topic(s); showing {len(topics)}.")
+            multi = con.execute("SELECT COUNT(*) c FROM collections").fetchone()["c"] > 1
+            for index, topic_row in enumerate(topics, 1):
+                location = (f" [{topic_row['collection']}]" if multi else "")
+                print(
+                    f"{index}. {topic_row['name']}{location} — "
+                    f"{topic_row['record_count']} record(s)"
+                )
+        return 0
+    finally:
+        con.close()
+
+
 def usage(root: Path) -> int:
     """Report what retrieval actually did, from .lore/retrieval.jsonl.
 
@@ -2633,6 +2684,12 @@ def main() -> int:
     p_list.add_argument("--json", dest="json_output", action="store_true",
                         help="emit one machine-readable JSON document")
 
+    p_topics = sub.add_parser("topics", help="browse active topic vocabulary")
+    p_topics.add_argument("--collection", help="restrict to one collection by name")
+    p_topics.add_argument("--limit", type=positive_int, default=50)
+    p_topics.add_argument("--json", dest="json_output", action="store_true",
+                          help="emit one machine-readable JSON document")
+
     p_new = sub.add_parser("new", help="create a well-formed record skeleton")
     p_new.add_argument("--title", required=True)
     p_new.add_argument("--type", required=True, choices=sorted(ENTRY_TYPES))
@@ -2667,6 +2724,8 @@ def main() -> int:
     if args.command == "list":
         return list_records(root, args.history, args.limit, args.entry_type,
                             args.topic, args.collection, args.json_output, args.status)
+    if args.command == "topics":
+        return list_topics(root, args.limit, args.collection, args.json_output)
     if args.command == "stats":
         return stats(root)
     if args.command == "selftest":

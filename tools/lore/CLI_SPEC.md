@@ -18,6 +18,7 @@ python tools/lore/lore.py search --history "query"
 python tools/lore/lore.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --limit N [--json]
 python tools/lore/lore.py show <id> [--json]
 python tools/lore/lore.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--collection <name>] [--limit N] [--json]
+python tools/lore/lore.py topics [--collection <name>] [--limit N] [--json]
 python tools/lore/lore.py stats
 python tools/lore/lore.py selftest
 python tools/lore/lore.py usage
@@ -115,6 +116,12 @@ Human output is a compact catalog with metadata, topics, and summaries.
 caller can detect truncation. Listing is not written to the retrieval log:
 that log measures intentional searches and record opens, not archive
 administration.
+
+`lore topics` discovers the vocabulary needed by exact topic filters. It lists
+topics attached to active records, ordered by record count and then name.
+Repeated topic names remain separate across collections. Use `--collection`
+to narrow the catalog, `--limit` to bound it, and `--json` for a document that
+separates the total matching count from the number returned.
 
 Ranking runs in **two passes**:
 
