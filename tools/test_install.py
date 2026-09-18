@@ -12,6 +12,14 @@ from unittest import mock
 import install
 
 
+POSIX_ONLY = unittest.skipIf(
+    os.name == "nt",
+    "Exercises POSIX shell-profile quoting or symlink semantics that Windows "
+    "has no analogue for: NTFS cannot represent these filenames, and symlink "
+    "creation needs elevation. Windows PATH handling is covered separately by "
+    "WindowsEnvironmentTests.")
+
+
 class InstallTestCase(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -59,6 +67,7 @@ class LauncherCollisionTests(InstallTestCase):
                 self.assertIn("Refusing", self.stderr.getvalue())
                 self.run.assert_not_called()
 
+    @POSIX_ONLY
     def test_symlinks_are_preserved_even_when_owned_or_dangling(self):
         for windows in (False, True):
             with mock.patch.object(install, "IS_WINDOWS", windows):
@@ -104,6 +113,7 @@ class LauncherUninstallTests(InstallTestCase):
                         self.assertTrue(target.exists())
                         self.assertEqual(target.read_bytes(), content)
 
+    @POSIX_ONLY
     def test_uninstall_preserves_symlinks_and_their_targets(self):
         for windows in (False, True):
             with mock.patch.object(install, "IS_WINDOWS", windows):
@@ -292,6 +302,7 @@ class QuotingTests(InstallTestCase):
             self.assertEqual(len(argv), 4)
             self.assertEqual(argv[1], tricky)
 
+    @POSIX_ONLY
     def test_launcher_handles_backslash_newline_and_glob_chars(self):
         tricky = str(self.home / "back\\slash")
         with mock.patch.object(sys, "executable", tricky):
@@ -301,6 +312,7 @@ class QuotingTests(InstallTestCase):
             argv = shlex.split(body.splitlines()[-1])
             self.assertEqual(argv[1], tricky)
 
+    @POSIX_ONLY
     def test_profile_roundtrip_with_combined_quotes_spaces_and_newlines(self):
         for name in ("quo'te space", "quo'te\nline", "two' spaced 'quotes"):
             with self.subTest(name=name):
@@ -314,6 +326,7 @@ class QuotingTests(InstallTestCase):
                 self.assertEqual(self.invoke("--uninstall"), 0)
                 self.assertEqual(self.rc.read_bytes(), b"keep\r\n\n")
 
+    @POSIX_ONLY
     def test_profile_line_quotes_archive_paths(self):
         for name in ('sp ace', "quo'te", 'dq"uote', 'back\\slash', 'star*glob'):
             with self.subTest(name=name):
@@ -326,6 +339,7 @@ class QuotingTests(InstallTestCase):
                 self.assertNotIn(f"export LORE_ROOT={archive.resolve()}", text)
                 self.assertEqual(text.count("export LORE_ROOT="), 1)
 
+    @POSIX_ONLY
     def test_profile_line_parses_back_with_shlex(self):
         for name in ('sp ace', "quo'te", 'dq"uote', 'back\\slash', 'dollar$x', 'star*'):
             with self.subTest(name=name):

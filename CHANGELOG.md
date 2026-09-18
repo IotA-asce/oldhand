@@ -45,8 +45,12 @@ Before cutting the next public release:
   realistic adoption or retrieval-quality benchmark.
 - Replay evaluates already-recorded discovery traces and never executes an
   agent or predicts unseen outcomes.
-- Native Windows support and package-installation ergonomics must be verified
-  by the release CI matrix before being claimed as supported.
+- Windows is not supported. The release CI matrix now measures it on an
+  informational `windows-preview` job, which fails: `show --json` produces no
+  stdout under the end-to-end harness, and installer symlink handling is
+  unverified. Linux and macOS are verified on Python 3.10-3.13.
+- Package-installation ergonomics must be verified from a clean environment
+  before being claimed as supported.
 - Lore is local software, not an access-control, backup, secret-management, or
   compliance system.
 

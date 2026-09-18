@@ -73,7 +73,13 @@ set -gx LORE_ROOT "$HOME/path/to/your/archive"
 When `SHELL` identifies Fish, `--shell-rc` writes the matching `set -gx`
 line to `~/.config/fish/config.fish`.
 
-### Windows
+### Windows (not supported yet)
+
+Windows is **not a supported platform** for this release. CI runs the full
+suite on Windows as an informational `windows-preview` job, and it currently
+fails: `show --json` returns no output under the end-to-end harness, and the
+installer's symlink handling is unverified. The instructions below are what
+we expect to work once those defects are fixed; treat them as unsupported.
 
 ```bat
 @echo off

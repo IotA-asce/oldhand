@@ -85,7 +85,7 @@ lore search "why did one new setting remove the old ones"
 
 `lore init PATH` refuses to overwrite an existing `memory/` directory. Lore
 needs no administrator access, server, account, or network connection. See
-[INSTALL.md](INSTALL.md) for PATH setup, Windows, manual installation, and
+[INSTALL.md](INSTALL.md) for PATH setup, manual installation, and
 uninstalling.
 
 ## Two kinds of memory
