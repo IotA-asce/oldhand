@@ -18,7 +18,7 @@ def run_checks(root):
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     for path in sorted((root / "tools").rglob("*.py")):
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path), feature_version=(3, 10))
-    for directory in ("tools/lore", "tools/migrate", "tools"):
+    for directory in ("tools/lore", "tools/migrate", "tools", "examples"):
         subprocess.run(
             [sys.executable, "-B", "-m", "unittest", "discover", "-s", directory,
              "-p", "test_*.py", "-v"], cwd=root, env=env, check=True)

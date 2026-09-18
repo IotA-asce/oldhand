@@ -842,6 +842,14 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("search", result.stdout)
 
+    def test_cli_version(self):
+        for flag in ("--version", "-V"):
+            result = subprocess.run([sys.executable, "-B", str(SOURCE), flag],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, f"lore {lore.LORE_VERSION}\n")
+            self.assertEqual(result.stderr, "")
+
 
 if __name__ == "__main__":
     unittest.main()

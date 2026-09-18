@@ -3270,6 +3270,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         prog="lore",
         description="Lore: durable engineering memory for coding agents.")
+    parser.add_argument("-V", "--version", action="version",
+                        version=f"%(prog)s {LORE_VERSION}")
     parser.add_argument("--root", help="workspace root (auto-detected, or set LORE_ROOT)")
     sub = parser.add_subparsers(dest="command", required=True)
 

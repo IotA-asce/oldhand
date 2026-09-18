@@ -1,0 +1,5 @@
+{
+  "DATABASE_URL": "postgresql://demo-user@database.invalid/synthetic_app",
+  "LOG_LEVEL": "info",
+  "REQUEST_TIMEOUT_SECONDS": 30
+}

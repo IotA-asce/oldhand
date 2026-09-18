@@ -11,6 +11,7 @@ python -m pip install -r tools/lore/requirements.txt
 ## Implemented commands
 
 ```bash
+python tools/lore/lore.py --version
 python tools/lore/lore.py init <path> [--json]
 python tools/lore/lore.py validate [--json]
 python tools/lore/lore.py rebuild [--strict]
