@@ -14,10 +14,25 @@ from typing import Any
 
 TRACE_SCHEMA_VERSION = 1
 TRACE_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
+ROOT_ID = "root"
 
 
 def now_iso() -> str:
     return datetime.now().astimezone().replace(microsecond=0).isoformat()
+
+
+def parse_trace_time(value: Any) -> datetime:
+    """Parse one canonical, offset-aware trace timestamp."""
+    if not isinstance(value, str):
+        raise ValueError("timestamp must be a string")
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as error:
+        raise ValueError("timestamp must be ISO-8601") from error
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("timestamp must include a UTC offset")
+    return parsed
 
 
 def runs_dir(root: Path) -> Path:
@@ -30,7 +45,8 @@ def run_path(root: Path, run_id: str) -> Path:
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = (json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    data = (json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False)
+            + "\n").encode("utf-8")
     fd, temporary_name = tempfile.mkstemp(prefix=path.name + ".updating.", dir=path.parent)
     temporary = Path(temporary_name)
     try:
@@ -62,6 +78,8 @@ def load_run(root: Path, run_id: str) -> dict[str, Any]:
         raise ValueError(f"Cannot read discovery run {run_id}: {error}") from error
     if not isinstance(payload, dict):
         raise ValueError(f"Discovery run {run_id} must be a JSON object")
+    if payload.get("id") != run_id:
+        raise ValueError(f"Discovery run {run_id} id does not match its filename")
     return payload
 
 
@@ -83,8 +101,23 @@ def validate_run_payload(payload: Any, label: str) -> list[str]:
         errors.append(f"{label}: invalid run id")
     if payload.get("goal") not in ("maximize", "minimize"):
         errors.append(f"{label}: goal must be maximize or minimize")
+    for field in ("task", "evaluator", "policy"):
+        value = payload.get(field)
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"{label}: {field} must be a non-empty string")
+        elif value != value.strip():
+            errors.append(f"{label}: {field} must not have surrounding whitespace")
     if payload.get("status") not in ("active", "completed"):
         errors.append(f"{label}: status must be active or completed")
+    parsed_times: dict[str, datetime] = {}
+    for field in ("created_at", "updated_at"):
+        try:
+            parsed_times[field] = parse_trace_time(payload.get(field))
+        except ValueError as error:
+            errors.append(f"{label}: {field} {error}")
+    if ("created_at" in parsed_times and "updated_at" in parsed_times
+            and parsed_times["created_at"] > parsed_times["updated_at"]):
+        errors.append(f"{label}: created_at must not be after updated_at")
     if not isinstance(payload.get("max_workers"), int) or payload.get("max_workers", 0) < 1:
         errors.append(f"{label}: max_workers must be a positive integer")
     nodes = payload.get("nodes")
@@ -92,6 +125,7 @@ def validate_run_payload(payload: Any, label: str) -> list[str]:
         errors.append(f"{label}: nodes must be a list")
         return errors
     ids: set[str] = set()
+    evaluation_times: list[tuple[str, datetime]] = []
     child_counts: dict[str, int] = {}
     for index, node in enumerate(nodes, 1):
         node_label = f"{label}: node {index}"
@@ -102,6 +136,9 @@ def validate_run_payload(payload: Any, label: str) -> list[str]:
         if not isinstance(node_id, str) or not TRACE_ID_RE.fullmatch(node_id):
             errors.append(f"{node_label} has invalid id")
             continue
+        if node_id == ROOT_ID:
+            errors.append(f"{node_label} id '{ROOT_ID}' is reserved")
+            continue
         if node_id in ids:
             errors.append(f"{label}: duplicate node id {node_id}")
         parent = node.get("parent_id")
@@ -111,6 +148,17 @@ def validate_run_payload(payload: Any, label: str) -> list[str]:
             child_counts[str(parent)] = child_counts.get(str(parent), 0) + 1
         if node.get("created_order") != index:
             errors.append(f"{label}: node {node_id} has invalid created_order")
+        node_created = None
+        try:
+            node_created = parse_trace_time(node.get("created_at"))
+            run_created = parsed_times.get("created_at")
+            run_updated = parsed_times.get("updated_at")
+            if run_created is not None and node_created < run_created:
+                errors.append(f"{node_label} created_at is before run creation")
+            if run_updated is not None and node_created > run_updated:
+                errors.append(f"{node_label} created_at is after run update")
+        except ValueError as error:
+            errors.append(f"{node_label} created_at {error}")
         evaluation = node.get("evaluation")
         if evaluation is not None:
             if not isinstance(evaluation, dict):
@@ -127,6 +175,16 @@ def validate_run_payload(payload: Any, label: str) -> list[str]:
                     value = evaluation.get(field)
                     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                         errors.append(f"{label}: node {node_id} has invalid {field}")
+                try:
+                    evaluated = parse_trace_time(evaluation.get("evaluated_at"))
+                    evaluation_times.append((str(node_id), evaluated))
+                    if node_created is not None and evaluated < node_created:
+                        errors.append(f"{node_label} evaluated_at is before creation")
+                    run_updated = parsed_times.get("updated_at")
+                    if run_updated is not None and evaluated > run_updated:
+                        errors.append(f"{node_label} evaluated_at is after run update")
+                except ValueError as error:
+                    errors.append(f"{node_label} evaluated_at {error}")
         ids.add(node_id)
     for parent, count in child_counts.items():
         if count > 1:
@@ -140,6 +198,21 @@ def validate_run_payload(payload: Any, label: str) -> list[str]:
             errors.append(f"{label}: completed run has unevaluated attempts: {', '.join(incomplete)}")
         if not payload.get("finished_at"):
             errors.append(f"{label}: completed run requires finished_at")
+        else:
+            try:
+                finished = parse_trace_time(payload.get("finished_at"))
+                created = parsed_times.get("created_at")
+                updated = parsed_times.get("updated_at")
+                if created is not None and finished < created:
+                    errors.append(f"{label}: finished_at must not be before created_at")
+                if updated is not None and finished > updated:
+                    errors.append(f"{label}: finished_at must not be after updated_at")
+                for evaluated_node, evaluated in evaluation_times:
+                    if evaluated > finished:
+                        errors.append(
+                            f"{label}: node {evaluated_node} evaluated_at is after finished_at")
+            except ValueError as error:
+                errors.append(f"{label}: finished_at {error}")
     return errors
 
 
@@ -155,6 +228,9 @@ def validate_runs(root: Path, run_id: str | None = None) -> tuple[list[dict[str,
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             errors.append(f"{label}: cannot parse JSON: {error}")
+            continue
+        if isinstance(payload, dict) and payload.get("id") != path.stem:
+            errors.append(f"{label}: trace id must match filename")
             continue
         current = validate_run_payload(payload, label)
         if current:
@@ -186,9 +262,9 @@ def start_run(root: Path, task: str, evaluator: str, policy: str,
     payload: dict[str, Any] = {
         "schema_version": TRACE_SCHEMA_VERSION,
         "id": run_id,
-        "task": task,
-        "evaluator": evaluator,
-        "policy": policy,
+        "task": task.strip(),
+        "evaluator": evaluator.strip(),
+        "policy": policy.strip(),
         "goal": goal,
         "max_workers": workers,
         "workspace_ref": workspace_ref,
@@ -215,6 +291,10 @@ def add_attempt(root: Path, run_id: str, node_id: str, parent_id: str,
                 json_output: bool = False) -> int:
     if not TRACE_ID_RE.fullmatch(node_id):
         print("Invalid attempt id: use 1-128 portable id characters.", file=os.sys.stderr)
+        return 2
+    if node_id == ROOT_ID:
+        print(f"Attempt id '{ROOT_ID}' is reserved for the tree root.",
+              file=os.sys.stderr)
         return 2
     if not proposal.strip():
         print("proposal cannot be empty", file=os.sys.stderr)
@@ -265,11 +345,19 @@ def evaluate_attempt(root: Path, run_id: str, node_id: str, score: float,
                      correct: bool, outcome: str, cost: int = 1,
                      duration_ms: int = 0, diagnostics_ref: str | None = None,
                      json_output: bool = False) -> int:
-    if not math.isfinite(score):
-        print("score must be finite", file=os.sys.stderr)
+    if (not isinstance(score, (int, float)) or isinstance(score, bool)
+            or not math.isfinite(score)):
+        print("score must be a finite number", file=os.sys.stderr)
         return 2
-    if cost < 0 or duration_ms < 0:
-        print("cost and duration must be non-negative", file=os.sys.stderr)
+    if (type(cost) is not int or type(duration_ms) is not int
+            or cost < 0 or duration_ms < 0):
+        print("cost and duration must be non-negative integers", file=os.sys.stderr)
+        return 2
+    if type(correct) is not bool:
+        print("correct must be boolean", file=os.sys.stderr)
+        return 2
+    if outcome not in ("success", "failure", "error"):
+        print("outcome must be success, failure, or error", file=os.sys.stderr)
         return 2
     try:
         run = load_run(root, run_id)
@@ -460,8 +548,11 @@ def replay_run(run: dict[str, Any], policy: str, budget: int, workers: int = 1,
         raise ValueError("budget must be a positive integer")
     if workers < 1:
         raise ValueError("workers must be a positive integer")
-    if beta_cost < 0 or beta_parallel < 0:
-        raise ValueError("replay coefficients must be non-negative")
+    if (not all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                and math.isfinite(value)
+                for value in (beta_cost, beta_parallel))
+            or beta_cost < 0 or beta_parallel < 0):
+        raise ValueError("replay coefficients must be finite and non-negative")
     nodes = sorted(run.get("nodes", []), key=lambda item: item["created_order"])
     by_id = {node["id"]: node for node in nodes}
     children: dict[str, list[str]] = {"root": []}
@@ -492,14 +583,24 @@ def replay_run(run: dict[str, Any], policy: str, budget: int, workers: int = 1,
         score = float(evaluation["score"])
         return score if run.get("goal") == "maximize" else -score
 
+    def score_greedy_key(node_id: str) -> tuple[int, float, int]:
+        if node_id == "root":
+            return 1, 0.0, depth(node_id)
+        evaluation = by_id[node_id].get("evaluation") or {}
+        if not evaluation.get("correct"):
+            return 0, 0.0, depth(node_id)
+        return 2, adjusted_score(node_id), depth(node_id)
+
     while len(observed) < budget:
-        candidates = []
-        if "root" not in exhausted:
-            candidates.append("root")
+        # Root can open several independent branches in one batch. Represent
+        # each unrevealed root child as its own expansion slot so workers model
+        # real parallel fan-out without seeing any result inside the batch.
+        candidates = ["root" for child in children["root"]
+                      if child not in observed_set]
         for node_id in observed:
             if node_id in exhausted:
                 continue
-            if not any(child in observed_set for child in children[node_id]):
+            if any(child not in observed_set for child in children[node_id]):
                 candidates.append(node_id)
         if not candidates:
             break
@@ -509,8 +610,7 @@ def replay_run(run: dict[str, Any], policy: str, budget: int, workers: int = 1,
             ordered = sorted(candidates,
                              key=lambda item: (depth(item), item != "root"), reverse=True)
         else:
-            ordered = sorted(candidates,
-                             key=lambda item: (adjusted_score(item), depth(item)), reverse=True)
+            ordered = sorted(candidates, key=score_greedy_key, reverse=True)
         selected = ordered[:min(workers, budget - len(observed))]
         revealed_this_round = []
         for parent in selected:
@@ -581,12 +681,15 @@ def compare_policies(root: Path, policies: list[str], incumbent: str,
                      budget: int, holdout: int = 1, evaluator: str | None = None,
                      workers: int | None = None, beta_cost: float = 0.0,
                      beta_parallel: float = 0.0,
-                     json_output: bool = False) -> int:
+                     json_output: bool = False, goal: str | None = None) -> int:
     if holdout < 0:
         print("holdout must be non-negative", file=os.sys.stderr)
         return 2
-    if beta_cost < 0 or beta_parallel < 0:
-        print("replay coefficients must be non-negative", file=os.sys.stderr)
+    if (not all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                and math.isfinite(value)
+                for value in (beta_cost, beta_parallel))
+            or beta_cost < 0 or beta_parallel < 0):
+        print("replay coefficients must be finite and non-negative", file=os.sys.stderr)
         return 2
     requested = list(dict.fromkeys([incumbent, *policies]))
     unknown = [policy for policy in requested if policy not in REPLAY_POLICIES]
@@ -599,15 +702,21 @@ def compare_policies(root: Path, policies: list[str], incumbent: str,
             print(error, file=os.sys.stderr)
         return 1
     runs = [run for run in valid if run.get("status") == "completed"
-            and (evaluator is None or run.get("evaluator") == evaluator)]
+            and (evaluator is None or run.get("evaluator") == evaluator)
+            and (goal is None or run.get("goal") == goal)]
     evaluators = sorted({str(run.get("evaluator")) for run in runs})
     if evaluator is None and len(evaluators) > 1:
         print("Multiple evaluators found; select one with --evaluator: " +
               ", ".join(evaluators), file=os.sys.stderr)
         return 1
-    runs.sort(key=lambda run: (run["created_at"], run["id"]))
+    runs.sort(key=lambda run: (parse_trace_time(run["finished_at"]), run["id"]))
     if not runs:
         print("No completed discovery runs match the comparison.", file=os.sys.stderr)
+        return 1
+    goals = sorted({str(run["goal"]) for run in runs})
+    if len(goals) > 1:
+        print("Mixed goals found; policy comparison requires one optimization goal: "
+              + ", ".join(goals), file=os.sys.stderr)
         return 1
     if holdout >= len(runs):
         print("holdout must leave at least one training run", file=os.sys.stderr)
@@ -638,15 +747,22 @@ def compare_policies(root: Path, policies: list[str], incumbent: str,
             "train": evaluate_group(policy, train),
             "holdout": evaluate_group(policy, test),
         })
-    ranking_key = "holdout" if test else "train"
-    def comparison_key(item: dict[str, Any]) -> tuple[bool, float]:
+    # Holdout is out-of-sample evidence, never a selection target. Ranking on
+    # it would leak the held-out histories back into policy choice.
+    ranking_key = "train"
+    def comparison_key(item: dict[str, Any]) -> tuple[float, bool, float, bool, str]:
+        scored = int(item[ranking_key]["scored_count"])
+        total = int(item[ranking_key]["run_count"])
+        coverage = scored / total if total else 0.0
         value = item[ranking_key]["mean_objective"]
-        return value is not None, float(value) if value is not None else float("-inf")
+        return (coverage, value is not None,
+                float(value) if value is not None else float("-inf"),
+                bool(item["incumbent"]), str(item["policy"]))
 
     comparisons.sort(key=comparison_key, reverse=True)
     payload = {
         "evaluator": evaluator or evaluators[0], "incumbent": incumbent,
-        "budget": budget, "holdout_count": len(test),
+        "goal": goal or goals[0], "budget": budget, "holdout_count": len(test),
         "train_runs": [run["id"] for run in train],
         "holdout_runs": [run["id"] for run in test],
         "ranking_basis": ranking_key, "comparisons": comparisons,

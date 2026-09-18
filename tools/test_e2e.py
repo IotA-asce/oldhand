@@ -120,6 +120,17 @@ class CoreCliTests(E2ETestCase):
         self.assertNotIn("Traceback", result.stderr)
         self.assertIn("N/A", result.stdout)
 
+    def test_daily_metrics_include_each_completed_command(self):
+        self.record("good")
+        first = self.lore("search", "database")
+        self.assertEqual(first.returncode, 0, first.stderr)
+        second = self.lore("search", "gateway")
+        self.assertEqual(second.returncode, 0, second.stderr)
+        lines = (self.archive / "metrics" / "daily.jsonl").read_text().splitlines()
+        self.assertEqual(len(lines), 1)
+        snapshot = json.loads(lines[0])
+        self.assertEqual(snapshot["retrieval"]["searches"], 2)
+
     def test_new_record_topics_round_trip(self):
         result = self.lore("new", "--title", "Hostile topics", "--type", "lesson",
                            "--importance", "normal",
