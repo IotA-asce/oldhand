@@ -1,0 +1,36 @@
+{
+  "benchmark_id": "lore-synthetic-retrieval-v1",
+  "description": "Fictional engineering-memory retrieval queries and binary relevance judgments.",
+  "queries": [
+    {
+      "id": "config-replacement",
+      "query": "why cannot staging configuration merge defaults",
+      "relevant_ids": ["synthetic_config_replaces_defaults"]
+    },
+    {
+      "id": "idempotency-retry",
+      "query": "safe retry for duplicate payment webhook",
+      "relevant_ids": ["synthetic_payment_idempotency"]
+    },
+    {
+      "id": "migration-contract",
+      "query": "can application startup create production database tables",
+      "relevant_ids": ["synthetic_migrations_are_explicit"]
+    },
+    {
+      "id": "flag-removal",
+      "query": "when is it safe to remove a completed feature flag",
+      "relevant_ids": ["synthetic_feature_flag_retirement"]
+    },
+    {
+      "id": "timezone-boundary",
+      "query": "what timezone defines the daily billing cutoff",
+      "relevant_ids": ["synthetic_billing_uses_utc"]
+    },
+    {
+      "id": "cache-authorization",
+      "query": "may a shared cache reuse authorization responses between users",
+      "relevant_ids": ["synthetic_auth_cache_is_principal_scoped"]
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "benchmark_id": "lore-synthetic-retrieval-v1",
+  "corpus_license": "CC0-1.0",
+  "corpus_sha256": "c1bf9a8aee14762d0348be94d781e25e8d7badb8437bdde6d28f681a8d243645",
+  "metrics": {
+    "mrr_at_5": 1.0,
+    "recall_at_1": 1.0,
+    "recall_at_3": 1.0,
+    "recall_at_5": 1.0
+  },
+  "queries": [
+    {
+      "first_relevant_rank": 1,
+      "id": "config-replacement",
+      "query": "why cannot staging configuration merge defaults",
+      "relevant_ids": [
+        "synthetic_config_replaces_defaults"
+      ],
+      "returned_ids": [
+        "synthetic_config_replaces_defaults"
+      ]
+    },
+    {
+      "first_relevant_rank": 1,
+      "id": "idempotency-retry",
+      "query": "safe retry for duplicate payment webhook",
+      "relevant_ids": [
+        "synthetic_payment_idempotency"
+      ],
+      "returned_ids": [
+        "synthetic_payment_idempotency",
+        "synthetic_auth_cache_is_principal_scoped",
+        "synthetic_migrations_are_explicit"
+      ]
+    },
+    {
+      "first_relevant_rank": 1,
+      "id": "migration-contract",
+      "query": "can application startup create production database tables",
+      "relevant_ids": [
+        "synthetic_migrations_are_explicit"
+      ],
+      "returned_ids": [
+        "synthetic_migrations_are_explicit",
+        "synthetic_auth_cache_is_principal_scoped"
+      ]
+    },
+    {
+      "first_relevant_rank": 1,
+      "id": "flag-removal",
+      "query": "when is it safe to remove a completed feature flag",
+      "relevant_ids": [
+        "synthetic_feature_flag_retirement"
+      ],
+      "returned_ids": [
+        "synthetic_feature_flag_retirement",
+        "synthetic_payment_idempotency",
+        "synthetic_config_replaces_defaults",
+        "synthetic_billing_uses_utc"
+      ]
+    },
+    {
+      "first_relevant_rank": 1,
+      "id": "timezone-boundary",
+      "query": "what timezone defines the daily billing cutoff",
+      "relevant_ids": [
+        "synthetic_billing_uses_utc"
+      ],
+      "returned_ids": [
+        "synthetic_billing_uses_utc",
+        "synthetic_auth_cache_is_principal_scoped",
+        "synthetic_payment_idempotency",
+        "synthetic_config_replaces_defaults",
+        "synthetic_migrations_are_explicit"
+      ]
+    },
+    {
+      "first_relevant_rank": 1,
+      "id": "cache-authorization",
+      "query": "may a shared cache reuse authorization responses between users",
+      "relevant_ids": [
+        "synthetic_auth_cache_is_principal_scoped"
+      ],
+      "returned_ids": [
+        "synthetic_auth_cache_is_principal_scoped",
+        "synthetic_config_replaces_defaults"
+      ]
+    }
+  ],
+  "query_count": 6,
+  "result_limit": 5
+}
