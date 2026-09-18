@@ -61,10 +61,12 @@ git clone https://github.com/IotA-asce/lore.git
 cd lore
 python3 -m pip install -r tools/lore/requirements.txt
 python3 tools/lore/lore.py init ~/knowledge
-python3 tools/install.py ~/knowledge
+python3 tools/install.py ~/knowledge --shell-rc
 ```
 
-Open a new terminal, look around, and make the first memory:
+`--shell-rc` persists `LORE_ROOT` in a recognized Zsh, Bash, or Fish profile.
+Omit it if you want to add the printed profile line yourself. Open a new
+terminal, look around, and make the first memory:
 
 ```bash
 lore stats

@@ -103,13 +103,26 @@ def write_launcher(bin_dir: Path) -> Path:
     return target
 
 
-def set_windows_env(name: str, value: str | None) -> None:
-    """User-scope only. Never touches the machine environment."""
+def set_windows_env(name: str, value: str | None) -> bool:
+    """Set a user-scope value, reporting failures rather than hiding them."""
     if value is None:
-        subprocess.run(["reg", "delete", "HKCU\\Environment", "/v", name, "/f"],
-                       capture_output=True)
+        command = ["reg", "delete", "HKCU\\Environment", "/v", name, "/f"]
+        action = "remove"
     else:
-        subprocess.run(["setx", name, value], capture_output=True)
+        command = ["setx", name, value]
+        action = "set"
+    try:
+        result = subprocess.run(command, capture_output=True, text=True)
+    except OSError as exc:
+        print(f"Could not {action} {name} in the Windows user environment: {exc}",
+              file=sys.stderr)
+        return False
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "no diagnostic returned").strip()
+        print(f"Could not {action} {name} in the Windows user environment: {detail}",
+              file=sys.stderr)
+        return False
+    return True
 
 
 def shell_rc() -> Path | None:
@@ -129,9 +142,23 @@ def shell_rc() -> Path | None:
 
 MARKER = "# added by lore tools/install.py"
 PROFILE_ASSIGNMENT = re.compile(
-    r"^export LORE_ROOT=(?:\"(?:[^\"\\]|\\[\s\S])*\"|'[^']*'(?:\\''[^']*')*)"
+    r"^(?:export LORE_ROOT=(?:\"(?:[^\"\\]|\\[\s\S])*\"|'[^']*'(?:\\''[^']*')*)"
+    r"|set -gx LORE_ROOT '(?:[^'\\]|\\[\s\S])*')"
     r"[ \t]{2,}" + re.escape(MARKER) + r"(?:\r?\n|\Z)",
     re.MULTILINE)
+
+
+def fish_quote(value: str) -> str:
+    """Quote one literal for Fish's single-quoted string syntax."""
+    return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+
+def profile_assignment(archive: Path) -> str:
+    """Return the owned profile line for the current shell."""
+    value = str(archive)
+    if "fish" in os.environ.get("SHELL", ""):
+        return f"set -gx LORE_ROOT {fish_quote(value)}  {MARKER}"
+    return f"export LORE_ROOT={sh_quote(value)}  {MARKER}"
 
 
 def main() -> int:
@@ -145,12 +172,15 @@ def main() -> int:
 
     if uninstall:
         removed = []
+        failed = False
         if owns_launcher(launcher):
             launcher.unlink()
             removed.append(str(launcher))
         if IS_WINDOWS:
-            set_windows_env("LORE_ROOT", None)
-            removed.append("LORE_ROOT (user environment)")
+            if set_windows_env("LORE_ROOT", None):
+                removed.append("LORE_ROOT (user environment)")
+            else:
+                failed = True
         else:
             rc = shell_rc()
             if rc and rc.exists() and MARKER in rc.read_text(encoding="utf-8"):
@@ -165,7 +195,7 @@ def main() -> int:
             print(f"  {r}")
         if not IS_WINDOWS:
             print("\nOpen a new shell for the change to take effect.")
-        return 0
+        return 1 if failed else 0
 
     if not positional:
         print("usage: python tools/install.py <archive-directory> [--shell-rc]")
@@ -192,11 +222,14 @@ def main() -> int:
     print(f"launcher   {target}")
 
     if IS_WINDOWS:
-        set_windows_env("LORE_ROOT", str(archive))
+        if not set_windows_env("LORE_ROOT", str(archive)):
+            print(f"The launcher remains at {target}; remove it or retry after fixing "
+                  "the Windows user environment.", file=sys.stderr)
+            return 1
         os.environ["LORE_ROOT"] = str(archive)
         print(f"LORE_ROOT  {archive}   (user environment)")
     else:
-        line = f'export LORE_ROOT={sh_quote(str(archive))}  {MARKER}'
+        line = profile_assignment(archive)
         rc = shell_rc()
         if write_rc and rc:
             rc.parent.mkdir(parents=True, exist_ok=True)

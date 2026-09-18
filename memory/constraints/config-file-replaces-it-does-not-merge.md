@@ -17,18 +17,18 @@ expires_at: null
 relations: {}
 ---
 
-# An environment vars file replaces the shared defaults, it does not merge
+# Fictional example: an environment file replaces shared defaults, not merge
 
 ## Summary
 
-Adding one key to an environment's vars file silently drops every key it was
+In this fictional example, adding one key to an environment's vars file silently drops every key it was
 inheriting from the shared defaults file. The deploy succeeds, the service
 starts, and the missing settings surface hours later as unrelated faults. Copy
 the inherited block in whenever you add a key.
 
 ## Knowledge
 
-The deployment tooling treats a per-environment `env_vars` block as a
+The fictional deployment tooling treats a per-environment `example_vars` block as a
 replacement for the shared one, not an overlay. The mental model most people
 carry, from layered config systems that do merge, is wrong here and nothing in
 the tooling corrects it.
@@ -48,4 +48,4 @@ Confirmed by rendering both revisions and diffing the resulting environment.
 
 ## References
 
-- the shared defaults file and one environment override
+- fictional shared defaults and environment override

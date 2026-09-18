@@ -5,20 +5,25 @@ you reach for when you are already sure: a short command, and not having to
 say where your archive is.
 
 ```bash
-python tools/install.py /path/to/your/archive
+python tools/install.py /path/to/your/archive --shell-rc
 ```
 
 That is the whole install. It writes a `lore` launcher into a directory on
-your PATH and sets `LORE_ROOT` to your archive, then opens the archive to
-prove it worked. Nothing is installed system-wide, nothing needs
-administrator rights, and nothing else on your machine is touched.
+your PATH, writes `LORE_ROOT` to the profile for a recognized Zsh, Bash, or
+Fish shell, then opens the archive to prove it worked. Nothing is installed
+system-wide, nothing needs administrator rights, and nothing else on your
+machine is touched.
+
+Without `--shell-rc`, the installer deliberately leaves your profile alone
+and prints the exact line to add yourself; a new terminal will not inherit
+`LORE_ROOT` until that line is saved to its profile.
 
 The argument is the directory containing your `memory/` folder, not the Lore
 source tree. If you have not made one yet:
 
 ```bash
 mkdir -p ~/knowledge/memory
-python tools/install.py ~/knowledge
+python tools/install.py ~/knowledge --shell-rc
 ```
 
 Open a new terminal afterwards, because environment changes do not reach
@@ -58,6 +63,15 @@ echo 'export LORE_ROOT="$HOME/path/to/your/archive"' >> ~/.zshrc   # or ~/.bashr
 Pass `--shell-rc` to the installer to have that last line appended for you. It
 is not done by default, because silently editing someone's shell profile is a
 larger liberty than writing one file they asked for.
+
+For Fish, use Fish syntax instead:
+
+```fish
+set -gx LORE_ROOT "$HOME/path/to/your/archive"
+```
+
+When `SHELL` identifies Fish, `--shell-rc` writes the matching `set -gx`
+line to `~/.config/fish/config.fish`.
 
 ### Windows
 

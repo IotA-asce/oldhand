@@ -221,6 +221,39 @@ class ProfileReinstallTests(InstallTestCase):
         self.assertEqual(result.count(b"export LORE_ROOT="), 2)
 
 
+class FishProfileTests(InstallTestCase):
+    def setUp(self):
+        super().setUp()
+        self.start_patch(mock.patch.dict(os.environ, {"SHELL": "/usr/bin/fish"}, clear=False))
+        self.rc = self.home / ".config" / "fish" / "config.fish"
+
+    def test_fish_profile_uses_set_and_roundtrips_through_reinstall_and_uninstall(self):
+        archive = self.home / "quo'te\\path"
+        (archive / "memory").mkdir(parents=True)
+        self.assertEqual(self.invoke(archive, "--shell-rc"), 0)
+        first = self.rc.read_text(encoding="utf-8")
+        expected = f"set -gx LORE_ROOT {install.fish_quote(str(archive.resolve()))}"
+        self.assertIn(expected, first)
+        self.assertNotIn("export LORE_ROOT=", first)
+
+        self.assertEqual(self.invoke(archive, "--shell-rc"), 0)
+        self.assertEqual(self.rc.read_text(encoding="utf-8"), first)
+        self.assertEqual(self.invoke("--uninstall"), 0)
+        self.assertNotIn("LORE_ROOT", self.rc.read_text(encoding="utf-8"))
+
+    def test_fish_reinstall_replaces_the_previous_owned_line(self):
+        first = self.home / "first"
+        second = self.home / "second"
+        (first / "memory").mkdir(parents=True)
+        (second / "memory").mkdir(parents=True)
+        self.assertEqual(self.invoke(first, "--shell-rc"), 0)
+        self.assertEqual(self.invoke(second, "--shell-rc"), 0)
+        result = self.rc.read_text(encoding="utf-8")
+        self.assertEqual(result.count("set -gx LORE_ROOT "), 1)
+        self.assertNotIn(str(first.resolve()), result)
+        self.assertIn(str(second.resolve()), result)
+
+
 class QuotingTests(InstallTestCase):
     def test_launcher_quotes_executable_and_script_paths(self):
         for windows in (False, True):
@@ -304,6 +337,29 @@ class QuotingTests(InstallTestCase):
                 key, value = shlex.split(line)[1].split("=", 1)
                 self.assertEqual(key, "LORE_ROOT")
                 self.assertEqual(value, str(archive.resolve()))
+
+
+class WindowsEnvironmentTests(InstallTestCase):
+    def test_failed_setx_fails_install_without_claiming_success(self):
+        failed = subprocess.CompletedProcess([], 1, "", "access denied")
+        with mock.patch.object(install, "IS_WINDOWS", True), \
+                mock.patch.object(install.subprocess, "run", return_value=failed):
+            self.assertEqual(self.invoke(self.archive), 1)
+        self.assertTrue((self.bin_dir / "lore.cmd").exists())
+        self.assertIn("Could not set LORE_ROOT", self.stderr.getvalue())
+        self.assertNotIn("(user environment)", self.stdout.getvalue())
+
+    def test_failed_reg_delete_fails_uninstall_without_claiming_success(self):
+        target = self.bin_dir / "lore.cmd"
+        with mock.patch.object(install, "IS_WINDOWS", True):
+            install.write_launcher(self.bin_dir)
+        failed = subprocess.CompletedProcess([], 1, "", "access denied")
+        with mock.patch.object(install, "IS_WINDOWS", True), \
+                mock.patch.object(install.subprocess, "run", return_value=failed):
+            self.assertEqual(self.invoke("--uninstall"), 1)
+        self.assertFalse(target.exists())
+        self.assertIn("Could not remove LORE_ROOT", self.stderr.getvalue())
+        self.assertNotIn("LORE_ROOT (user environment)", self.stdout.getvalue())
 
 
 if __name__ == "__main__":

@@ -11,8 +11,8 @@
 
 ## Critical / High Current Knowledge
 
-- **CRITICAL** - An environment vars file replaces the shared defaults, it does not merge → `memory/constraints/config-file-replaces-it-does-not-merge.md` (`lore_example_config_replaces`)
-- **HIGH** - A rejected message still commits its offset, so the test passes → `memory/lessons/a-green-test-that-never-ran.md` (`lore_example_green_test_never_ran`)
+- **CRITICAL** - Fictional example: an environment file replaces shared defaults, not merge → `memory/constraints/config-file-replaces-it-does-not-merge.md` (`lore_example_config_replaces`)
+- **HIGH** - Fictional example: a rejected message still commits its offset → `memory/lessons/a-green-test-that-never-ran.md` (`lore_example_green_test_never_ran`)
 
 ## Retrieval
 

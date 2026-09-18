@@ -1,6 +1,6 @@
 ---
 schema_version: 1
-id: lore_example_signing_key_location
+id: lore_example_fictional_release_signing_location
 type: reference
 status: current
 importance: normal
@@ -17,34 +17,32 @@ expires_at: null
 relations: {}
 ---
 
-# Where the release signing key lives, and who can read it
+# Fictional example: where a release-signing credential is configured
 
 ## Summary
 
-The signing key is in the build system's secret store under `release/signing`,
-not in the cloud key vault where every other credential lives. Rotating it
-needs a pipeline variable update in the same change, or the next release fails
-at the signing step with a misleading "file not found".
+This fictional release credential is configured in a deliberately invented
+build service, not a real key vault. Rotating it also requires updating the
+fictional pipeline setting in the same change, or the demonstration release
+fails with a misleading "file not found" message.
 
 ## Knowledge
 
-The split exists for a dull historical reason: signing predates the key vault
-and moving it was never worth a release freeze. Nothing marks the key as
-special in the vault, so looking there and finding nothing is the expected
-outcome, not evidence that it has been deleted.
+The teaching point is that a credential reference and the credential itself
+can drift apart. Looking in the obvious location and finding nothing is not
+evidence that it was deleted.
 
-The failure mode after a rotation is the confusing part. The signing step
-reads the key path from a pipeline variable, so a rotated key with a stale
-variable reports a missing file rather than an auth error, which sends people
-hunting for a deleted secret that is sitting there under a new name.
+The failure mode after a rotation is the confusing part. A signing step that
+reads a stale configured reference can report a missing file rather than an
+authentication error, sending people toward the wrong diagnosis.
 
-**How to apply.** Rotate the key and update the pipeline variable in one
-change, then run a release to a throwaway target before the next real one.
+**How to apply.** In a real system, rotate the credential and update its
+configuration atomically, then test a non-production release target.
 
 ## Verification
 
-Checked against the secret store's access list and one rotation.
+Synthetic teaching scenario; no credential, system name, or access list exists.
 
 ## References
 
-- the release pipeline definition, signing step
+- fictional release pipeline and signing step

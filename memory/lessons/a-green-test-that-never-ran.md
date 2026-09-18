@@ -17,11 +17,11 @@ expires_at: null
 relations: {}
 ---
 
-# A rejected message still commits its offset, so the test passes
+# Fictional example: a rejected message still commits its offset
 
 ## Summary
 
-A consumer test asserted the service stayed healthy and the offset advanced,
+In this fictional example, a consumer test asserted the service stayed healthy and the offset advanced,
 and passed while the handler never ran: the message was rejected by a header
 check before deserialization, and a rejected message is still committed. Assert
 a side effect that can only exist if the handler body executed.
@@ -53,4 +53,4 @@ conclusion.
 
 ## References
 
-- `Consumers/InboundFilter.cs`
+- fictional inbound-message filter
