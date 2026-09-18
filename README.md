@@ -10,7 +10,7 @@ Reviewed constraints, decisions, failed approaches and operational hazards,
 stored as readable Markdown and retrieved locally.
 
 [![CI](https://github.com/IotA-asce/oldhand/actions/workflows/ci.yml/badge.svg)](https://github.com/IotA-asce/oldhand/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-0.6.0b1-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/oldhand/releases)
+[![PyPI](https://img.shields.io/pypi/v/oldhand?style=flat-square&labelColor=0d1117&color=bc8cff)](https://pypi.org/project/oldhand/)
 [![license](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square&labelColor=0d1117)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](requirements.txt)
 [![network](https://img.shields.io/badge/network-none-39c5cf?style=flat-square&labelColor=0d1117)](#what-oldhand-promises)
@@ -72,16 +72,13 @@ python3 -B docs/make_demo_svg.py    # redraw the image from its output
 ## Install
 
 ```bash
-git clone https://github.com/IotA-asce/oldhand.git
-pipx install ./oldhand          # or: pip install ./oldhand
+pipx install oldhand      # or: pip install oldhand
 oldhand init ~/knowledge
 export OLDHAND_ROOT=~/knowledge
 ```
 
-> **Not on PyPI yet.** `pipx install oldhand` will be the install command once
-> the first beta is published; until then install from the clone above. The
-> built wheel and sdist are attached to the
-> [latest release](https://github.com/IotA-asce/oldhand/releases).
+> This is a **beta** (`0.6.0b1`), so `pip` needs `--pre` unless you pin the
+> version. It has had no external users yet.
 
 Python 3.10+ on Linux or macOS. No account, server, API key, model, or
 network connection. Windows is not supported yet; see

@@ -29,7 +29,7 @@ search would have sent users to a competitor.
 
 ### Added
 
-- Standard Python packaging. `pipx install oldhand` or `pip install oldhand`
+- Standard Python packaging, published to PyPI. `pipx install oldhand`
   replaces cloning the repository and running a script from inside it.
 - A CI job that builds the wheel and sdist, installs the wheel into a clean
   virtual environment, runs the console script, and publishes checksums.
