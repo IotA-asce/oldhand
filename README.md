@@ -58,7 +58,7 @@ is for the knowledge that would otherwise disappear between sessions.
 
 ## See it work
 
-![A terminal session: an agent asks why a config loader cannot be simplified, and the reviewed constraint comes back from the local archive](docs/img/demo-session.svg)
+![A recorded terminal session: an agent asks why a config loader cannot be simplified, and the reviewed constraint comes back from the local archive](docs/img/oldhand-demo.gif)
 
 Everything above is real output from `examples/run_demo.py`, which runs
 offline against a synthetic project. The image is generated from that command,
