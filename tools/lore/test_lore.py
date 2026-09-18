@@ -128,6 +128,27 @@ class LoreTests(unittest.TestCase):
             self.assertEqual(con.execute("SELECT path FROM entries WHERE id='a'").fetchone()[0],
                              "memory/b.md")
 
+    def test_edit_during_rebuild_cannot_bless_stale_content(self):
+        path = self.record("a")
+        original_validate = lore.validate_records
+
+        def edit_after_parse(root):
+            result = original_validate(root)
+            path.write_text(path.read_text(encoding="utf-8").replace(
+                "Known facts.", "Other facts."), encoding="utf-8")
+            return result
+
+        with mock.patch.object(lore, "validate_records", side_effect=edit_after_parse):
+            self.assertEqual(lore.rebuild(self.root, quiet=True), 0)
+        with contextlib.closing(lore.connect(self.root)) as con:
+            self.assertIn("Known facts.", con.execute(
+                "SELECT body FROM entries WHERE id='a'").fetchone()[0])
+        with contextlib.closing(lore.ensure_db(self.root)) as con:
+            body = con.execute("SELECT body FROM entries WHERE id='a'").fetchone()[0]
+            self.assertIn("Other facts.", body)
+            self.assertEqual(lore.read_meta(con, "fingerprint"),
+                             lore.archive_fingerprint(self.root))
+
     def test_current_index_is_not_rebuilt(self):
         self.record("a")
         self.assertEqual(lore.rebuild(self.root, quiet=True), 0)
@@ -504,6 +525,23 @@ class LoreTests(unittest.TestCase):
         self.assertEqual([(node["id"], node["parent_id"]) for node in run["nodes"]],
                          [("branch-a", "root"), ("refine-a", "branch-a")])
 
+    def test_root_is_reserved_as_the_structural_attempt_id(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        path = lore.experience.run_path(self.root, "run")
+        baseline = path.read_bytes()
+        self.assertEqual(lore.experience.add_attempt(
+            self.root, "run", "root", "root", "Ambiguous"), 2)
+        self.assertEqual(path.read_bytes(), baseline)
+
+        malformed = lore.experience.load_run(self.root, "run")
+        malformed["nodes"] = [{
+            "id": "root", "parent_id": "root", "created_order": 1,
+            "proposal": "Ambiguous", "created_at": malformed["created_at"],
+            "evaluation": None,
+        }]
+        errors = lore.experience.validate_run_payload(malformed, "trace")
+        self.assertTrue(any("reserved" in error for error in errors))
+
     def test_evaluate_attempt_records_grounded_outcome_once(self):
         lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
         lore.experience.add_attempt(self.root, "run", "a", "root", "Try it")
@@ -516,6 +554,46 @@ class LoreTests(unittest.TestCase):
         self.assertEqual((evaluation["cost"], evaluation["duration_ms"]), (2, 1500))
         self.assertEqual(lore.experience.evaluate_attempt(
             self.root, "run", "a", 9, True, "success"), 1)
+
+    def test_evaluate_attempt_rejects_noncanonical_numbers_before_write(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "Try it")
+        path = lore.experience.run_path(self.root, "run")
+        baseline = path.read_bytes()
+        invalid = (
+            (True, 1, 0), (float("nan"), 1, 0), (float("inf"), 1, 0),
+            (1.0, 1.5, 0), (1.0, True, 0), (1.0, 1, float("inf")),
+        )
+        for score, cost, duration in invalid:
+            with self.subTest(score=score, cost=cost, duration=duration):
+                self.assertEqual(lore.experience.evaluate_attempt(
+                    self.root, "run", "a", score, True, "success",
+                    cost=cost, duration_ms=duration), 2)
+                self.assertEqual(path.read_bytes(), baseline)
+
+    def test_evaluate_attempt_rejects_invalid_result_semantics(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "Try it")
+        path = lore.experience.run_path(self.root, "run")
+        baseline = path.read_bytes()
+        self.assertEqual(lore.experience.evaluate_attempt(
+            self.root, "run", "a", 1, "yes", "success"), 2)
+        self.assertEqual(lore.experience.evaluate_attempt(
+            self.root, "run", "a", 1, True, "passed"), 2)
+        self.assertEqual(path.read_bytes(), baseline)
+
+    def test_mutators_reject_trace_identity_mismatch_without_writing(self):
+        lore.experience.start_run(
+            self.root, "Tune", "bench", "breadth", run_id="run")
+        path = lore.experience.run_path(self.root, "run")
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["id"] = "other"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        baseline = path.read_bytes()
+        self.assertEqual(lore.experience.add_attempt(
+            self.root, "run", "a", "root", "proposal"), 1)
+        self.assertEqual(path.read_bytes(), baseline)
+        self.assertIn("does not match its filename", self.errors.getvalue())
 
     def test_finish_requires_evaluations_and_validates_trace(self):
         lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
@@ -539,6 +617,25 @@ class LoreTests(unittest.TestCase):
         _, errors = lore.experience.validate_runs(self.root)
         self.assertTrue(any("schema_version" in error for error in errors))
         self.assertTrue(any("missing fields" in error for error in errors))
+
+    def test_trace_identity_and_evidence_time_are_canonical(self):
+        lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run-a")
+        lore.experience.add_attempt(self.root, "run-a", "a", "root", "a")
+        lore.experience.evaluate_attempt(
+            self.root, "run-a", "a", 1, True, "success")
+        lore.experience.finish_run(self.root, "run-a")
+        copied = lore.experience.run_path(self.root, "run-b")
+        copied.write_bytes(lore.experience.run_path(self.root, "run-a").read_bytes())
+        _, errors = lore.experience.validate_runs(self.root)
+        self.assertTrue(any("id must match filename" in error for error in errors))
+        copied.unlink()
+
+        run = lore.experience.load_run(self.root, "run-a")
+        run["nodes"][0]["evaluation"]["evaluated_at"] = "2030-01-01T00:00:00+00:00"
+        lore.experience._atomic_json(lore.experience.run_path(self.root, "run-a"), run)
+        _, errors = lore.experience.validate_runs(self.root)
+        self.assertTrue(any("evaluated_at is after finished_at" in error
+                            for error in errors))
 
     def test_browse_runs_reports_aggregates_and_nested_tree(self):
         lore.experience.start_run(self.root, "Tune", "bench", "manual", run_id="run")
@@ -591,6 +688,75 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(result["parallelism"], 1.5)
         self.assertEqual(result["objective"], 8)
 
+    def test_replay_fans_out_root_branches_in_one_worker_batch(self):
+        lore.experience.start_run(
+            self.root, "Tune", "bench", "breadth", workers=2, run_id="run")
+        for node_id in ("a", "b"):
+            lore.experience.add_attempt(
+                self.root, "run", node_id, "root", f"Try {node_id}")
+            lore.experience.evaluate_attempt(
+                self.root, "run", node_id, 1, True, "success")
+        lore.experience.finish_run(self.root, "run")
+        result = lore.experience.replay_run(
+            lore.experience.load_run(self.root, "run"), "breadth", 2, workers=2)
+        self.assertEqual(result["revealed"], ["a", "b"])
+        self.assertEqual(result["rounds"], 1)
+        self.assertEqual(result["decisions"][0], {
+            "round": 1, "selected": ["root", "root"], "revealed": ["a", "b"],
+        })
+        self.assertEqual(result["parallelism"], 2.0)
+
+    def test_replay_oversized_budget_does_not_count_empty_rounds(self):
+        lore.experience.start_run(
+            self.root, "Tune", "bench", "breadth", workers=2, run_id="run")
+        for node_id in ("a", "b"):
+            lore.experience.add_attempt(self.root, "run", node_id, "root", node_id)
+            lore.experience.evaluate_attempt(
+                self.root, "run", node_id, 2, True, "success")
+        lore.experience.finish_run(self.root, "run")
+        result = lore.experience.replay_run(
+            lore.experience.load_run(self.root, "run"), "breadth", 10,
+            workers=2, beta_parallel=1)
+        self.assertEqual(result["rounds"], 1)
+        self.assertTrue(all(decision["revealed"] for decision in result["decisions"]))
+        self.assertEqual(result["parallelism"], 2.0)
+        self.assertEqual(result["objective"], 4.0)
+
+    def test_replay_and_comparison_reject_nonfinite_coefficients(self):
+        lore.experience.start_run(
+            self.root, "Tune", "bench", "breadth", run_id="run")
+        lore.experience.add_attempt(self.root, "run", "a", "root", "a")
+        lore.experience.evaluate_attempt(
+            self.root, "run", "a", 1, True, "success")
+        lore.experience.finish_run(self.root, "run")
+        run = lore.experience.load_run(self.root, "run")
+        for invalid in (float("nan"), float("inf"), float("-inf")):
+            with self.assertRaisesRegex(ValueError, "finite and non-negative"):
+                lore.experience.replay_run(run, "breadth", 1, beta_cost=invalid)
+            self.assertEqual(lore.experience.compare_policies(
+                self.root, ["breadth"], "breadth", 1, holdout=0,
+                evaluator="bench", beta_parallel=invalid), 2)
+
+    def test_score_greedy_explores_before_extending_incorrect_branch(self):
+        for goal in ("maximize", "minimize"):
+            with self.subTest(goal=goal):
+                run_id = f"run-{goal}"
+                lore.experience.start_run(
+                    self.root, "Tune", "bench", "score-greedy", goal=goal,
+                    run_id=run_id)
+                for node_id, parent, correct in (
+                        ("bad", "root", False), ("bad-child", "bad", True),
+                        ("fresh", "root", True)):
+                    lore.experience.add_attempt(
+                        self.root, run_id, node_id, parent, node_id)
+                    lore.experience.evaluate_attempt(
+                        self.root, run_id, node_id, 1, correct, "success")
+                lore.experience.finish_run(self.root, run_id)
+                result = lore.experience.replay_run(
+                    lore.experience.load_run(self.root, run_id),
+                    "score-greedy", 2)
+                self.assertEqual(result["revealed"], ["bad", "fresh"])
+
     def test_replay_minimize_goal_converts_quality(self):
         lore.experience.start_run(
             self.root, "Tune", "bench", "manual", goal="minimize", run_id="run")
@@ -628,6 +794,144 @@ class LoreTests(unittest.TestCase):
         self.assertEqual(lore.experience.compare_policies(
             self.root, ["depth"], "breadth", 2, holdout=1,
             evaluator="bench", beta_cost=-1), 2)
+
+    def test_policy_compare_never_selects_on_holdout(self):
+        for run_id, scores in (("run1", (5, 9, 7)), ("run2", (5, 6, 10))):
+            lore.experience.start_run(
+                self.root, "Tune", "bench", "breadth", workers=1, run_id=run_id)
+            for (node_id, parent), score in zip(
+                    (("a", "root"), ("a2", "a"), ("b", "root")), scores):
+                lore.experience.add_attempt(
+                    self.root, run_id, node_id, parent, node_id)
+                lore.experience.evaluate_attempt(
+                    self.root, run_id, node_id, score, True, "success")
+            lore.experience.finish_run(self.root, run_id)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.compare_policies(
+            self.root, ["depth"], "breadth", 2, holdout=1,
+            evaluator="bench", json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["ranking_basis"], "train")
+        self.assertEqual(payload["comparisons"][0]["policy"], "depth")
+        by_policy = {item["policy"]: item for item in payload["comparisons"]}
+        self.assertGreater(by_policy["breadth"]["holdout"]["mean_objective"],
+                           by_policy["depth"]["holdout"]["mean_objective"])
+
+    def test_policy_compare_orders_holdout_by_timestamp_instant(self):
+        timestamps = (
+            ("earlier-local", "2026-01-01T10:00:00+05:30"),
+            ("later-utc", "2026-01-01T06:00:00+00:00"),
+        )
+        for run_id, timestamp in timestamps:
+            lore.experience.start_run(
+                self.root, "Tune", "bench", "breadth", run_id=run_id)
+            lore.experience.add_attempt(self.root, run_id, "a", "root", "a")
+            lore.experience.evaluate_attempt(
+                self.root, run_id, "a", 1, True, "success")
+            lore.experience.finish_run(self.root, run_id)
+            run = lore.experience.load_run(self.root, run_id)
+            run["created_at"] = timestamp
+            run["updated_at"] = timestamp
+            run["finished_at"] = timestamp
+            run["nodes"][0]["created_at"] = timestamp
+            run["nodes"][0]["evaluation"]["evaluated_at"] = timestamp
+            lore.experience._atomic_json(lore.experience.run_path(self.root, run_id), run)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.compare_policies(
+            self.root, ["breadth"], "breadth", 1, holdout=1,
+            evaluator="bench", json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["train_runs"], ["earlier-local"])
+        self.assertEqual(payload["holdout_runs"], ["later-utc"])
+
+    def test_policy_compare_orders_holdout_by_completion_time(self):
+        timelines = (
+            ("run-a", "2026-01-01T00:00:00+00:00", "2026-01-10T00:00:00+00:00"),
+            ("run-b", "2026-01-05T00:00:00+00:00", "2026-01-06T00:00:00+00:00"),
+        )
+        for run_id, created, finished in timelines:
+            lore.experience.start_run(
+                self.root, "Tune", "bench", "breadth", run_id=run_id)
+            lore.experience.add_attempt(self.root, run_id, "a", "root", "a")
+            lore.experience.evaluate_attempt(
+                self.root, run_id, "a", 1, True, "success")
+            lore.experience.finish_run(self.root, run_id)
+            run = lore.experience.load_run(self.root, run_id)
+            run["created_at"] = created
+            run["finished_at"] = finished
+            run["updated_at"] = finished
+            run["nodes"][0]["created_at"] = created
+            run["nodes"][0]["evaluation"]["evaluated_at"] = finished
+            lore.experience._atomic_json(lore.experience.run_path(self.root, run_id), run)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.compare_policies(
+            self.root, ["breadth"], "breadth", 1, holdout=1,
+            evaluator="bench", json_output=True), 0)
+        payload = json.loads(self.output.getvalue())
+        self.assertEqual(payload["train_runs"], ["run-b"])
+        self.assertEqual(payload["holdout_runs"], ["run-a"])
+
+    def test_policy_compare_ranks_success_coverage_before_mean(self):
+        runs = (
+            ("run1", ((5, True), (100, True), (60, True))),
+            ("run2", ((5, False), (100, False), (60, True))),
+        )
+        for run_id, evaluations in runs:
+            lore.experience.start_run(
+                self.root, "Tune", "bench", "breadth", run_id=run_id)
+            for (node_id, parent), (score, correct) in zip(
+                    (("a", "root"), ("a2", "a"), ("b", "root")), evaluations):
+                lore.experience.add_attempt(
+                    self.root, run_id, node_id, parent, node_id)
+                lore.experience.evaluate_attempt(
+                    self.root, run_id, node_id, score, correct, "success")
+            lore.experience.finish_run(self.root, run_id)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.compare_policies(
+            self.root, ["depth"], "breadth", 2, holdout=0,
+            evaluator="bench", json_output=True), 0)
+        comparisons = json.loads(self.output.getvalue())["comparisons"]
+        self.assertEqual(comparisons[0]["policy"], "breadth")
+        by_policy = {item["policy"]: item for item in comparisons}
+        self.assertEqual(by_policy["breadth"]["train"]["scored_count"], 2)
+        self.assertEqual(by_policy["depth"]["train"]["scored_count"], 1)
+        self.assertGreater(by_policy["depth"]["train"]["mean_objective"],
+                           by_policy["breadth"]["train"]["mean_objective"])
+
+    def test_policy_compare_rejects_mixed_goals(self):
+        for run_id, goal in (("run-max", "maximize"), ("run-min", "minimize")):
+            lore.experience.start_run(
+                self.root, "Tune", "bench", "breadth", goal=goal, run_id=run_id)
+            lore.experience.add_attempt(self.root, run_id, "a", "root", "a")
+            lore.experience.evaluate_attempt(
+                self.root, run_id, "a", 1, True, "success")
+            lore.experience.finish_run(self.root, run_id)
+        self.assertEqual(lore.experience.compare_policies(
+            self.root, ["depth"], "breadth", 1, holdout=0,
+            evaluator="bench"), 1)
+        self.assertIn("Mixed goals", self.errors.getvalue())
+        self.errors.seek(0)
+        self.errors.truncate()
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.experience.compare_policies(
+            self.root, ["depth"], "breadth", 1, holdout=0,
+            evaluator="bench", json_output=True, goal="minimize"), 0)
+        self.assertEqual(json.loads(self.output.getvalue())["goal"], "minimize")
+
+    def test_run_identity_fields_are_canonical(self):
+        self.assertEqual(lore.experience.start_run(
+            self.root, " Tune ", " bench ", " manual ", run_id="run"), 0)
+        run = lore.experience.load_run(self.root, "run")
+        self.assertEqual((run["task"], run["evaluator"], run["policy"]),
+                         ("Tune", "bench", "manual"))
+        run["evaluator"] = " bench "
+        self.assertTrue(any("surrounding whitespace" in error for error in
+                            lore.experience.validate_run_payload(run, "trace")))
 
     def test_run_distill_builds_verified_record_with_provenance(self):
         lore.experience.start_run(self.root, "Tune", "bench-v2", "depth", run_id="run")
@@ -832,6 +1136,156 @@ class LoreTests(unittest.TestCase):
             self.assertIn("N/A", self.output.getvalue())
             self.assertNotIn("Traceback", self.output.getvalue())
             self.assertNotIn("TypeError", self.output.getvalue())
+
+    def test_metrics_export_rejects_unexpected_field_names(self):
+        self.record("safe")
+        snapshot = lore.collect_metrics(self.root)
+        snapshot["archive"]["secret-client-codename"] = 1
+        metrics_path = self.root / "metrics" / "daily.jsonl"
+        metrics_path.parent.mkdir(parents=True)
+        metrics_path.write_text(json.dumps(snapshot) + "\n", encoding="utf-8")
+        export = self.root / "export.json"
+        self.assertEqual(lore.metrics(self.root, full=False, export=str(export)), 1)
+        self.assertFalse(export.exists())
+        self.assertIn("secret-client-codename", self.errors.getvalue())
+
+        self.output.seek(0)
+        self.output.truncate()
+        self.errors.seek(0)
+        self.errors.truncate()
+        snapshot["archive"].pop("secret-client-codename")
+        metrics_path.write_text(json.dumps(snapshot) + "\n", encoding="utf-8")
+        self.assertEqual(lore.metrics(self.root, full=False, export=str(export)), 0)
+        self.assertEqual(lore._audit_export(json.loads(export.read_text())), [])
+
+    def test_metrics_export_cannot_overwrite_daily_history(self):
+        self.record("safe")
+        lore.record_daily_metrics(self.root)
+        history = lore._metrics_path(self.root)
+        baseline = history.read_bytes()
+        self.assertEqual(lore.metrics(
+            self.root, full=False, export=str(history.parent / ".." / "metrics"
+                                              / "daily.jsonl")), 1)
+        self.assertEqual(history.read_bytes(), baseline)
+        self.assertIn("daily metrics history", self.errors.getvalue())
+
+    def test_metrics_export_ignores_structurally_invalid_history_rows(self):
+        self.record("safe")
+        valid = lore.collect_metrics(self.root)
+        history = lore._metrics_path(self.root)
+        history.parent.mkdir(parents=True, exist_ok=True)
+        history.write_text("42\n[]\n{\"schema\": 1}\n" + json.dumps(valid) + "\n",
+                           encoding="utf-8")
+        export = self.root / "export.json"
+        self.assertEqual(lore.metrics(self.root, full=False, export=str(export)), 0)
+        bundle = json.loads(export.read_text())
+        self.assertEqual(bundle["days"], 1)
+        self.assertEqual(bundle["history"], [valid])
+        self.assertIn("ignored 3 invalid", self.errors.getvalue())
+
+    def test_metrics_export_omits_nonfinite_history_numbers(self):
+        self.record("safe")
+        valid = lore.collect_metrics(self.root)
+        history = lore._metrics_path(self.root)
+        history.parent.mkdir(parents=True, exist_ok=True)
+        poisoned = json.dumps(valid).replace('"records": 1', '"records": NaN')
+        history.write_text(poisoned + "\n" + json.dumps(valid) + "\n",
+                           encoding="utf-8")
+        export = self.root / "export.json"
+        self.assertEqual(lore.metrics(self.root, full=False, export=str(export)), 0)
+        bundle = json.loads(
+            export.read_text(), parse_constant=lore._reject_json_constant)
+        self.assertEqual(bundle["days"], 1)
+        self.assertIn("ignored 1 invalid", self.errors.getvalue())
+
+    def test_metrics_export_collapses_duplicate_dates_to_latest(self):
+        self.record("safe")
+        morning = lore.collect_metrics(self.root)
+        morning["captured_at"] = "2026-09-17T09:00:00+00:00"
+        evening = json.loads(json.dumps(morning))
+        evening["captured_at"] = "2026-09-17T17:00:00+00:00"
+        evening["retrieval"]["searches"] = 2
+        history = lore._metrics_path(self.root)
+        history.parent.mkdir(parents=True, exist_ok=True)
+        history.write_text(json.dumps(evening) + "\n" + json.dumps(morning) + "\n",
+                           encoding="utf-8")
+        export = self.root / "export.json"
+        self.assertEqual(lore.metrics(self.root, False, str(export)), 0)
+        bundle = json.loads(export.read_text())
+        self.assertEqual(bundle["days"], 1)
+        self.assertEqual(bundle["history"][0]["retrieval"]["searches"], 2)
+        self.assertIn("collapsed 1 duplicate", self.errors.getvalue())
+
+    def test_metrics_export_is_atomic_and_reports_publication_failure(self):
+        self.record("safe")
+        lore.rebuild(self.root, quiet=True)
+        export = self.root / "export.json"
+        export.write_text("prior\n", encoding="utf-8")
+        with mock.patch.object(lore.os, "replace", side_effect=OSError("disk full")):
+            self.assertEqual(lore.metrics(self.root, False, str(export)), 1)
+        self.assertEqual(export.read_text(encoding="utf-8"), "prior\n")
+        self.assertFalse(list(self.root.glob("export.json.updating.*")))
+        self.assertIn("Cannot write metrics export", self.errors.getvalue())
+
+    def test_metrics_ignore_malformed_events_and_bound_open_rate(self):
+        self.record("returned")
+        self.record("shown-only")
+        lore.rebuild(self.root, quiet=True)
+        log = self.root / ".lore" / "retrieval.jsonl"
+        events = [
+            {"at": "2026-09-18T10:00:00+00:00", "action": "search",
+             "query": "private client codename", "returned": ["returned"]},
+            {"at": "2026-09-18T10:01:00+00:00", "action": "show",
+             "query": "returned", "returned": ["returned"]},
+            {"at": "2026-09-18T10:02:00+00:00", "action": "show",
+             "query": "shown-only", "returned": ["shown-only"]},
+            ["not", "an", "event"],
+            {"at": "2026-09-18T10:03:00+00:00", "action": "search",
+             "query": "bad", "returned": [["unhashable"]]},
+        ]
+        log.write_text("".join(json.dumps(event) + "\n" for event in events),
+                       encoding="utf-8")
+        retrieval = lore.collect_metrics(self.root)["retrieval"]
+        self.assertEqual((retrieval["searches"], retrieval["shows"]), (1, 2))
+        self.assertEqual(retrieval["coverage"], 0.5)
+        self.assertEqual(retrieval["open_rate"], 1.0)
+        self.assertLessEqual(retrieval["open_rate"], 1.0)
+
+    def test_daily_metrics_upserts_today_atomically(self):
+        self.record("safe")
+        path = lore._metrics_path(self.root)
+        path.parent.mkdir(parents=True)
+        yesterday = lore.collect_metrics(self.root)
+        yesterday["captured_at"] = "2026-09-17T10:00:00+00:00"
+        stale_today = lore.collect_metrics(self.root)
+        path.write_text(json.dumps(yesterday) + "\n" + json.dumps(stale_today) + "\n",
+                        encoding="utf-8")
+        log = self.root / ".lore" / "retrieval.jsonl"
+        log.write_text(json.dumps({
+            "at": "2026-09-18T10:00:00+00:00", "action": "search",
+            "query": "private", "returned": ["safe"],
+        }) + "\n", encoding="utf-8")
+        lore.record_daily_metrics(self.root)
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        today = lore.datetime.now().astimezone().strftime("%Y-%m-%d")
+        self.assertEqual(sum(row["captured_at"][:10] == today for row in rows), 1)
+        self.assertEqual(rows[-1]["retrieval"]["searches"], 1)
+
+    def test_daily_metrics_canonicalizes_old_duplicate_dates(self):
+        self.record("safe")
+        old = lore.collect_metrics(self.root)
+        old["captured_at"] = "2026-09-17T09:00:00+00:00"
+        newer = json.loads(json.dumps(old))
+        newer["captured_at"] = "2026-09-17T17:00:00+00:00"
+        newer["retrieval"]["searches"] = 2
+        path = lore._metrics_path(self.root)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(newer) + "\n" + json.dumps(old) + "\n")
+        lore.record_daily_metrics(self.root)
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        old_rows = [row for row in rows if row["captured_at"].startswith("2026-09-17")]
+        self.assertEqual(len(old_rows), 1)
+        self.assertEqual(old_rows[0]["retrieval"]["searches"], 2)
 
     def test_selftest(self):
         self.assertEqual(lore.selftest(), 0)

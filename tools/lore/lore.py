@@ -15,8 +15,10 @@ Design contract:
 from __future__ import annotations
 
 import argparse
+import atexit
 import hashlib
 import json
+import math
 import os
 import re
 import sqlite3
@@ -609,6 +611,10 @@ def rebuild(root: Path, strict: bool = False, quiet: bool = False) -> int:
     not take the rest of the archive offline. Use `validate` (or --strict) when
     a hard gate is wanted.
     """
+    # Fingerprint the same source snapshot that validation is about to parse.
+    # If a file changes during the build, the stored value intentionally stays
+    # old so ensure_db() detects the mismatch and repairs it on the next read.
+    source_fingerprint = archive_fingerprint(root)
     records, errors, warnings = validate_records(root)
 
     db = db_path(root)
@@ -742,7 +748,7 @@ def rebuild(root: Path, strict: bool = False, quiet: bool = False) -> int:
             ("lore_version", LORE_VERSION),
             ("skipped_count", str(len(errors))),
             ("indexed_count", str(len(records))),
-            ("fingerprint", archive_fingerprint(root)),
+            ("fingerprint", source_fingerprint),
             ("built_at", datetime.now().astimezone().replace(microsecond=0).isoformat()),
         ):
             con.execute("INSERT OR REPLACE INTO index_meta(key, value) VALUES (?,?)", (key, value))
@@ -2230,7 +2236,8 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
 
     con = ensure_db(root)
     try:
-        total = con.execute("SELECT COUNT(*) c FROM entries").fetchone()["c"]
+        record_ids = {str(r["id"]) for r in con.execute("SELECT id FROM entries")}
+        total = len(record_ids)
         sizes = [r["token_estimate"] for r in
                  con.execute("SELECT token_estimate FROM entries")]
         summary_lens = [len(" ".join(str(r["summary"]).split())) for r in
@@ -2289,17 +2296,28 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
                 rec = json.loads(line)
             except ValueError:
                 continue
-            days.add(str(rec.get("at", ""))[:10])
-            ids = rec.get("returned") or []
-            if rec.get("action") == "search":
+            if not isinstance(rec, dict):
+                continue
+            action = rec.get("action")
+            at = rec.get("at")
+            ids = rec.get("returned")
+            if (action not in ("search", "show")
+                    or not isinstance(at, str)
+                    or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", at[:10])
+                    or not isinstance(ids, list)
+                    or any(not isinstance(item, str) for item in ids)):
+                continue
+            days.add(at[:10])
+            if action == "search":
                 searches += 1
                 if not ids:
                     empty += 1
                 for i in ids:
-                    returned[i] = returned.get(i, 0) + 1
-            elif rec.get("action") == "show":
+                    if i in record_ids:
+                        returned[i] = returned.get(i, 0) + 1
+            else:
                 shows += 1
-                opened.update(ids)
+                opened.update(i for i in ids if i in record_ids)
     m["retrieval"] = {
         "searches": searches,
         "shows": shows,
@@ -2308,7 +2326,8 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
         "zero_result_rate": round(empty / searches, 3) if searches else None,
         "distinct_records_returned": len(returned),
         "coverage": round(len(returned) / total, 3) if total else None,
-        "open_rate": round(len(opened) / max(1, len(returned)), 3) if returned else None,
+        "open_rate": round(len(opened & returned.keys()) / len(returned), 3)
+        if returned else None,
     }
 
     if full:
@@ -2353,8 +2372,22 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
     return m
 
 
+METRICS_EXPORT_KEYS = {
+    "lore_version", "metrics_schema", "exported_at", "contains", "days",
+    "history", "latest", "schema", "captured_at", "python", "platform",
+    "archive", "retrieval", "findability", "eval", "records", "collections",
+    "collection_sizes", "index_rows", "index_rows_per_record", "relations",
+    "topics", "invalid_records", "record_tokens", "total_tokens",
+    "summary_chars", "thin_summaries", "distribution", "entry_type", "status",
+    "importance", "evidence", "scope", "risk", "durability", "searches",
+    "shows", "active_days", "searches_per_active_day", "zero_result_rate",
+    "distinct_records_returned", "coverage", "open_rate", "min", "p50", "p90",
+    "max", "queries", "recall@1", "recall@3", "recall@5", "mrr",
+} | ENTRY_TYPES | STATUSES | IMPORTANCE | SCOPES | RISKS | DURABILITY | EVIDENCE
+
+
 def _audit_export(bundle: dict) -> list[str]:
-    """Paths whose string values are not provably content-free.
+    """Paths whose keys or string values are not provably content-free.
 
     Allowed: versions, ISO timestamps, the platform name, schema enum values
     (which come from Lore, not from the archive) and the disclosure note.
@@ -2369,12 +2402,15 @@ def _audit_export(bundle: dict) -> list[str]:
     def check(value, path: str) -> None:
         if isinstance(value, dict):
             for k, v in value.items():
-                # Keys can be enum names (distribution buckets); anything else
-                # must be a fixed field name from this file, never archive text.
+                if not isinstance(k, str) or k not in METRICS_EXPORT_KEYS:
+                    offenders.append(f"{path}.{k} = <unexpected field>")
+                    continue
                 check(v, f"{path}.{k}")
         elif isinstance(value, list):
             for v in value:
                 check(v, path + "[]")
+        elif isinstance(value, float) and not math.isfinite(value):
+            offenders.append(f"{path} = <non-finite number>")
         elif isinstance(value, str):
             leaf = path.rsplit(".", 1)[-1]
             if leaf in ("lore_version", "python") and re.fullmatch(r"[\d.]+", value):
@@ -2398,24 +2434,104 @@ def _metrics_path(root: Path) -> Path:
     return root / "metrics" / "daily.jsonl"
 
 
-def record_daily_metrics(root: Path) -> None:
-    """Append today's snapshot unless one already exists. Never raises.
+def _is_metrics_snapshot(value: Any) -> bool:
+    """Return whether a value has the complete schema-1 snapshot envelope."""
+    if not isinstance(value, dict) or value.get("schema") != 1:
+        return False
+    if not all(isinstance(value.get(key), str)
+               for key in ("lore_version", "captured_at", "python", "platform")):
+        return False
+    try:
+        _metrics_time(value["captured_at"])
+    except (TypeError, ValueError):
+        return False
+    archive = value.get("archive")
+    retrieval = value.get("retrieval")
+    if not isinstance(archive, dict) or not isinstance(retrieval, dict):
+        return False
+    archive_keys = {
+        "records", "collections", "collection_sizes", "index_rows",
+        "index_rows_per_record", "relations", "topics", "invalid_records",
+        "record_tokens", "total_tokens", "summary_chars", "thin_summaries",
+        "distribution",
+    }
+    retrieval_keys = {
+        "searches", "shows", "active_days", "searches_per_active_day",
+        "zero_result_rate", "distinct_records_returned", "coverage", "open_rate",
+    }
+    def finite(item: Any) -> bool:
+        if isinstance(item, float):
+            return math.isfinite(item)
+        if isinstance(item, dict):
+            return all(finite(child) for child in item.values())
+        if isinstance(item, list):
+            return all(finite(child) for child in item)
+        return True
 
-    Called from every command. Daily metrics that depend on someone
-    remembering to run a command are not daily metrics.
+    return (archive_keys <= set(archive) and retrieval_keys <= set(retrieval)
+            and finite(value))
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON number: {value}")
+
+
+def _metrics_time(value: Any) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError("metrics timestamp must be a string")
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None or parsed.utcoffset() is None or "T" not in value:
+        raise ValueError("metrics timestamp must include time and UTC offset")
+    return parsed
+
+
+def _canonical_metrics_history(rows: list[dict]) -> tuple[list[dict], int]:
+    latest: dict[str, tuple[datetime, dict]] = {}
+    duplicates = 0
+    for row in rows:
+        instant = _metrics_time(row["captured_at"])
+        day = row["captured_at"][:10]
+        current = latest.get(day)
+        if current is not None:
+            duplicates += 1
+        if current is None or instant > current[0]:
+            latest[day] = (instant, row)
+    return [latest[day][1] for day in sorted(latest)], duplicates
+
+
+def record_daily_metrics(root: Path) -> None:
+    """Atomically upsert today's snapshot. Never raises.
+
+    Registered after root resolution and run at process exit, so the snapshot
+    includes the command that just completed. Replacing today's row retains a
+    single daily sample while keeping same-day activity current.
     """
     try:
         path = _metrics_path(root)
         today = datetime.now().astimezone().strftime("%Y-%m-%d")
+        invalid_rows: list[str] = []
+        snapshots: list[dict] = []
         if path.exists():
-            tail = path.read_text(encoding="utf-8", errors="replace").splitlines()
-            for line in reversed(tail[-5:]):
-                if f'"captured_at": "{today}' in line:
-                    return
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                try:
+                    existing = json.loads(line, parse_constant=_reject_json_constant)
+                except ValueError:
+                    invalid_rows.append(line)
+                    continue
+                if not _is_metrics_snapshot(existing):
+                    invalid_rows.append(line)
+                    continue
+                captured = existing.get("captured_at")
+                if not isinstance(captured, str) or captured[:10] != today:
+                    snapshots.append(existing)
         m = collect_metrics(root, full=False)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(m, ensure_ascii=False) + chr(10))
+        snapshots.append(m)
+        snapshots, _ = _canonical_metrics_history(snapshots)
+        rows = invalid_rows + [json.dumps(
+            snapshot, ensure_ascii=False, allow_nan=False) for snapshot in snapshots]
+        _atomic_write(path, ("\n".join(rows) + "\n").encode("utf-8"))
     except Exception:
         pass
 
@@ -2424,14 +2540,41 @@ def metrics(root: Path, full: bool, export: str | None) -> int:
     """Show today's metrics, or bundle the history for sharing."""
     if export:
         path = _metrics_path(root)
+        out = Path(export)
+        try:
+            same_source = out.resolve(strict=False) == path.resolve(strict=False)
+            if out.exists() and path.exists():
+                same_source = same_source or os.path.samefile(out, path)
+        except OSError as error:
+            print(f"REFUSING TO WRITE: cannot verify export path: {error}",
+                  file=sys.stderr)
+            return 1
+        if same_source:
+            print("REFUSING TO WRITE: export destination is the daily metrics history.",
+                  file=sys.stderr)
+            return 1
         history = []
+        invalid_history = 0
         if path.exists():
             for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
                 if line.strip():
                     try:
-                        history.append(json.loads(line))
+                        candidate = json.loads(
+                            line, parse_constant=_reject_json_constant)
                     except ValueError:
-                        pass
+                        invalid_history += 1
+                        continue
+                    if _is_metrics_snapshot(candidate):
+                        history.append(candidate)
+                    else:
+                        invalid_history += 1
+        if invalid_history:
+            print(f"warning: ignored {invalid_history} invalid metrics history row(s)",
+                  file=sys.stderr)
+        history, duplicate_days = _canonical_metrics_history(history)
+        if duplicate_days:
+            print(f"warning: collapsed {duplicate_days} duplicate metrics day row(s)",
+                  file=sys.stderr)
         latest = collect_metrics(root, full=full)
         bundle = {
             "lore_version": LORE_VERSION,
@@ -2456,8 +2599,13 @@ def metrics(root: Path, full: bool, export: str | None) -> int:
                   file=sys.stderr)
             return 1
 
-        out = Path(export)
-        out.write_text(json.dumps(bundle, indent=2, ensure_ascii=False), encoding="utf-8")
+        encoded = json.dumps(
+            bundle, indent=2, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        try:
+            _atomic_write(out, encoded)
+        except OSError as error:
+            print(f"Cannot write metrics export {out}: {error}", file=sys.stderr)
+            return 1
         print(f"wrote {out}  ({len(history)} daily snapshot(s))")
         print("audited: every string value is a version, date, "
               "platform name or schema value")
@@ -3481,6 +3629,7 @@ def main() -> int:
     p_compare.add_argument("--budget", required=True, type=positive_int)
     p_compare.add_argument("--holdout", type=int, default=1)
     p_compare.add_argument("--evaluator")
+    p_compare.add_argument("--goal", choices=("maximize", "minimize"))
     p_compare.add_argument("--workers", type=positive_int)
     p_compare.add_argument("--beta-cost", type=float, default=0.0)
     p_compare.add_argument("--beta-parallel", type=float, default=0.0)
@@ -3519,7 +3668,9 @@ def main() -> int:
         return init_archive(Path(args.path), args.json_output)
     root = workspace_root(args.root)
     if args.command not in (None, "selftest"):
-        record_daily_metrics(root)
+        # atexit runs after the selected command returns (including nonzero
+        # returns), so today's upsert observes its final archive and log state.
+        atexit.register(record_daily_metrics, root)
 
     if args.command == "rebuild":
         return rebuild(root, strict=args.strict)
@@ -3607,7 +3758,7 @@ def main() -> int:
         return experience.compare_policies(
             root, args.policies, args.incumbent, args.budget, args.holdout,
             args.evaluator, args.workers, args.beta_cost, args.beta_parallel,
-            args.json_output)
+            args.json_output, args.goal)
     if args.command == "explore-context":
         return explore_context(root, args.query, args.workers,
                                args.history_branches, args.per_branch,
