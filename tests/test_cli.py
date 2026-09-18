@@ -16,6 +16,10 @@ import yaml
 
 
 from oldhand import cli as oldhand
+# `rebuild` resolves validate_records, generate_index and itself through
+# the indexing module's own globals, so these must be patched where they
+# are looked up rather than on the re-exporting cli surface.
+from oldhand import indexing
 
 SOURCE = Path(oldhand.__file__).resolve()
 
@@ -136,7 +140,7 @@ class LoreTests(unittest.TestCase):
                 "Known facts.", "Other facts."), encoding="utf-8")
             return result
 
-        with mock.patch.object(oldhand, "validate_records", side_effect=edit_after_parse):
+        with mock.patch.object(indexing, "validate_records", side_effect=edit_after_parse):
             self.assertEqual(oldhand.rebuild(self.root, quiet=True), 0)
         with contextlib.closing(oldhand.connect(self.root)) as con:
             self.assertIn("Known facts.", con.execute(
@@ -150,7 +154,7 @@ class LoreTests(unittest.TestCase):
     def test_current_index_is_not_rebuilt(self):
         self.record("a")
         self.assertEqual(oldhand.rebuild(self.root, quiet=True), 0)
-        with mock.patch.object(oldhand, "rebuild", wraps=oldhand.rebuild) as rebuild:
+        with mock.patch.object(indexing, "rebuild", wraps=indexing.rebuild) as rebuild:
             self.repair_cycle()
         rebuild.assert_not_called()
 
@@ -164,7 +168,7 @@ class LoreTests(unittest.TestCase):
                     con.execute("UPDATE index_meta SET value=? WHERE key=?", (value, key))
                     con.execute("UPDATE entries SET title='stale'")
                     con.commit()
-                with mock.patch.object(oldhand, "rebuild", wraps=oldhand.rebuild) as rebuild:
+                with mock.patch.object(indexing, "rebuild", wraps=indexing.rebuild) as rebuild:
                     self.repair_cycle()
                 rebuild.assert_called_once_with(self.root, strict=False, quiet=True)
                 self.assertEqual(oldhand.archive_fingerprint(self.root), fingerprint)
@@ -204,7 +208,7 @@ class LoreTests(unittest.TestCase):
         oldhand.rebuild(self.root, quiet=True)
         db = oldhand.db_path(self.root)
         self.record("b")
-        with mock.patch.object(oldhand, "generate_index",
+        with mock.patch.object(indexing, "generate_index",
                                side_effect=RuntimeError("boom")):
             with self.assertRaises(RuntimeError):
                 oldhand.rebuild(self.root, quiet=True)
