@@ -15,7 +15,6 @@ Design contract:
 from __future__ import annotations
 
 import argparse
-import atexit
 import difflib
 import hashlib
 import json
@@ -25,6 +24,7 @@ import re
 import sqlite3
 import sys
 import tempfile
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -313,10 +313,17 @@ def schema_path() -> Path:
 
 
 def display_path(root: Path, path: Path) -> str:
+    """Render a path for output as POSIX on every platform.
+
+    The JSON emitted by `new`, `list` and friends is a machine-readable
+    interface, so it must not change shape on Windows. `str()` on a
+    WindowsPath yields backslashes and silently breaks any consumer that
+    compares or joins these values across platforms.
+    """
     try:
-        return str(path.relative_to(root))
+        return path.relative_to(root).as_posix()
     except ValueError:
-        return str(path)
+        return path.as_posix()
 
 
 # --------------------------------------------------------------------------
@@ -2548,7 +2555,11 @@ def record_daily_metrics(root: Path) -> None:
             snapshot, ensure_ascii=False, allow_nan=False) for snapshot in snapshots]
         _atomic_write(path, ("\n".join(rows) + "\n").encode("utf-8"))
     except Exception:
-        pass
+        # Metrics must never break the command the user actually asked for,
+        # but silence here once hid a real platform failure for an entire
+        # release. LORE_DEBUG makes it visible without changing behaviour.
+        if os.environ.get("LORE_DEBUG"):
+            traceback.print_exc()
 
 
 def metrics(root: Path, full: bool, export: str | None) -> int:
@@ -3827,11 +3838,19 @@ def main() -> int:
     root = workspace_root(args.root)
     # `setup` must be a true preview by default; recording daily metrics would
     # make its dry-run mutate the archive.
-    if args.command not in (None, "selftest", "setup"):
-        # atexit runs after the selected command returns (including nonzero
-        # returns), so today's upsert observes its final archive and log state.
-        atexit.register(record_daily_metrics, root)
+    if args.command in (None, "selftest", "setup"):
+        return _dispatch(args, root)
+    # Record once the command has returned - including a nonzero return or an
+    # exception - so today's upsert observes its final archive and log state.
+    # try/finally does that deterministically on every platform; atexit did
+    # not run reliably everywhere and failed silently when it did not.
+    try:
+        return _dispatch(args, root)
+    finally:
+        record_daily_metrics(root)
 
+
+def _dispatch(args, root: Path) -> int:
     if args.command == "rebuild":
         return rebuild(root, strict=args.strict)
     if args.command == "setup":

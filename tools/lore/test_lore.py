@@ -5,7 +5,7 @@ import importlib.util
 import io
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import sqlite3
 import subprocess
 import sys
@@ -1366,6 +1366,40 @@ class LoreTests(unittest.TestCase):
             self.assertEqual(lore.main(), 0)
         self.assertFalse((self.root / "metrics").exists())
         self.assertFalse((self.root / ".cursor" / "rules" / "lore.mdc").exists())
+
+    def test_display_path_renders_windows_paths_as_posix(self):
+        """The JSON `path` field must not change shape on Windows.
+
+        Exercised with PureWindowsPath so the Windows behaviour is pinned
+        from any host; str() on a WindowsPath yields backslashes, which
+        silently breaks consumers that compare or join these values.
+        """
+        root = PureWindowsPath(r"D:\a\lore\lore")
+        record = root / "memory" / "lessons" / "json-creation.md"
+        self.assertEqual(lore.display_path(root, record),
+                         "memory/lessons/json-creation.md")
+        outside = PureWindowsPath(r"C:\elsewhere\notes.md")
+        self.assertNotIn("\\", lore.display_path(root, outside))
+
+    def test_metrics_are_recorded_without_waiting_for_interpreter_exit(self):
+        """Metrics must land while the process is still running.
+
+        Deferring this to atexit made the write depend on interpreter
+        finalization, which did not happen reliably on every supported
+        platform and failed silently when it did not.
+        """
+        self.record("good")
+        with mock.patch.object(sys, "argv", [str(SOURCE), "--root", str(self.root),
+                                             "rebuild"]):
+            self.assertEqual(lore.main(), 0)
+        self.assertTrue((self.root / "metrics" / "daily.jsonl").exists())
+
+    def test_metrics_are_recorded_even_when_the_command_fails(self):
+        self.record("good")
+        with mock.patch.object(sys, "argv", [str(SOURCE), "--root", str(self.root),
+                                             "show", "no-such-record-id"]):
+            self.assertNotEqual(lore.main(), 0)
+        self.assertTrue((self.root / "metrics" / "daily.jsonl").exists())
 
     def test_cli_help(self):
         result = subprocess.run([sys.executable, "-B", str(SOURCE), "--help"],
