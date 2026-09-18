@@ -1,6 +1,8 @@
 # Lore CLI
 
-A working harness-neutral implementation ships with the package.
+A working harness-neutral implementation is available from this source checkout.
+Packaging is a tracked launch gate; until it is complete, use the documented
+`python tools/lore/lore.py` commands rather than assuming a public package.
 
 ## Install dependency
 
@@ -13,6 +15,7 @@ python -m pip install -r tools/lore/requirements.txt
 ```bash
 python tools/lore/lore.py --version
 python tools/lore/lore.py init <path> [--json]
+python tools/lore/lore.py setup <claude|codex|cursor|opencode> [--apply|--undo]
 python tools/lore/lore.py validate [--json]
 python tools/lore/lore.py rebuild [--strict]
 python tools/lore/lore.py search "query"
@@ -55,6 +58,27 @@ python tools/lore/lore.py obsidian
 
 Each has its own section below. `lore --help` is authoritative if this list
 and the parser ever disagree.
+
+## Project-local harness setup
+
+`lore setup` writes no files by default. It prints the exact unified diff for
+a small, project-local instruction that tells an agent to search Lore before
+changing an area with uncertain constraints. Pass `--apply` only after
+reviewing that diff. `--undo --apply` removes only Lore's marked content.
+
+The command never creates hooks, MCP configuration, user-level configuration,
+credentials, or automatic command execution.
+
+- `claude` creates the dedicated `.claude/rules/lore.md` file when it does not
+  already exist.
+- `cursor` creates `.cursor/rules/lore.mdc` as an agent-requested rule, not an
+  always-applied rule.
+- `codex` and `opencode` update only an already-existing root `AGENTS.md`;
+  Lore will not create or overwrite that shared instruction file.
+
+All targets must remain inside the resolved `--root`; symlink escapes,
+non-regular files, conflicting dedicated files, and malformed ownership
+markers are refused. These are instruction hints, not an enforcement boundary.
 
 ## Discovery experience
 

@@ -836,6 +836,83 @@ class LoreTests(unittest.TestCase):
     def test_selftest(self):
         self.assertEqual(lore.selftest(), 0)
 
+    def test_setup_claude_dry_run_is_non_mutating_and_exact(self):
+        target = self.root / ".claude" / "rules" / "lore.md"
+        self.assertEqual(lore.setup_harness(self.root, "claude"), 0)
+        self.assertFalse(target.exists())
+        self.assertFalse((self.root / "metrics").exists())
+        output = self.output.getvalue()
+        self.assertIn("--- a/.claude/rules/lore.md", output)
+        self.assertIn(lore.SETUP_START, output)
+        self.assertIn("Dry run only", output)
+
+    def test_setup_claude_apply_is_idempotent_and_undo_removes_only_owned_file(self):
+        target = self.root / ".claude" / "rules" / "lore.md"
+        self.assertEqual(lore.setup_harness(self.root, "claude", apply=True), 0)
+        generated = target.read_text(encoding="utf-8")
+        self.assertIn(lore.SETUP_GUIDANCE, generated)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(lore.setup_harness(self.root, "claude", apply=True), 0)
+        self.assertEqual(target.read_text(encoding="utf-8"), generated)
+        self.assertIn("already up to date", self.output.getvalue())
+        self.assertEqual(lore.setup_harness(self.root, "claude", apply=True, undo=True), 0)
+        self.assertFalse(target.exists())
+
+    def test_setup_preserves_existing_dedicated_file_and_cursor_rule_is_agent_requested(self):
+        claude = self.root / ".claude" / "rules" / "lore.md"
+        claude.parent.mkdir(parents=True)
+        claude.write_text("# Existing team rule\n", encoding="utf-8")
+        self.assertEqual(lore.setup_harness(self.root, "claude", apply=True), 1)
+        self.assertEqual(claude.read_text(encoding="utf-8"), "# Existing team rule\n")
+
+        cursor = self.root / ".cursor" / "rules" / "lore.mdc"
+        self.assertEqual(lore.setup_harness(self.root, "cursor", apply=True), 0)
+        rule = cursor.read_text(encoding="utf-8")
+        self.assertIn("description:", rule)
+        self.assertNotIn("alwaysApply:", rule)
+        self.assertIn(lore.SETUP_START, rule)
+        self.assertEqual(lore.setup_harness(self.root, "cursor", apply=True, undo=True), 0)
+        self.assertFalse(cursor.exists())
+
+    def test_setup_codex_and_opencode_require_existing_agents_and_preserve_it(self):
+        agents = self.root / "AGENTS.md"
+        self.assertEqual(lore.setup_harness(self.root, "codex", apply=True), 1)
+        self.assertFalse(agents.exists())
+        agents.write_text("# Team instructions\n\nKeep reviews focused.\n", encoding="utf-8")
+        self.assertEqual(lore.setup_harness(self.root, "codex", apply=True), 0)
+        updated = agents.read_text(encoding="utf-8")
+        self.assertTrue(updated.startswith("# Team instructions"))
+        self.assertEqual(updated.count(lore.SETUP_START), 1)
+        self.assertEqual(lore.setup_harness(self.root, "opencode", apply=True), 0)
+        self.assertEqual(agents.read_text(encoding="utf-8").count(lore.SETUP_START), 1)
+        self.assertEqual(lore.setup_harness(self.root, "codex", apply=True, undo=True), 0)
+        self.assertEqual(agents.read_text(encoding="utf-8"),
+                         "# Team instructions\n\nKeep reviews focused.\n")
+
+    def test_setup_refuses_malformed_markers_and_symlink_escape(self):
+        target = self.root / "AGENTS.md"
+        target.write_text(lore.SETUP_START + "\n", encoding="utf-8")
+        self.assertEqual(lore.setup_harness(self.root, "codex", apply=True), 1)
+        self.assertEqual(target.read_text(encoding="utf-8"), lore.SETUP_START + "\n")
+
+        outside = Path(self.temp.name).parent / "lore-setup-outside"
+        outside.mkdir(exist_ok=True)
+        link = self.root / ".claude"
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except OSError as error:
+            self.skipTest(f"symlinks unavailable: {error}")
+        self.assertEqual(lore.setup_harness(self.root, "claude", apply=True), 1)
+        self.assertFalse((outside / "rules" / "lore.md").exists())
+
+    def test_setup_cli_default_dry_run_does_not_create_metrics(self):
+        with mock.patch.object(sys, "argv", [str(SOURCE), "--root", str(self.root),
+                                               "setup", "cursor"]):
+            self.assertEqual(lore.main(), 0)
+        self.assertFalse((self.root / "metrics").exists())
+        self.assertFalse((self.root / ".cursor" / "rules" / "lore.mdc").exists())
+
     def test_cli_help(self):
         result = subprocess.run([sys.executable, "-B", str(SOURCE), "--help"],
                                 capture_output=True, text=True)
