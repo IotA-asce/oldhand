@@ -418,7 +418,7 @@ oldhand metrics --export mine.json
 Exports contain aggregate counts, rates, percentiles, versions, timestamps,
 platform, and schema values. Oldhand audits every string and refuses to export
 anything outside the disclosure allowlist. The exact contract is in
-[METRICS.md](METRICS.md).
+[METRICS.md](docs/METRICS.md).
 
 ![Oldhand’s evidence program moves from one archive toward independent validation](docs/img/stages.svg)
 
@@ -443,10 +443,10 @@ anything outside the disclosure allowlist. The exact contract is in
 | [START_HERE.md](START_HERE.md) | the five-minute operating guide |
 | [WRITING_RECORDS.md](WRITING_RECORDS.md) | write records people can find |
 | [INSTALL.md](INSTALL.md) | install, configure PATH, and uninstall |
-| [MIGRATING_AN_ARCHIVE.md](MIGRATING_AN_ARCHIVE.md) | adopt Oldhand in phases |
-| [RECONCILING_AN_EXISTING_ARCHIVE.md](RECONCILING_AN_EXISTING_ARCHIVE.md) | resolve imported contradictions |
+| [MIGRATING_AN_ARCHIVE.md](docs/MIGRATING_AN_ARCHIVE.md) | adopt Oldhand in phases |
+| [RECONCILING_AN_EXISTING_ARCHIVE.md](docs/RECONCILING_AN_EXISTING_ARCHIVE.md) | resolve imported contradictions |
 | [memory/SCHEMA.md](memory/SCHEMA.md) | canonical record schema |
-| [LESSONS.md](LESSONS.md) | the experiments and what they taught |
+| [LESSONS.md](docs/LESSONS.md) | the experiments and what they taught |
 
 ## Development
 

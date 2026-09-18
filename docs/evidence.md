@@ -16,7 +16,7 @@ combined into a single product-performance claim.
 
 ## 1. Field observations: one archive
 
-[`METRICS.md`](../METRICS.md) reports operating measurements from one real
+[`METRICS.md`](METRICS.md) reports operating measurements from one real
 archive: 293 records in four collections, 47 searches across nine active days,
 a 6% zero-result rate, and a 22% full-record open rate. Those numbers describe
 that archive and its use; they are not a benchmark and should not be used to
@@ -33,7 +33,7 @@ archive cannot provide independent validation.
 
 ## 2. Controlled interventions: local causal evidence
 
-[`LESSONS.md`](../LESSONS.md) records interventions applied to the same
+[`LESSONS.md`](LESSONS.md) records interventions applied to the same
 archive while holding the relevant comparison fixed where possible. Examples
 include section indexing, identifier tokenization, summary repair, ranking
 tuning, and critical-label inflation. These experiments informed implementation
