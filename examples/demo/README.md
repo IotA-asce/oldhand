@@ -39,3 +39,14 @@ For a final recording check, run the two Python commands above and inspect the
 rendered GIF for legibility, a 45--60 second duration, and the absence of real
 project data. Do not claim the animation itself is a benchmark; it is a
 fictional workflow demonstration.
+
+## If VHS cannot render here
+
+VHS drives a headless browser to capture frames. Where that browser cannot
+start, VHS still exits 0 and writes no file — check that the GIF actually
+exists rather than trusting the exit code.
+
+The committed still image at `docs/img/demo-session.svg` is generated from the
+same scenario by `docs/make_demo_svg.py`, which draws whatever
+`examples/run_demo.py` prints. Use it when an animation is not available; it
+cannot drift from the real output because it is rendered from it.

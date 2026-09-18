@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="833" height="498" viewBox="0 0 833 498" role="img" aria-label="A terminal session retrieving a reviewed constraint from a local archive">
+<rect width="833" height="498" rx="10" fill="#0d1117"/>
+<circle cx="26" cy="22" r="6" fill="#ff5f56"/><circle cx="46" cy="22" r="6" fill="#ffbd2e"/><circle cx="66" cy="22" r="6" fill="#27c93f"/>
+<g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13.5">
+<text x="22" y="56" fill="#3fb950">$</text><text x="38" y="56" fill="#c9d1d9">oldhand search "why can't we simplify this config loader?"</text>
+<text x="22" y="98" fill="#c9d1d9" xml:space="preserve">Oldhand synthetic demo — no network, account, model, or real project data</text>
+<text x="22" y="140" fill="#bc8cff" xml:space="preserve">Before: no environment file selected</text>
+<text x="22" y="161" fill="#8b949e" xml:space="preserve">  DATABASE_URL = postgresql://demo-user@database.invalid/synthetic_app</text>
+<text x="22" y="203" fill="#bc8cff" xml:space="preserve">After: synthetic staging file selected</text>
+<text x="22" y="224" fill="#8b949e" xml:space="preserve">  DATABASE_URL = &lt;missing: staging must declare it explicitly&gt;</text>
+<text x="22" y="245" fill="#8b949e" xml:space="preserve">  Interpretation: add DATABASE_URL to staging; do not merge defaults.</text>
+<text x="22" y="287" fill="#3fb950" xml:space="preserve">Oldhand search: why can't we simplify this config loader?</text>
+<text x="22" y="308" fill="#8b949e" xml:space="preserve">  Retrieved: synthetic_environment_config_replaces_defaults</text>
+<text x="22" y="329" fill="#8b949e" xml:space="preserve">  Summary: Do not merge `config/staging.json` with `config/defaults.json`. An environment file</text>
+<text x="22" y="350" fill="#8b949e" xml:space="preserve">    is a complete, reviewed replacement, so every required setting must be present in the</text>
+<text x="22" y="371" fill="#8b949e" xml:space="preserve">    environment file itself.</text>
+<text x="22" y="413" fill="#3fb950" xml:space="preserve">Oldhand show: synthetic_environment_config_replaces_defaults</text>
+<text x="22" y="434" fill="#8b949e" xml:space="preserve">  Title: Synthetic example: environment configuration replaces defaults</text>
+<text x="22" y="455" fill="#8b949e" xml:space="preserve">  Evidence: verified</text>
+</g></svg>

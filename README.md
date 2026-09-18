@@ -56,13 +56,32 @@ Routine work should leave no Oldhand record. If code, tests, Git, or current doc
 already preserve a fact cheaply, they will usually keep it current better. Oldhand
 is for the knowledge that would otherwise disappear between sessions.
 
+## See it work
+
+![A terminal session: an agent asks why a config loader cannot be simplified, and the reviewed constraint comes back from the local archive](docs/img/demo-session.svg)
+
+Everything above is real output from `examples/run_demo.py`, which runs
+offline against a synthetic project. The image is generated from that command,
+so it cannot drift from what the tool actually does:
+
+```bash
+python3 -B examples/run_demo.py     # the scenario
+python3 -B docs/make_demo_svg.py    # redraw the image from its output
+```
+
 ## Install
 
 ```bash
-pipx install oldhand      # or: pip install oldhand
+git clone https://github.com/IotA-asce/oldhand.git
+pipx install ./oldhand          # or: pip install ./oldhand
 oldhand init ~/knowledge
 export OLDHAND_ROOT=~/knowledge
 ```
+
+> **Not on PyPI yet.** `pipx install oldhand` will be the install command once
+> the first beta is published; until then install from the clone above. The
+> built wheel and sdist are attached to the
+> [latest release](https://github.com/IotA-asce/oldhand/releases).
 
 Python 3.10+ on Linux or macOS. No account, server, API key, model, or
 network connection. Windows is not supported yet; see
@@ -88,32 +107,29 @@ oldhand search "why did one new setting remove the old ones"
 directory. See [INSTALL.md](INSTALL.md) for a from-source install, shell
 profile setup, and uninstalling.
 
-## Two kinds of memory
+## Why not just log everything?
 
-Oldhand separates what happened from what deserves to endure.
+Most agent-memory tools capture activity automatically and replay it back.
+Oldhand does the opposite, for three reasons.
 
-```text
-workspace/
-├── memory/                  durable, reviewed Markdown
-│   ├── constraints/
-│   ├── decisions/
-│   └── lessons/
-├── experience/runs/         immutable discovery trees
-│   └── planner-v1.json
-└── .oldhand/                   disposable local machinery
-    ├── oldhand.db
-    └── retrieval.jsonl
-```
+**It stores judgement, not transcripts.** A record exists because someone
+decided a finding would be expensive to rediscover. Routine work leaves
+nothing behind. An archive that captures everything ranks everything, and
+ranking everything is how retrieval stops being useful.
 
-**Durable memory** is the compact, reviewed truth future work should retrieve.
-**Experience** is the larger tree of proposals, evaluations, costs, and outcomes
-that lets Oldhand study *how* the answer was found. They meet only when a human
-chooses to distill an evaluated result.
+**Markdown is canonical and the index is disposable.** Records are ordinary
+files in your repository, reviewed in pull requests and diffed in Git. Delete
+`.oldhand/` and nothing is lost; the next command rebuilds it. No database is
+the source of truth, so there is nothing to migrate or export.
 
-![A discovery task becomes a trace, is replayed under candidate policies, and can be distilled into durable memory](docs/img/replay-loop.svg)
+**Nothing leaves the machine.** No account, API key, embedding model, hosted
+service, or background daemon. Retrieval is SQLite FTS5 over local files.
 
-The editable source is
-[docs/diagrams/replay-loop.drawio](docs/diagrams/replay-loop.drawio).
+The distinction that matters in one line:
+
+> Activity-capture tools remember what the agent did. Task trackers remember
+> what work remains. Oldhand remembers what the engineering team learned and
+> why it still constrains the code.
 
 ## The everyday loop
 
@@ -181,57 +197,6 @@ Compaction never invents a synthesis. Prepare the target record first; Oldhand t
 retires the sources and adds reverse `supersedes` edges atomically. Old truth is
 not deleted—it becomes history.
 
-## Replay discovery, not just conclusions
-
-Oldhand 0.5.0 integrates the history-as-simulator insight from
-[Dream-RSI](https://arxiv.org/abs/2609.14858): a grounded search history can be
-reused to compare exploration policies offline. Oldhand adopts the practical idea,
-not autonomous self-modification.
-
-```bash
-oldhand run-start --id planner-v1 --task "Tune query planner" \
-  --evaluator bench-v2 --policy breadth --workers 4
-
-oldhand attempt-add planner-v1 --id branch-a --parent root \
-  --proposal "Replace nested scan with indexed lookup"
-
-oldhand attempt-evaluate planner-v1 branch-a --score 81.4 --correct \
-  --outcome success --cost 2 --diagnostics-ref results/branch-a.json
-
-oldhand run-finish planner-v1
-oldhand replay planner-v1 --policy depth --budget 20 --json
-oldhand policy-compare depth score-greedy --incumbent breadth \
-  --budget 20 --holdout 1 --evaluator bench-v2
-```
-
-A replay policy sees only the prefix it has revealed, never the full future
-tree. Breadth, depth, and score-greedy baselines are deterministic. Comparison
-keeps the incumbent visible, isolates newer histories as a holdout, and never
-rewrites or promotes policy code automatically.
-
-For parallel discovery, share guardrails without forcing every worker down the
-same remembered path:
-
-```bash
-oldhand explore-context "query planner selectivity" \
-  --workers 4 --history-branches 1 --json
-```
-
-Every worker receives critical constraints and invariants. Only selected
-branches receive directional decisions and lessons; the others stay free to
-explore. After review, close the loop:
-
-```bash
-oldhand run-distill planner-v1 branch-a \
-  --title "Indexed lookup avoids nested planner scans" \
-  --type lesson --importance high \
-  --topics "database,performance" --dry-run
-```
-
-Distillation accepts only an evaluated node from a completed run, cites the
-canonical trace, and uses the normal collision, validation, and dry-run safety
-checks. The human still decides what becomes memory.
-
 ## Proof, not vibes
 
 Oldhand’s published evidence comes from one real archive. That makes the numbers
@@ -298,6 +263,99 @@ only four times in 29 flags; automatic “cleanup” would have damaged the arch
 
 ![Four genuine defects were found among 29 initial conflict flags](docs/img/precision.svg)
 
+## Integrations
+
+```bash
+oldhand setup claude      # also: codex, cursor, opencode
+```
+
+`setup` prints the exact change it would make and writes nothing without
+`--apply`. It only ever adds a small, marked instruction block telling the
+agent to search before non-trivial work. It never creates hooks, MCP
+settings, credentials, or user-level files, and `--undo` removes only content
+it owns.
+
+Any harness that can run a shell command can use Oldhand without a plugin:
+`oldhand search "..."` is the whole interface.
+
+## Two kinds of memory
+
+Oldhand separates what happened from what deserves to endure.
+
+```text
+workspace/
+├── memory/                  durable, reviewed Markdown
+│   ├── constraints/
+│   ├── decisions/
+│   └── lessons/
+├── experience/runs/         immutable discovery trees
+│   └── planner-v1.json
+└── .oldhand/                   disposable local machinery
+    ├── oldhand.db
+    └── retrieval.jsonl
+```
+
+**Durable memory** is the compact, reviewed truth future work should retrieve.
+**Experience** is the larger tree of proposals, evaluations, costs, and outcomes
+that lets Oldhand study *how* the answer was found. They meet only when a human
+chooses to distill an evaluated result.
+
+![A discovery task becomes a trace, is replayed under candidate policies, and can be distilled into durable memory](docs/img/replay-loop.svg)
+
+The editable source is
+[docs/diagrams/replay-loop.drawio](docs/diagrams/replay-loop.drawio).
+
+## Replay discovery, not just conclusions
+
+Oldhand 0.5.0 integrates the history-as-simulator insight from
+[Dream-RSI](https://arxiv.org/abs/2609.14858): a grounded search history can be
+reused to compare exploration policies offline. Oldhand adopts the practical idea,
+not autonomous self-modification.
+
+```bash
+oldhand run-start --id planner-v1 --task "Tune query planner" \
+  --evaluator bench-v2 --policy breadth --workers 4
+
+oldhand attempt-add planner-v1 --id branch-a --parent root \
+  --proposal "Replace nested scan with indexed lookup"
+
+oldhand attempt-evaluate planner-v1 branch-a --score 81.4 --correct \
+  --outcome success --cost 2 --diagnostics-ref results/branch-a.json
+
+oldhand run-finish planner-v1
+oldhand replay planner-v1 --policy depth --budget 20 --json
+oldhand policy-compare depth score-greedy --incumbent breadth \
+  --budget 20 --holdout 1 --evaluator bench-v2
+```
+
+A replay policy sees only the prefix it has revealed, never the full future
+tree. Breadth, depth, and score-greedy baselines are deterministic. Comparison
+keeps the incumbent visible, isolates newer histories as a holdout, and never
+rewrites or promotes policy code automatically.
+
+For parallel discovery, share guardrails without forcing every worker down the
+same remembered path:
+
+```bash
+oldhand explore-context "query planner selectivity" \
+  --workers 4 --history-branches 1 --json
+```
+
+Every worker receives critical constraints and invariants. Only selected
+branches receive directional decisions and lessons; the others stay free to
+explore. After review, close the loop:
+
+```bash
+oldhand run-distill planner-v1 branch-a \
+  --title "Indexed lookup avoids nested planner scans" \
+  --type lesson --importance high \
+  --topics "database,performance" --dry-run
+```
+
+Distillation accepts only an evaluated node from a completed run, cites the
+canonical trace, and uses the normal collision, validation, and dry-run safety
+checks. The human still decides what becomes memory.
+
 ## How retrieval works
 
 ```text
@@ -340,34 +398,6 @@ support `--dry-run`. The complete contract is in
 [docs/CLI_SPEC.md](docs/CLI_SPEC.md), and `oldhand --help` is
 authoritative.
 
-## What Oldhand promises
-
-- **Local-first.** Indexing, retrieval, replay, and curation require no network.
-- **Portable.** Markdown and YAML remain readable without Oldhand.
-- **Disposable machinery.** SQLite can always be rebuilt from canonical files.
-- **Fail-open reads.** One malformed record does not take healthy memory offline.
-- **Fail-closed writes.** Mutations require a valid archive and validate the
-  complete result.
-- **Rollback protection.** A failed multi-record publication restores every
-  original file.
-- **Explicit retirement.** Stale knowledge stays inspectable as history.
-- **No autonomous promotion.** Replay produces evidence; people choose policy
-  and durable memory.
-- **Privacy-audited metrics.** Exports exclude titles, ids, paths, summaries,
-  queries, topics, and collection names.
-
-Mutation follows one conservative path:
-
-```text
-validate archive → resolve ids → build proposed state → publish atomically
-                                                        │
-                                  failure ───────────────┴──── success
-                                     │                           │
-                               restore files              rebuild index
-```
-
-Oldhand refuses to mutate an archive that is already invalid.
-
 ## Record anatomy
 
 ```markdown
@@ -404,6 +434,34 @@ Stable ids make automation safe. Lifecycle state keeps history without letting
 it pollute normal search. Evidence describes how strongly the claim is grounded;
 importance describes how costly it is to miss. They are not the same thing.
 
+## What Oldhand promises
+
+- **Local-first.** Indexing, retrieval, replay, and curation require no network.
+- **Portable.** Markdown and YAML remain readable without Oldhand.
+- **Disposable machinery.** SQLite can always be rebuilt from canonical files.
+- **Fail-open reads.** One malformed record does not take healthy memory offline.
+- **Fail-closed writes.** Mutations require a valid archive and validate the
+  complete result.
+- **Rollback protection.** A failed multi-record publication restores every
+  original file.
+- **Explicit retirement.** Stale knowledge stays inspectable as history.
+- **No autonomous promotion.** Replay produces evidence; people choose policy
+  and durable memory.
+- **Privacy-audited metrics.** Exports exclude titles, ids, paths, summaries,
+  queries, topics, and collection names.
+
+Mutation follows one conservative path:
+
+```text
+validate archive → resolve ids → build proposed state → publish atomically
+                                                        │
+                                  failure ───────────────┴──── success
+                                     │                           │
+                               restore files              rebuild index
+```
+
+Oldhand refuses to mutate an archive that is already invalid.
+
 ## Privacy and measurement
 
 Search and show events remain local in `.oldhand/retrieval.jsonl`. At most one
@@ -422,6 +480,26 @@ anything outside the disclosure allowlist. The exact contract is in
 
 ![Oldhand’s evidence program moves from one archive toward independent validation](docs/img/stages.svg)
 
+## Honest limits
+
+- Retrieval only helps when someone searches. Give agents a real trigger:
+  search before non-trivial work and whenever a surprise feels familiar.
+- Replay evaluates policies against recorded trees; it does not execute unseen
+  proposals or prove a policy will generalize to a new task.
+- Compaction does not synthesize prose. The target must already contain the
+  intended canonical knowledge.
+- Published measurements come from one archive. They are transparent findings,
+  not claims of universal performance.
+- Lifecycle commands preserve semantic YAML data but may normalize frontmatter
+  formatting when rewriting a record.
+
+<div align="center">
+
+### Build the thing. Keep the reason.
+
+MIT licensed. Local by design. Made for the next mind that opens the repo.
+
+</div>
 ## Repository map
 
 ```text
@@ -460,23 +538,3 @@ installer, and end-to-end suites, then executes ranking invariants. Clean
 checkout mode applies the working patch to a temporary clone without stashing
 or resetting the current tree.
 
-## Honest limits
-
-- Retrieval only helps when someone searches. Give agents a real trigger:
-  search before non-trivial work and whenever a surprise feels familiar.
-- Replay evaluates policies against recorded trees; it does not execute unseen
-  proposals or prove a policy will generalize to a new task.
-- Compaction does not synthesize prose. The target must already contain the
-  intended canonical knowledge.
-- Published measurements come from one archive. They are transparent findings,
-  not claims of universal performance.
-- Lifecycle commands preserve semantic YAML data but may normalize frontmatter
-  formatting when rewriting a record.
-
-<div align="center">
-
-### Build the thing. Keep the reason.
-
-MIT licensed. Local by design. Made for the next mind that opens the repo.
-
-</div>
