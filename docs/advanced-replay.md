@@ -1,13 +1,13 @@
 # Advanced replay: inspect a recorded search without rerunning it
 
-Lore's discovery-replay feature is an offline analysis tool for a completed
+Oldhand's discovery-replay feature is an offline analysis tool for a completed
 engineering exploration. It is deliberately separate from durable Markdown
 memory: a trace records attempts that happened; a person decides whether an
 outcome deserves to be distilled into a reviewed record.
 
 Use it when a task had several plausible approaches and you want to ask a
 bounded question about the recorded history: under the same budget, in what
-order would one of Lore's built-in policies have uncovered the successful
+order would one of Oldhand's built-in policies have uncovered the successful
 attempts?
 
 It is not an agent runtime, an optimizer that writes its own policies, or a
@@ -15,12 +15,12 @@ claim that one small archive is a general benchmark.
 
 ## Record a discovery trace
 
-Run these commands from an initialized Lore archive, using the checked-out CLI
+Run these commands from an initialized Oldhand archive, using the checked-out CLI
 until a packaged command is installed. The example creates one root attempt
 and its continuation; root attempts may instead open several branches.
 
 ```bash
-python tools/lore/lore.py run-start \
+python src/oldhand/cli.py run-start \
   --id config-loader-investigation \
   --task "Find why deployed configuration loses defaults" \
   --evaluator "config-regression-suite" \
@@ -28,26 +28,26 @@ python tools/lore/lore.py run-start \
   --goal maximize \
   --workers 2
 
-python tools/lore/lore.py attempt-add config-loader-investigation \
+python src/oldhand/cli.py attempt-add config-loader-investigation \
   --id inspect-loader \
   --parent root \
   --proposal "Inspect replacement and merge behavior" \
   --artifact-ref examples/sample-project/config_loader.py
 
-python tools/lore/lore.py attempt-evaluate config-loader-investigation inspect-loader \
+python src/oldhand/cli.py attempt-evaluate config-loader-investigation inspect-loader \
   --score 4 --incorrect --outcome failure --cost 1 --duration-ms 120
 
-python tools/lore/lore.py attempt-add config-loader-investigation \
+python src/oldhand/cli.py attempt-add config-loader-investigation \
   --id preserve-defaults \
   --parent inspect-loader \
   --proposal "Preserve defaults while applying an environment override"
 
-python tools/lore/lore.py attempt-evaluate config-loader-investigation preserve-defaults \
+python src/oldhand/cli.py attempt-evaluate config-loader-investigation preserve-defaults \
   --score 9 --correct --outcome success --cost 2 --duration-ms 180
 
-python tools/lore/lore.py run-finish config-loader-investigation
-python tools/lore/lore.py run-validate config-loader-investigation
-python tools/lore/lore.py run-show config-loader-investigation
+python src/oldhand/cli.py run-finish config-loader-investigation
+python src/oldhand/cli.py run-validate config-loader-investigation
+python src/oldhand/cli.py run-show config-loader-investigation
 ```
 
 Traces live at `experience/runs/<run-id>.json`. The CLI records a fixed task,
@@ -73,7 +73,7 @@ the bundled policies:
   result, then depth.
 
 ```bash
-python tools/lore/lore.py replay config-loader-investigation \
+python src/oldhand/cli.py replay config-loader-investigation \
   --policy score-greedy --budget 2 --workers 2 --json
 ```
 
@@ -106,7 +106,7 @@ Use `--beta-cost` and `--beta-parallel` only to make an explicit trade-off you
 want to inspect:
 
 ```bash
-python tools/lore/lore.py replay config-loader-investigation \
+python src/oldhand/cli.py replay config-loader-investigation \
   --policy depth --budget 8 --beta-cost 0.25 --beta-parallel 0.10
 ```
 
@@ -120,10 +120,10 @@ or proof that a policy will perform the same way on a new task.
 
 `policy-compare` replays the incumbent plus requested candidates over completed
 traces. If the archive contains multiple evaluator names, select exactly one;
-Lore refuses to silently average them.
+Oldhand refuses to silently average them.
 
 ```bash
-python tools/lore/lore.py policy-compare depth score-greedy \
+python src/oldhand/cli.py policy-compare depth score-greedy \
   --incumbent breadth \
   --budget 8 \
   --holdout 1 \
@@ -152,7 +152,7 @@ This is a convenience split, not a controlled evaluation:
 - A small or synthetic archive can show a useful local signal, but cannot
   establish general policy superiority.
 
-Most importantly, comparison is read-only. Lore does **not** rewrite a policy,
+Most importantly, comparison is read-only. Oldhand does **not** rewrite a policy,
 switch an incumbent, promote a candidate, or change a future agent's behavior.
 Treat the result as evidence for a human review decision.
 
@@ -160,10 +160,10 @@ Treat the result as evidence for a human review decision.
 
 Replay is an advanced supplement to durable engineering memory. Inspect an
 evaluated node and, if it captures a reusable constraint, decision, lesson, or
-hazard, create a normal Lore record with a trace reference:
+hazard, create a normal Oldhand record with a trace reference:
 
 ```bash
-python tools/lore/lore.py run-distill config-loader-investigation preserve-defaults \
+python src/oldhand/cli.py run-distill config-loader-investigation preserve-defaults \
   --title "Environment overrides must preserve configuration defaults" \
   --type constraint \
   --importance high \
@@ -176,4 +176,4 @@ normal record proposal; review it, remove `--dry-run` only when it is accurate,
 then rebuild or validate the archive as usual. This human boundary keeps raw
 exploration from becoming unreviewed institutional memory.
 
-For the command reference, see [the CLI specification](../tools/lore/CLI_SPEC.md).
+For the command reference, see [the CLI specification](../docs/CLI_SPEC.md).

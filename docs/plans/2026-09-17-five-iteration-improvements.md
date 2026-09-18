@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Make Lore easier to query, automate, and browse through five additive CLI improvements, then replace the README with a visual, task-oriented product guide.
+**Goal:** Make Oldhand easier to query, automate, and browse through five additive CLI improvements, then replace the README with a visual, task-oriented product guide.
 
 **Architecture:** Preserve Markdown as canonical state and SQLite as a derived index. Extend the existing read-only CLI paths with SQL predicates and structured renderers; do not change the schema, ranking constants, or record format. Each iteration begins with regression coverage and ends with targeted verification.
 
@@ -13,9 +13,9 @@
 ### Task 1: Filter search by record type
 
 **Files:**
-- Modify: `tools/lore/test_lore.py`
-- Modify: `tools/lore/lore.py`
-- Modify: `tools/lore/CLI_SPEC.md`
+- Modify: `tests/test_cli.py`
+- Modify: `src/oldhand/cli.py`
+- Modify: `docs/CLI_SPEC.md`
 
 1. Add a failing test with two matching records of different types.
 2. Run the targeted test and confirm the unfiltered result fails the expectation.
@@ -26,9 +26,9 @@
 ### Task 2: Filter search by exact topic
 
 **Files:**
-- Modify: `tools/lore/test_lore.py`
-- Modify: `tools/lore/lore.py`
-- Modify: `tools/lore/CLI_SPEC.md`
+- Modify: `tests/test_cli.py`
+- Modify: `src/oldhand/cli.py`
+- Modify: `docs/CLI_SPEC.md`
 
 1. Add a failing test with records whose searchable text matches but topics differ.
 2. Add `--topic` with an exact, case-insensitive predicate through `entry_topics` and `topics`.
@@ -39,10 +39,10 @@
 ### Task 3: Emit structured search results
 
 **Files:**
-- Modify: `tools/lore/test_lore.py`
-- Modify: `tools/test_e2e.py`
-- Modify: `tools/lore/lore.py`
-- Modify: `tools/lore/CLI_SPEC.md`
+- Modify: `tests/test_cli.py`
+- Modify: `tests/test_e2e.py`
+- Modify: `src/oldhand/cli.py`
+- Modify: `docs/CLI_SPEC.md`
 
 1. Add failing tests for populated and empty JSON search results.
 2. Add `--json` and emit one JSON document containing the query, active filters, count, and full result metadata.
@@ -53,10 +53,10 @@
 ### Task 4: Emit a structured record
 
 **Files:**
-- Modify: `tools/lore/test_lore.py`
-- Modify: `tools/test_e2e.py`
-- Modify: `tools/lore/lore.py`
-- Modify: `tools/lore/CLI_SPEC.md`
+- Modify: `tests/test_cli.py`
+- Modify: `tests/test_e2e.py`
+- Modify: `src/oldhand/cli.py`
+- Modify: `docs/CLI_SPEC.md`
 
 1. Add a failing test for `show --json`.
 2. Query the indexed record and collection metadata, returning frontmatter fields, summary, body, path, and collection as JSON.
@@ -67,10 +67,10 @@
 ### Task 5: Browse records without inventing a query
 
 **Files:**
-- Modify: `tools/lore/test_lore.py`
-- Modify: `tools/test_e2e.py`
-- Modify: `tools/lore/lore.py`
-- Modify: `tools/lore/CLI_SPEC.md`
+- Modify: `tests/test_cli.py`
+- Modify: `tests/test_e2e.py`
+- Modify: `src/oldhand/cli.py`
+- Modify: `docs/CLI_SPEC.md`
 
 1. Add failing tests for active-only listing, filters, limits, and JSON.
 2. Add `list` with `--history`, `--type`, `--topic`, `--collection`, `--limit`, and `--json`.

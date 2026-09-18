@@ -1,6 +1,6 @@
 # Governance
 
-Lore is maintained as an open-source, local-first project. This document makes
+Oldhand is maintained as an open-source, local-first project. This document makes
 decision-making visible while the project is still small.
 
 ## Roles

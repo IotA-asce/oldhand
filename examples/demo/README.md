@@ -1,10 +1,10 @@
-# Lore terminal demo
+# Oldhand terminal demo
 
-This directory contains the source for Lore's 45--60 second launch demo. It
+This directory contains the source for Oldhand's 45--60 second launch demo. It
 is deliberately a recording recipe, not a checked-in GIF: the only content it
 shows comes from the deterministic, offline `examples/run_demo.py` scenario.
 The sample project is fictional and copied to a temporary directory before
-Lore indexes or searches it.
+Oldhand indexes or searches it.
 
 ## Preview the exact scenario
 
@@ -25,11 +25,11 @@ Install [VHS](https://github.com/charmbracelet/vhs) on the recording machine,
 then, from the repository root, render to a temporary output file:
 
 ```bash
-vhs examples/demo/lore-demo.tape
-open /tmp/lore-terminal-demo.gif
+vhs examples/demo/oldhand-demo.tape
+open /tmp/oldhand-terminal-demo.gif
 ```
 
-The tape uses only standard VHS commands and writes `/tmp/lore-terminal-demo.gif`,
+The tape uses only standard VHS commands and writes `/tmp/oldhand-terminal-demo.gif`,
 so rendering does not add a binary artifact to the checkout. It budgets 52
 seconds: a short setup statement, the before-and-after result, the local
 search result, and a closing frame. If the installed VHS version differs,

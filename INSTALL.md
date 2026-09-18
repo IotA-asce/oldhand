@@ -8,17 +8,17 @@ say where your archive is.
 python tools/install.py /path/to/your/archive --shell-rc
 ```
 
-That is the whole install. It writes a `lore` launcher into a directory on
-your PATH, writes `LORE_ROOT` to the profile for a recognized Zsh, Bash, or
+That is the whole install. It writes a `oldhand` launcher into a directory on
+your PATH, writes `OLDHAND_ROOT` to the profile for a recognized Zsh, Bash, or
 Fish shell, then opens the archive to prove it worked. Nothing is installed
 system-wide, nothing needs administrator rights, and nothing else on your
 machine is touched.
 
 Without `--shell-rc`, the installer deliberately leaves your profile alone
 and prints the exact line to add yourself; a new terminal will not inherit
-`LORE_ROOT` until that line is saved to its profile.
+`OLDHAND_ROOT` until that line is saved to its profile.
 
-The argument is the directory containing your `memory/` folder, not the Lore
+The argument is the directory containing your `memory/` folder, not the Oldhand
 source tree. If you have not made one yet:
 
 ```bash
@@ -30,7 +30,7 @@ Open a new terminal afterwards, because environment changes do not reach
 shells that were already running.
 
 ```bash
-lore search "something you half remember"
+oldhand search "something you half remember"
 ```
 
 ## Undoing it
@@ -47,17 +47,17 @@ ordinary tools, which is the point of storing them that way.
 
 ## Doing it by hand
 
-The installer is a convenience, not a dependency. Nothing in Lore requires it.
+The installer is a convenience, not a dependency. Nothing in Oldhand requires it.
 
 ### macOS and Linux
 
 ```sh
-cat > ~/.local/bin/lore <<'EOF'
+cat > ~/.local/bin/oldhand <<'EOF'
 #!/bin/sh
-exec python3 "$HOME/path/to/lore/tools/lore/lore.py" "$@"
+exec python3 "$HOME/path/to/oldhand/src/oldhand/cli.py" "$@"
 EOF
-chmod +x ~/.local/bin/lore
-echo 'export LORE_ROOT="$HOME/path/to/your/archive"' >> ~/.zshrc   # or ~/.bashrc
+chmod +x ~/.local/bin/oldhand
+echo 'export OLDHAND_ROOT="$HOME/path/to/your/archive"' >> ~/.zshrc   # or ~/.bashrc
 ```
 
 Pass `--shell-rc` to the installer to have that last line appended for you. It
@@ -67,7 +67,7 @@ larger liberty than writing one file they asked for.
 For Fish, use Fish syntax instead:
 
 ```fish
-set -gx LORE_ROOT "$HOME/path/to/your/archive"
+set -gx OLDHAND_ROOT "$HOME/path/to/your/archive"
 ```
 
 When `SHELL` identifies Fish, `--shell-rc` writes the matching `set -gx`
@@ -83,14 +83,14 @@ we expect to work once those defects are fixed; treat them as unsupported.
 
 ```bat
 @echo off
-"C:\Path\To\python.exe" "C:\Path\To\lore\tools\lore\lore.py" %*
+"C:\Path\To\python.exe" "C:\Path\To\oldhand\tools\oldhand\oldhand.py" %*
 ```
 
-Save as `lore.cmd` in any directory on your PATH (`%USERPROFILE%\.local\bin`
+Save as `oldhand.cmd` in any directory on your PATH (`%USERPROFILE%\.local\bin`
 is a common one), then:
 
 ```bat
-setx LORE_ROOT "C:\Path\To\Your\Archive"
+setx OLDHAND_ROOT "C:\Path\To\Your\Archive"
 ```
 
 `setx` writes to the user environment, not the machine one, and takes effect
@@ -101,30 +101,30 @@ in new terminals only.
 Every command works with explicit paths, which is what CI should use anyway:
 
 ```bash
-python tools/lore/lore.py --root /path/to/archive search "..."
+python src/oldhand/cli.py --root /path/to/archive search "..."
 ```
 
-`--root` beats `LORE_ROOT`, which beats auto-detection by walking up from the
+`--root` beats `OLDHAND_ROOT`, which beats auto-detection by walking up from the
 current directory looking for a `memory/` folder.
 
 ## Checking it
 
 ```bash
-lore validate     # every record parses and the schema holds
-lore stats        # names the archive it resolved, so scope is never ambiguous
-lore selftest     # ranking invariants, no archive needed
+oldhand validate     # every record parses and the schema holds
+oldhand stats        # names the archive it resolved, so scope is never ambiguous
+oldhand selftest     # ranking invariants, no archive needed
 ```
 
-`lore stats` printing the wrong root is the failure worth looking for: it
+`oldhand stats` printing the wrong root is the failure worth looking for: it
 means auto-detection found a different `memory/` folder before yours, usually
-because you are standing inside one. Set `LORE_ROOT`, or pass `--root`.
+because you are standing inside one. Set `OLDHAND_ROOT`, or pass `--root`.
 
 ## Requirements
 
 Python 3.10 or newer, and PyYAML:
 
 ```bash
-python -m pip install -r tools/lore/requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 SQLite comes with Python. There is nothing else: no server, no service, no

@@ -4,7 +4,7 @@ Do not perform a big-bang rewrite.
 
 ## Preserve first
 
-Keep the existing archive untouched until Lore retrieval proves itself.
+Keep the existing archive untouched until Oldhand retrieval proves itself.
 
 ## Phase 1. Install the operating model
 
@@ -25,7 +25,7 @@ Identify only:
 - recurring traps;
 - current subsystem summaries.
 
-Convert those into Lore records.
+Convert those into Oldhand records.
 
 Resist labelling all of them `critical`. A seeded archive is where importance
 inflation starts, because everything selected for seeding felt important enough
@@ -36,7 +36,7 @@ to select. See the budget rule in `agent/MEMORY_POLICY.md`.
 Before using the archive, find where it disagrees with itself:
 
 ```bash
-lore conflicts
+oldhand conflicts
 ```
 
 Two archives merged into one index will contradict each other, because they
@@ -49,9 +49,9 @@ is never automatic.
 
 ## Phase 3. Use it on real work
 
-For several weeks, use Lore for new tasks.
+For several weeks, use Oldhand for new tasks.
 
-`.lore/retrieval.jsonl` records every search and show, so these are
+`.oldhand/retrieval.jsonl` records every search and show, so these are
 queries against a file rather than impressions:
 
 - how many records were created;
@@ -79,5 +79,5 @@ When an old record is needed:
 
 After enough records exist around one topic, create or update a topic summary.
 
-The migration is successful when Lore becomes the default retrieval path
+The migration is successful when Oldhand becomes the default retrieval path
 without losing important historical knowledge.

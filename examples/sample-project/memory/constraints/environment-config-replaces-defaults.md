@@ -38,7 +38,7 @@ file is the signal to fix the staging file, not a reason to change the loader.
 ## Verification
 
 `examples/run_demo.py` renders the defaults and synthetic staging values. The
-staging result intentionally lacks `DATABASE_URL` and the Lore search below
+staging result intentionally lacks `DATABASE_URL` and the Oldhand search below
 retrieves this record.
 
 ## References

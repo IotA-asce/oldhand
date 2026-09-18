@@ -27,7 +27,7 @@ when appropriate, and credit reporters only with their permission.
 
 ## Scope
 
-Lore is designed to operate on local files. Security reports are especially
+Oldhand is designed to operate on local files. Security reports are especially
 useful for issues involving unsafe file writes, path traversal, archive
 corruption, secret exposure, command execution, dependency compromise, or
 privacy regressions. Reports about deployment environments or integrations are

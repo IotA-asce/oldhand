@@ -9,7 +9,7 @@ $ python3 -B examples/run_demo.py
 It must then show the following output exactly (apart from terminal wrapping):
 
 ```text
-Lore synthetic demo — no network, account, model, or real project data
+Oldhand synthetic demo — no network, account, model, or real project data
 
 Before: no environment file selected
   DATABASE_URL = postgresql://demo-user@database.invalid/synthetic_app
@@ -18,11 +18,11 @@ After: synthetic staging file selected
   DATABASE_URL = <missing: staging must declare it explicitly>
   Interpretation: add DATABASE_URL to staging; do not merge defaults.
 
-Lore search: why can't we simplify this config loader?
+Oldhand search: why can't we simplify this config loader?
   Retrieved: synthetic_environment_config_replaces_defaults
   Summary: Do not merge `config/staging.json` with `config/defaults.json`. An environment file is a complete, reviewed replacement, so every required setting must be present in the environment file itself.
 
-Lore show: synthetic_environment_config_replaces_defaults
+Oldhand show: synthetic_environment_config_replaces_defaults
   Title: Synthetic example: environment configuration replaces defaults
   Evidence: verified
 ```
@@ -30,7 +30,7 @@ Lore show: synthetic_environment_config_replaces_defaults
 The visual narrative is intentionally compact:
 
 1. A coding agent sees that staging lacks a setting and might merge defaults.
-2. Lore retrieves a reviewed constraint explaining why the apparent shortcut is unsafe.
+2. Oldhand retrieves a reviewed constraint explaining why the apparent shortcut is unsafe.
 3. The viewer sees that the record is local, verified, readable, and synthetic.
 
 No credentials, customer names, production hostnames, or fabricated product

@@ -1,7 +1,7 @@
-# Contributing to Lore
+# Contributing to Oldhand
 
 Thanks for helping make durable engineering knowledge easier to preserve and
-retrieve. Lore is a local-first tool: readable Markdown is canonical and the
+retrieve. Oldhand is a local-first tool: readable Markdown is canonical and the
 local SQLite index is disposable. Changes should protect that promise.
 
 ## Before you begin
@@ -29,7 +29,7 @@ Use clearly marked synthetic data instead.
 
 ## What makes a good contribution
 
-Lore values changes that are:
+Oldhand values changes that are:
 
 - **Local-first:** no account, daemon, telemetry, or network dependency is
   required for core use.

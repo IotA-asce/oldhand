@@ -1,8 +1,8 @@
-# Ten-Generation Lore Evolution Implementation Plan
+# Ten-Generation Oldhand Evolution Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Improve Lore through ten evidence-driven evolutionary generations, evaluating six independent candidate agents per generation and retaining only the strongest three lineages.
+**Goal:** Improve Oldhand through ten evidence-driven evolutionary generations, evaluating six independent candidate agents per generation and retaining only the strongest three lineages.
 
 **Architecture:** Each generation begins from the same verified repository state. Six read-only candidate agents independently propose one bounded improvement; the root agent scores proposals for user value, correctness, evidence, compatibility, and implementation cost. The top three proposals are implemented as isolated changes, validated, and become the parent lineages for two varied descendants each in the next generation.
 

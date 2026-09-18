@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Re-run every migration into a Lore archive, then rebuild the index.
+"""Re-run every migration into a Oldhand archive, then rebuild the index.
 
 One command because a partial re-sync is worse than none. The archive here has
 four collections fed by four different source directories, and the obvious
@@ -20,12 +20,25 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-LORE_CLI = HERE.parent / "lore" / "lore.py"
+SRC_DIR = HERE.parents[1] / "src"
+CLI = ["-m", "oldhand.cli"]
+
+def _cli_env() -> dict:
+    """Environment that can import the package straight from the checkout.
+
+    Lets these scripts run from a plain clone with nothing installed, while
+    still preferring an installed `oldhand` if one is already importable.
+    """
+    existing = os.environ.get("PYTHONPATH")
+    parts = [str(SRC_DIR)] + ([existing] if existing else [])
+    return dict(os.environ, PYTHONPATH=os.pathsep.join(parts))
+
 TOOLS = {
     "claude_memory": HERE / "from_claude_memory.py",
     "repo_memory": HERE / "from_repo_memory.py",
@@ -104,11 +117,11 @@ def main() -> int:
     print("no record changed" if before == after
           else f"records changed: {before} -> {after}")
 
-    rebuild = subprocess.run([sys.executable, str(LORE_CLI), "--root", str(archive), "rebuild"],
-                             capture_output=True, text=True)
+    rebuild = subprocess.run([sys.executable, *CLI, "--root", str(archive), "rebuild"],
+                             capture_output=True, text=True, env=_cli_env())
     report("rebuild", rebuild)
-    validate = subprocess.run([sys.executable, str(LORE_CLI), "--root", str(archive), "validate"],
-                              capture_output=True, text=True)
+    validate = subprocess.run([sys.executable, *CLI, "--root", str(archive), "validate"],
+                              capture_output=True, text=True, env=_cli_env())
     report("validate", validate)
 
     if failures:

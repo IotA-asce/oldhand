@@ -1,4 +1,4 @@
-# Lore: ten generations of improvement
+# Oldhand: ten generations of improvement
 
 This log records the evolutionary run requested on 2026-09-18. Every generation
 evaluates six independent, read-only candidates. Scores are out of 25: user

@@ -1,12 +1,12 @@
 # Public identity decision
 
-**Status:** decision required before public packaging or launch  
-**Owner:** [assign an owner]  
-**Decision date:** [YYYY-MM-DD]
+**Status:** decided — `oldhand`  
+**Owner:** repository owner  
+**Decision date:** 2026-09-19
 
-This document is a decision record and checklist, not a legal opinion. It
-does not select a public name. Complete it before publishing a package,
-creating public launch material, or changing the repository's visibility.
+This document is a decision record and checklist, not a legal opinion.
+The public name has been chosen; the trademark item below is still open
+and must be closed before the name is used commercially or defended.
 
 ## Product position to preserve
 
@@ -55,14 +55,38 @@ future contributor can see why they were not chosen.
 
 ### Required decision record
 
-- **Chosen public identity:** [pending]
-- **Chosen package distribution:** [pending]
-- **Chosen command:** [pending]
-- **Chosen import package:** [pending]
-- **Chosen repository slug and primary domain:** [pending]
-- **Decision rationale:** [pending]
-- **Approver:** [pending]
-- **Date:** [pending]
+- **Chosen public identity:** Oldhand
+- **Chosen package distribution:** `oldhand`
+- **Chosen command:** `oldhand`
+- **Chosen import package:** `oldhand`
+- **Chosen repository slug and primary domain:** `IotA-asce/oldhand`; no
+  domain registered yet.
+- **Decision rationale:** "An old hand" is the experienced colleague who
+  remembers why the strange-looking code must stay — the product's actual
+  position. Every candidate that kept "Lore" collided on PyPI with
+  `lore`, `lore-memory` (a direct category and messaging competitor) or
+  `lore-cli`, so the obvious install command could not be offered and search
+  results would have led users to a competitor. `oldhand` is free on PyPI,
+  Homebrew and npm, and returns no colliding developer tool.
+- **Approver:** repository owner
+- **Date:** 2026-09-19
+
+### Availability evidence for the chosen name
+
+Checked 2026-09-19.
+
+| Namespace | Result | How checked |
+| --- | --- | --- |
+| PyPI `oldhand` | available | `GET https://pypi.org/pypi/oldhand/json` returned 404 |
+| Homebrew core | no formula | `GET https://formulae.brew.sh/api/formula/oldhand.json` returned 404 |
+| npm `oldhand` | available | `GET https://registry.npmjs.org/oldhand` returned 404 |
+| GitHub `IotA-asce/oldhand` | controlled by the owner | repository slug under the owner's account |
+| GitHub user/org `oldhand` | taken | not required; the repository lives under `IotA-asce` |
+
+**Trademark review has not been done.** These checks establish practical
+namespace availability on the date shown. They are not a trademark search,
+a clearance opinion, or a registration. Complete the trademark item in the
+checklist below before using the name commercially or defending it.
 
 ## Availability and confusion checklist
 
@@ -100,5 +124,11 @@ legal clearance.
 
 The naming gate is complete only when an approver has selected an identity,
 the checklist has dated evidence, and packaging/release work uses the same
-distribution name, command, and import package. Until then, use “Lore” only
-as the current internal working name and do not promise `pip install lore`.
+distribution name, command, and import package.
+
+**Met on 2026-09-19.** The identity is `oldhand`; the distribution name,
+console command and import package are all `oldhand`, verified by installing
+the built wheel into a clean environment and running the console script.
+
+One item remains open and is deliberately not claimed: no trademark review
+has been performed.

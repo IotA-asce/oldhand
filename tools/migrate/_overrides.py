@@ -3,7 +3,7 @@
 A migration is re-run: weekly during a trial, and again whenever the source
 archive changes. Anything decided *about* the migrated records, rather than
 written in the sources, is destroyed each time. That includes every answer to
-`lore conflicts`: this record supersedes that one, these two are related, this
+`oldhand conflicts`: this record supersedes that one, these two are related, this
 one is retired.
 
 Losing those silently is worse than never recording them, because the report

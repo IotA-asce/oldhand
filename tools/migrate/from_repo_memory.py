@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Migrate an in-repo `memory/` directory into a Lore collection.
+"""Migrate an in-repo `memory/` directory into a Oldhand collection.
 
 Source shape: one *directory* per memory entry, not one file. The canonical
 files are SUMMARY.md, CONTEXT.md, CHANGES.md and LINKS.md, with optional
@@ -10,14 +10,14 @@ with a date.
 Why this script has to exist
 ---------------------------
 
-Lore indexes files. Pointed at one of these repositories it would happily
+Oldhand indexes files. Pointed at one of these repositories it would happily
 create four records per entry: a CONTEXT with no summary, a CHANGES with no
 context, and so on. It would not error. Every fragment would be individually
 searchable and individually useless, and `stats` would report a healthy record
 count. The failure would look exactly like success, which is why the
 conversion is explicit rather than a scanning rule.
 
-The mapping is close to exact, because the in-repo convention and Lore's body
+The mapping is close to exact, because the in-repo convention and Oldhand's body
 structure were designed for the same job:
 
     SUMMARY.md                -> ## Summary
@@ -26,7 +26,7 @@ structure were designed for the same job:
     LINKS.md                  -> ## References
     FOLLOW_UP.md, ROLLBACK.md -> appended to ## Knowledge under their own heading
 
-Ids are prefixed with the collection name. Lore requires ids to be unique
+Ids are prefixed with the collection name. Oldhand requires ids to be unique
 across the whole workspace, and three repositories independently naming an
 entry `auth-fix` is not a hypothetical.
 """
@@ -93,7 +93,7 @@ def clean_title(title: str) -> str:
 
     Source headings carry the file's own name as a label: "SUMMARY: the Cosmos
     switch", "Batch approve/reject (backend) - SUMMARY". Harmless in a file
-    called SUMMARY.md, actively harmful as a Lore title, which is the most
+    called SUMMARY.md, actively harmful as a Oldhand title, which is the most
     heavily weighted field in the index. Every such title contributes the same
     meaningless token and competes on it.
     """
@@ -236,7 +236,7 @@ def split_summary(text: str) -> tuple[str, str]:
     """Split SUMMARY.md into a short retrieval summary and the rest.
 
     Two reasons this is not just "take the whole file". A summary carrying its
-    own `##` headings silently terminates Lore's `## Summary` section and
+    own `##` headings silently terminates Oldhand's `## Summary` section and
     produces an empty one, which validate catches but only after the fact. And
     a summary is the retrieval surface: it is what search displays and ranks,
     so a thousand words of it is not a summary at all.
@@ -267,7 +267,7 @@ def split_summary(text: str) -> tuple[str, str]:
         lead = " ".join(para.split())[:500]
     if not lead:
         lead = first_sentence(rest) or ""
-    # Demote so nothing competes with Lore's own section headings.
+    # Demote so nothing competes with Oldhand's own section headings.
     rest = re.sub(r"^(#{1,3})\s+", r"#### ", rest, flags=re.M) if rest else ""
     return lead, rest
 

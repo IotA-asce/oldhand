@@ -1,5 +1,6 @@
 # Derived state. The index and the retrieval log are rebuilt from the
 # canonical Markdown, so losing them loses nothing.
+.oldhand/
 .lore/
 __pycache__/
 *.pyc
@@ -12,3 +13,4 @@ __pycache__/
 # thing that can answer "did anything change, and when", and it cannot be
 # reconstructed once it is gone.
 metrics/*.json
+dist/

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Put `lore` on PATH and point it at an archive.
+"""Put `oldhand` on PATH and point it at an archive.
 
-Every command in the documentation reads `lore search ...`. Typing
-`python /some/long/path/tools/lore/lore.py --root /another/long/path search ...`
+Every command in the documentation reads `oldhand search ...`. Typing
+`python /some/long/path/tools/oldhand/oldhand.py --root /another/long/path search ...`
 instead is not a cosmetic difference: it is most of what decides whether a
 tool gets reached for on a hunch, and reaching for it on a hunch is the entire
 behaviour this system depends on.
 
 What it changes, and nothing else:
 
-  1. a `lore` launcher in a directory on your PATH
-  2. a LORE_ROOT environment variable naming your archive
+  1. an `oldhand` launcher in a directory on your PATH
+  2. a OLDHAND_ROOT environment variable naming your archive
 
 Both are reversible with `--uninstall`. Nothing is installed system-wide,
 nothing needs administrator rights, and no file outside those two is touched
@@ -25,7 +25,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-LORE_PY = Path(__file__).resolve().parent / "lore" / "lore.py"
+# The CLI now lives in an installable package. A clone-based launcher has
+# to put src/ on PYTHONPATH because oldhand.cli uses package-relative
+# imports and can no longer be run as a loose script.
+SRC_DIR = Path(__file__).resolve().parents[1] / "src"
 IS_WINDOWS = platform.system() == "Windows"
 
 
@@ -61,11 +64,11 @@ def launcher_header() -> str:
     if IS_WINDOWS:
         return (
             "@echo off\r\n"
-            "REM Lore launcher. Written by tools/install.py.\r\n"
+            "REM Oldhand launcher. Written by tools/install.py.\r\n"
             "REM Delete this file, or run install.py --uninstall, to remove.\r\n")
     return (
         "#!/bin/sh\n"
-        "# Lore launcher. Written by tools/install.py.\n"
+        "# Oldhand launcher. Written by tools/install.py.\n"
         "# Delete this file, or run install.py --uninstall, to remove.\n")
 
 
@@ -81,16 +84,20 @@ def owns_launcher(target: Path) -> bool:
 
 def write_launcher(bin_dir: Path) -> Path:
     bin_dir.mkdir(parents=True, exist_ok=True)
-    target = bin_dir / ("lore.cmd" if IS_WINDOWS else "lore")
+    target = bin_dir / ("oldhand.cmd" if IS_WINDOWS else "oldhand")
     if (target.exists() or target.is_symlink()) and not owns_launcher(target):
         raise FileExistsError(f"Refusing to overwrite unowned launcher: {target}")
     if IS_WINDOWS:
         target.write_text(
-            launcher_header() + f'{sh_quote(sys.executable)} {sh_quote(LORE_PY)} %*\r\n',
+            launcher_header()
+            + f'set PYTHONPATH={sh_quote(SRC_DIR)}\r\n'
+            + f'{sh_quote(sys.executable)} -m oldhand.cli %*\r\n',
             encoding="utf-8")
     else:
         target.write_text(
-            launcher_header() + f'exec {sh_quote(sys.executable)} {sh_quote(LORE_PY)} "$@"\n',
+            launcher_header()
+            + f'PYTHONPATH={sh_quote(SRC_DIR)} '
+            + f'exec {sh_quote(sys.executable)} -m oldhand.cli "$@"\n',
             encoding="utf-8")
         target.chmod(0o755)
         # A filesystem that drops the executable bit (a FAT or NTFS mount, a
@@ -140,10 +147,10 @@ def shell_rc() -> Path | None:
     return None
 
 
-MARKER = "# added by lore tools/install.py"
+MARKER = "# added by oldhand tools/install.py"
 PROFILE_ASSIGNMENT = re.compile(
-    r"^(?:export LORE_ROOT=(?:\"(?:[^\"\\]|\\[\s\S])*\"|'[^']*'(?:\\''[^']*')*)"
-    r"|set -gx LORE_ROOT '(?:[^'\\]|\\[\s\S])*')"
+    r"^(?:export OLDHAND_ROOT=(?:\"(?:[^\"\\]|\\[\s\S])*\"|'[^']*'(?:\\''[^']*')*)"
+    r"|set -gx OLDHAND_ROOT '(?:[^'\\]|\\[\s\S])*')"
     r"[ \t]{2,}" + re.escape(MARKER) + r"(?:\r?\n|\Z)",
     re.MULTILINE)
 
@@ -157,8 +164,8 @@ def profile_assignment(archive: Path) -> str:
     """Return the owned profile line for the current shell."""
     value = str(archive)
     if "fish" in os.environ.get("SHELL", ""):
-        return f"set -gx LORE_ROOT {fish_quote(value)}  {MARKER}"
-    return f"export LORE_ROOT={sh_quote(value)}  {MARKER}"
+        return f"set -gx OLDHAND_ROOT {fish_quote(value)}  {MARKER}"
+    return f"export OLDHAND_ROOT={sh_quote(value)}  {MARKER}"
 
 
 def main() -> int:
@@ -168,7 +175,7 @@ def main() -> int:
     positional = [a for a in args if not a.startswith("-")]
 
     bin_dir, on_path = pick_bin_dir()
-    launcher = bin_dir / ("lore.cmd" if IS_WINDOWS else "lore")
+    launcher = bin_dir / ("oldhand.cmd" if IS_WINDOWS else "oldhand")
 
     if uninstall:
         removed = []
@@ -177,8 +184,8 @@ def main() -> int:
             launcher.unlink()
             removed.append(str(launcher))
         if IS_WINDOWS:
-            if set_windows_env("LORE_ROOT", None):
-                removed.append("LORE_ROOT (user environment)")
+            if set_windows_env("OLDHAND_ROOT", None):
+                removed.append("OLDHAND_ROOT (user environment)")
             else:
                 failed = True
         else:
@@ -189,7 +196,7 @@ def main() -> int:
                 if PROFILE_ASSIGNMENT.search(text):
                     with rc.open("w", encoding="utf-8", newline="") as fh:
                         fh.write(PROFILE_ASSIGNMENT.sub("", text))
-                    removed.append(f"LORE_ROOT line in {rc}")
+                    removed.append(f"OLDHAND_ROOT line in {rc}")
         print("removed:" if removed else "nothing to remove.")
         for r in removed:
             print(f"  {r}")
@@ -208,7 +215,7 @@ def main() -> int:
     archive = Path(positional[0]).resolve()
     if not (archive / "memory").is_dir():
         print(f"No `memory/` directory inside {archive}.", file=sys.stderr)
-        print("That is the archive root, not the Lore source tree. If you have not",
+        print("That is the archive root, not the Oldhand source tree. If you have not",
               file=sys.stderr)
         print("created an archive yet, `mkdir -p myarchive/memory` and pass that.",
               file=sys.stderr)
@@ -222,12 +229,12 @@ def main() -> int:
     print(f"launcher   {target}")
 
     if IS_WINDOWS:
-        if not set_windows_env("LORE_ROOT", str(archive)):
+        if not set_windows_env("OLDHAND_ROOT", str(archive)):
             print(f"The launcher remains at {target}; remove it or retry after fixing "
                   "the Windows user environment.", file=sys.stderr)
             return 1
-        os.environ["LORE_ROOT"] = str(archive)
-        print(f"LORE_ROOT  {archive}   (user environment)")
+        os.environ["OLDHAND_ROOT"] = str(archive)
+        print(f"OLDHAND_ROOT  {archive}   (user environment)")
     else:
         line = profile_assignment(archive)
         rc = shell_rc()
@@ -246,22 +253,26 @@ def main() -> int:
             else:
                 with rc.open("a", encoding="utf-8", newline="") as fh:
                     fh.write("\n" + line + "\n")
-            print(f"LORE_ROOT  written to {rc}")
+            print(f"OLDHAND_ROOT  written to {rc}")
         else:
-            print(f"LORE_ROOT  add this line to your shell profile"
+            print(f"OLDHAND_ROOT  add this line to your shell profile"
                   f"{f' ({rc})' if rc else ''}:")
             print(f"             {line}")
             print("           or re-run with --shell-rc to have it appended.")
 
     print()
     if not on_path:
-        print(f"WARNING: {bin_dir} is not on your PATH, so `lore` will not resolve.")
+        print(f"WARNING: {bin_dir} is not on your PATH, so `oldhand` will not resolve.")
         print("Add it, or move the launcher somewhere that is. Everything else is done.")
         print()
 
     # Prove it works rather than asserting it does.
-    env = dict(os.environ, LORE_ROOT=str(archive))
-    probe = subprocess.run([sys.executable, str(LORE_PY), "--root", str(archive), "stats"],
+    env = dict(os.environ, OLDHAND_ROOT=str(archive),
+               PYTHONPATH=os.pathsep.join(
+                   [str(SRC_DIR)] + ([os.environ["PYTHONPATH"]]
+                                     if os.environ.get("PYTHONPATH") else [])))
+    probe = subprocess.run([sys.executable, "-m", "oldhand.cli",
+                            "--root", str(archive), "stats"],
                            capture_output=True, text=True, env=env)
     if probe.returncode == 0:
         first = [l for l in probe.stdout.splitlines() if l.strip()][:3]
@@ -275,10 +286,10 @@ def main() -> int:
 
     print()
     if IS_WINDOWS:
-        print("Open a new terminal, then: lore search \"something you half remember\"")
+        print("Open a new terminal, then: oldhand search \"something you half remember\"")
     else:
         print("Open a new shell (or source your profile), then:")
-        print("  lore search \"something you half remember\"")
+        print("  oldhand search \"something you half remember\"")
     print()
     print("Undo any time with: python tools/install.py --uninstall")
     return 0

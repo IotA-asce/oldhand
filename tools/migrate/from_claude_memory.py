@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""Migrate a Claude Code project-memory directory into a Lore archive.
+"""Migrate a Claude Code project-memory directory into a Oldhand archive.
 
 Source shape: one Markdown file per fact, YAML frontmatter carrying `name`,
 `description` and a `metadata` block, body in free Markdown with `[[slug]]`
 links between records, plus a `MEMORY.md` index of one-line hooks.
 
 This is a shadow migration. It reads the source and never writes to it. The
-original archive keeps working untouched while the Lore copy is measured
+original archive keeps working untouched while the Oldhand copy is measured
 against it, so a bad migration costs a directory, not a working system.
 
 Deliberate non-decisions
 ------------------------
 
 **Records are migrated one to one and never split.** Several source records
-cover four or five distinct findings accreted over months. Lore ranks atomic
+cover four or five distinct findings accreted over months. Oldhand ranks atomic
 records better, so splitting would probably improve retrieval, but the
 grouping is the author's curation and guessing at it would destroy
-information that is not recoverable. Split later, by hand, when `lore usage`
+information that is not recoverable. Split later, by hand, when `oldhand usage`
 shows a specific record being retrieved for the wrong reason.
 
 **Importance is left flat except for a short, defensible critical list.**
@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _overrides import load_overrides, apply_status, extra_relations
 from from_markdown import parse_frontmatter
 
-# Their `metadata.type` to Lore's entry type.
+# Their `metadata.type` to Oldhand's entry type.
 TYPE_MAP = {
     "feedback": "lesson",        # guidance on how to work: a lesson learned
     "project": "investigation",  # ongoing work, findings, context
@@ -196,7 +196,7 @@ def to_iso(value: str | None, fallback_file: Path | None = None) -> str:
 
 def main() -> int:
     if len(sys.argv) < 3:
-        print("usage: from_claude_memory.py <source-memory-dir> <lore-archive-root>")
+        print("usage: from_claude_memory.py <source-memory-dir> <oldhand-archive-root>")
         return 2
     src = Path(sys.argv[1])
     dst_root = Path(sys.argv[2])

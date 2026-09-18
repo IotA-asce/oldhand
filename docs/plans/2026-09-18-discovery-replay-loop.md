@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add a ten-iteration, Dream-RSI-inspired experience layer that records discovery trees, replays exploration policies offline, compares them on held-out histories, preserves diverse exploration context, and distills reviewed outcomes into Lore records.
+**Goal:** Add a ten-iteration, Dream-RSI-inspired experience layer that records discovery trees, replays exploration policies offline, compares them on held-out histories, preserves diverse exploration context, and distills reviewed outcomes into Oldhand records.
 
-**Architecture:** Keep `memory/` as distilled durable knowledge and add canonical JSON traces under `experience/runs/`. Put trace validation, mutation, replay, and comparison logic in `tools/lore/experience.py`; expose it through the existing CLI without changing the memory or SQLite schemas. Replay is deterministic and prefix-only: policies may select from observations already revealed, while the environment reveals recorded children.
+**Architecture:** Keep `memory/` as distilled durable knowledge and add canonical JSON traces under `experience/runs/`. Put trace validation, mutation, replay, and comparison logic in `src/oldhand/experience.py`; expose it through the existing CLI without changing the memory or SQLite schemas. Replay is deterministic and prefix-only: policies may select from observations already revealed, while the environment reveals recorded children.
 
 **Tech Stack:** Python 3.10+, argparse, JSON, pathlib, unittest, the existing atomic-write and CLI verification infrastructure.
 
@@ -12,7 +12,7 @@
 
 ### Iteration 1: Start a discovery run
 
-**Files:** Create `tools/lore/experience.py`; modify `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/test_e2e.py`, `tools/lore/CLI_SPEC.md`.
+**Files:** Create `src/oldhand/experience.py`; modify `src/oldhand/cli.py`, `tests/test_cli.py`, `tests/test_e2e.py`, `docs/CLI_SPEC.md`.
 
 1. Write tests for `run-start`, portable ids, collision refusal, and JSON output.
 2. Implement `experience/runs/<id>.json` with schema version, task, evaluator, policy, score goal, worker limit, timestamps, active status, and an empty node list.
@@ -20,7 +20,7 @@
 
 ### Iteration 2: Record attempt nodes
 
-**Files:** Modify `tools/lore/experience.py`, `tools/lore/lore.py`, tests, and CLI spec.
+**Files:** Modify `src/oldhand/experience.py`, `src/oldhand/cli.py`, tests, and CLI spec.
 
 1. Write tests for root attempts, refinements, unknown parents, duplicate ids, and the single-continuation invariant for non-root nodes.
 2. Implement `attempt-add RUN --id ID --parent root|ID --proposal TEXT [--artifact REF]` using atomic JSON publication.
@@ -76,7 +76,7 @@
 
 ### Iteration 9: Preserve exploration diversity
 
-**Files:** Modify `tools/lore/lore.py`, tests, and CLI spec.
+**Files:** Modify `src/oldhand/cli.py`, tests, and CLI spec.
 
 1. Write tests for an `explore-context QUERY --workers N [--json]` pack.
 2. Put critical constraints and critical invariants in `shared_guardrails`, directional history in one `history_guided` branch, and leave remaining branches independent.
@@ -88,7 +88,7 @@
 
 1. Write tests for `run-distill RUN NODE` dry-run and publication, provenance references, and evidence derived from evaluator correctness.
 2. Reuse `new_record` so generated records follow the canonical schema and collision rules; require explicit title, type, importance, and topics.
-3. Document the experience/replay loop and commit `feat: distill discovery outcomes into Lore`.
+3. Document the experience/replay loop and commit `feat: distill discovery outcomes into Oldhand`.
 
 ### Delivery
 

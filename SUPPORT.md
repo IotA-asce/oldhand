@@ -1,6 +1,6 @@
 # Support
 
-Lore is a local-first knowledge tool. Choose the channel that best matches the
+Oldhand is a local-first knowledge tool. Choose the channel that best matches the
 kind of help you need.
 
 | Need | Best route |
@@ -11,7 +11,7 @@ kind of help you need.
 | Security vulnerability | Follow [SECURITY.md](SECURITY.md); do not file a public issue. |
 | Conduct concern | Follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). |
 
-When asking for help, include the Lore version, operating system, Python
+When asking for help, include the Oldhand version, operating system, Python
 version, the command run, expected behavior, actual behavior, and a minimal
 synthetic reproduction. Remove private archive content, credentials, customer
 details, and absolute paths before posting.

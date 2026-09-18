@@ -1,14 +1,14 @@
 # Metrics
 
 Every number in this repository came from one archive. That is the honest
-limit of what is known about Lore, and the only way past it is archives that
+limit of what is known about Oldhand, and the only way past it is archives that
 are not this one.
 
-So Lore measures itself, in a form that is safe to hand to a stranger.
+So Oldhand measures itself, in a form that is safe to hand to a stranger.
 
 ## What happens automatically
 
-Any `lore` command appends one snapshot per day to `metrics/daily.jsonl` and
+Any `oldhand` command appends one snapshot per day to `metrics/daily.jsonl` and
 moves on. It is pure SQL and a line count, it costs nothing noticeable, and it
 never raises: if it fails, your command still works.
 
@@ -18,12 +18,12 @@ to run a command are not daily metrics.
 ## Looking at it
 
 ```bash
-lore metrics          # today, at a glance
-lore metrics --full   # plus findability and eval, several hundred searches
+oldhand metrics          # today, at a glance
+oldhand metrics --full   # plus findability and eval, several hundred searches
 ```
 
 ```
-lore 0.4.2   2026-09-15T00:59:42+05:30
+oldhand 0.4.2   2026-09-15T00:59:42+05:30
 
   records            293 across 4 collection(s)
   index rows         3751 (12.8 per record)
@@ -48,15 +48,15 @@ working:
   nothing retrieves costs tokens to write, adds noise to every ranking
   afterwards, and has never been useful;
 - **open rate** near zero means summaries are not earning the click, or are so
-  good that nobody needs the record. `lore usage` separates those.
+  good that nobody needs the record. `oldhand usage` separates those.
 
 Read coverage patiently. Early on it only means "nobody has asked yet", which
-is why `lore usage` withholds its never-retrieved verdict until 50 searches.
+is why `oldhand usage` withholds its never-retrieved verdict until 50 searches.
 
 ## Sharing it
 
 ```bash
-lore metrics --export mine.json
+oldhand metrics --export mine.json
 ```
 
 Then send the file. That is the whole protocol.
@@ -72,7 +72,7 @@ Counts, rates, percentiles and scores. Specifically:
   rate
 - health: findability, thin summaries, invalid records
 - eval scores, if you keep an eval set
-- Lore version, Python version, operating system name
+- Oldhand version, Python version, operating system name
 
 ### What it never contains
 
@@ -97,11 +97,11 @@ sentence.
 The file is also plain, indented JSON, deliberately short enough to read
 before you send it. A privacy guarantee nobody can verify is not a guarantee,
 so read it. If you find anything in there that identifies your work, that is a
-bug in Lore and worth reporting on its own.
+bug in Oldhand and worth reporting on its own.
 
 ## What would actually help
 
-If you are trying Lore, the useful thing is two weeks of ordinary use and then
+If you are trying Oldhand, the useful thing is two weeks of ordinary use and then
 one export. Not a clean archive, not a demonstration: the real one, including
 the days you forgot it existed.
 

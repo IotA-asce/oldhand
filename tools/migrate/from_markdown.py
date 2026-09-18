@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Migrate an ordinary folder of Markdown notes into a Lore archive.
+"""Migrate an ordinary folder of Markdown notes into a Oldhand archive.
 
 The other two migrations target specific conventions. This one assumes almost
 nothing, because most people arriving with existing notes have neither: an
@@ -257,7 +257,7 @@ def main() -> int:
             print(f"  {n:>4}  {what}")
     print("\nEverything arrived as `importance: normal` on purpose. Raise a record")
     print("only once it has proven it matters; see WRITING_RECORDS.md. Then:")
-    print("  lore validate && lore doctor")
+    print("  oldhand validate && oldhand doctor")
     print("\nExpect `doctor` to flag records whose summary is a heading or a")
     print("fragment. That is the migration reporting what your notes actually")
     print("contain, not a failure: fix the ones you care about.")

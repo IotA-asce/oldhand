@@ -1,6 +1,6 @@
 # Reconciling an existing archive
 
-If you are adopting Lore you almost certainly have notes already: a memory
+If you are adopting Oldhand you almost certainly have notes already: a memory
 directory, a wiki, per-repository records, or all three. Migrating them is the
 easy half. The half that decides whether the result is trustworthy is finding
 where they **disagree**.
@@ -19,7 +19,7 @@ confident stale record exactly as readily as the correct one.
 Run this after migrating and before trusting anything:
 
 ```bash
-lore conflicts
+oldhand conflicts
 ```
 
 ## What it finds
@@ -76,7 +76,7 @@ merged record should keep both provenance trails.
 A migration gets re-run: weekly during a trial, and again whenever a source
 changes. Anything decided *about* the migrated records rather than written in
 the sources is destroyed on every run, including every answer you just gave to
-`lore conflicts`.
+`oldhand conflicts`.
 
 Losing those silently is worse than never recording them, because the report
 comes back clean the first time and full the next, and nothing distinguishes
@@ -94,7 +94,7 @@ applies it:
 record. Comment lines starting with `#` are ignored, so the file can explain
 itself.
 
-Linking also closes the question: `lore conflicts` does not report a pair that
+Linking also closes the question: `oldhand conflicts` does not report a pair that
 carries a relation, so the next run shows what is still open rather than
 everything ever detected. That is the point of writing the decision down.
 
@@ -123,7 +123,7 @@ without saying so. That is the precise failure a memory system exists to
 prevent, and it would have been caused by the tool meant to improve it.
 
 The distinction between "announces staleness" and "should be retired" is
-authorial intent, and no pattern recovers it. So `lore conflicts` finds and
+authorial intent, and no pattern recovers it. So `oldhand conflicts` finds and
 explains; a person decides. A counter-signal check suppresses the obvious
 keep-me cases so the report stays worth reading, but that is a filter on the
 report, not a licence to act on it.
@@ -162,15 +162,15 @@ teach you more about whether this suits you than three hundred converted ones,
 and the writing is the part that decides quality. An archive you migrated is
 also an archive you have never read.
 
-## Suggested order when adopting Lore
+## Suggested order when adopting Oldhand
 
 1. Migrate everything, one to one. Do not split, merge or retire anything
    during the migration; a migration that also edits cannot be verified.
-2. `lore validate` until it passes.
-3. `lore doctor`. Fix thin summaries and unfindable records first: a record
+2. `oldhand validate` until it passes.
+3. `oldhand doctor`. Fix thin summaries and unfindable records first: a record
    nothing can retrieve cannot contradict anything, it is simply absent.
-4. `lore conflicts`. Work through class 1, then 2, then 3.
-5. `lore eval --save baseline` only once the above is clean, so your baseline
+4. `oldhand conflicts`. Work through class 1, then 2, then 3.
+5. `oldhand eval --save baseline` only once the above is clean, so your baseline
    measures a coherent archive rather than a contradictory one.
 
 Step 5 matters more than it looks. A baseline taken over an archive that still

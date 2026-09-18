@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oldhand"
+dynamic = ["version"]
+description = "Git-tracked institutional memory for coding agents: reviewed constraints, decisions, failed approaches and operational hazards, stored as Markdown and retrieved locally."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+keywords = [
+    "agent-memory", "coding-agents", "ai-agents", "developer-tools",
+    "sqlite", "fts5", "local-first", "markdown", "knowledge-management",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Documentation",
+]
+dependencies = ["PyYAML>=6.0"]
+
+[project.scripts]
+oldhand = "oldhand.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/IotA-asce/oldhand"
+Source = "https://github.com/IotA-asce/oldhand"
+Changelog = "https://github.com/IotA-asce/oldhand/blob/main/CHANGELOG.md"
+Issues = "https://github.com/IotA-asce/oldhand/issues"
+
+[tool.hatch.version]
+path = "src/oldhand/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/oldhand"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/oldhand/schema.sql" = "oldhand/schema.sql"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/oldhand", "tests", "tools", "docs", "examples", "benchmarks",
+    "README.md", "LICENSE", "CHANGELOG.md", "requirements.txt",
+]

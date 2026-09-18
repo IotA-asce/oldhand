@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a reproducible problem in Lore
+about: Report a reproducible problem in Oldhand
 title: "bug: "
 labels: bug
 assignees: ""
@@ -28,7 +28,7 @@ assignees: ""
 
 ## Environment
 
-- Lore version / commit:
+- Oldhand version / commit:
 - OS and version:
 - Python version:
 - Installation method:

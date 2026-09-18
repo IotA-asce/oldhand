@@ -58,7 +58,7 @@ class LauncherCollisionTests(InstallTestCase):
     def test_unrelated_launcher_is_preserved(self):
         for windows in (False, True):
             with self.subTest(windows=windows), mock.patch.object(install, "IS_WINDOWS", windows):
-                target = self.bin_dir / ("lore.cmd" if windows else "lore")
+                target = self.bin_dir / ("oldhand.cmd" if windows else "oldhand")
                 target.write_bytes(b"unrelated command\xff\n")
                 self.rc.write_text("user profile\n", encoding="utf-8")
                 self.assertEqual(self.invoke(self.archive, "--shell-rc"), 1)
@@ -86,7 +86,7 @@ class LauncherCollisionTests(InstallTestCase):
         self.run.assert_not_called()
 
     def test_directory_collision_is_preserved(self):
-        target = self.bin_dir / "lore"
+        target = self.bin_dir / "oldhand"
         target.mkdir()
         self.assertEqual(self.invoke(self.archive), 1)
         self.assertTrue(target.is_dir())
@@ -105,7 +105,7 @@ class LauncherUninstallTests(InstallTestCase):
     def test_uninstall_preserves_unrelated_launchers(self):
         for windows in (False, True):
             with mock.patch.object(install, "IS_WINDOWS", windows):
-                target = self.bin_dir / ("lore.cmd" if windows else "lore")
+                target = self.bin_dir / ("oldhand.cmd" if windows else "oldhand")
                 for content in (b"unrelated\xff\n", b"echo Written by tools/install.py.\n"):
                     with self.subTest(windows=windows, content=content):
                         target.write_bytes(content)
@@ -130,7 +130,7 @@ class LauncherUninstallTests(InstallTestCase):
                         target.unlink()
 
     def test_uninstall_preserves_directory(self):
-        target = self.bin_dir / "lore"
+        target = self.bin_dir / "oldhand"
         target.mkdir()
         self.assertEqual(self.invoke("--uninstall"), 0)
         self.assertTrue(target.is_dir())
@@ -148,16 +148,16 @@ class LauncherUninstallTests(InstallTestCase):
 class ProfileUninstallTests(InstallTestCase):
     def test_only_owned_assignments_are_removed(self):
         unowned = (
-            'export LORE_ROOT="/user/archive"\r\n'
-            'alias show_root=\'echo "$LORE_ROOT"\'\n'
+            'export OLDHAND_ROOT="/user/archive"\r\n'
+            'alias show_root=\'echo "$OLDHAND_ROOT"\'\n'
             f'echo "{install.MARKER}"\n'
             f'{install.MARKER}\n'
             f'export OTHER="value"  {install.MARKER}\n'
-            f'export LORE_ROOT="/user"; echo keep  {install.MARKER}\n'
-            f'export LORE_ROOT="/user"  {install.MARKER} extra\n'
-            f'export LORE_ROOT="literal {install.MARKER}"\n'
+            f'export OLDHAND_ROOT="/user"; echo keep  {install.MARKER}\n'
+            f'export OLDHAND_ROOT="/user"  {install.MARKER} extra\n'
+            f'export OLDHAND_ROOT="literal {install.MARKER}"\n'
             'last line without newline')
-        owned = f'export LORE_ROOT="/old/archive"  {install.MARKER}\r\n'
+        owned = f'export OLDHAND_ROOT="/old/archive"  {install.MARKER}\r\n'
         self.rc.write_bytes((owned + unowned).encode())
         self.assertEqual(self.invoke("--uninstall"), 0)
         self.assertEqual(self.rc.read_bytes(), unowned.encode())
@@ -165,21 +165,21 @@ class ProfileUninstallTests(InstallTestCase):
 
     def test_shell_commands_with_marker_are_not_owned(self):
         content = (
-            f'export LORE_ROOT=/user;true  {install.MARKER}\n'
-            f'export LORE_ROOT=$(pwd)  {install.MARKER}\n'
-            f'export LORE_ROOT="/user";true  {install.MARKER}\n').encode()
+            f'export OLDHAND_ROOT=/user;true  {install.MARKER}\n'
+            f'export OLDHAND_ROOT=$(pwd)  {install.MARKER}\n'
+            f'export OLDHAND_ROOT="/user";true  {install.MARKER}\n').encode()
         self.rc.write_bytes(content)
         self.assertEqual(self.invoke("--uninstall"), 0)
         self.assertEqual(self.rc.read_bytes(), content)
 
     def test_profile_without_owned_assignment_is_unchanged(self):
-        content = f'echo LORE_ROOT\r\n{install.MARKER}\r\nlast'.encode()
+        content = f'echo OLDHAND_ROOT\r\n{install.MARKER}\r\nlast'.encode()
         self.rc.write_bytes(content)
         self.assertEqual(self.invoke("--uninstall"), 0)
         self.assertEqual(self.rc.read_bytes(), content)
 
     def test_multiple_owned_assignments_and_no_final_newline(self):
-        owned = f'export LORE_ROOT="/old"  {install.MARKER}'
+        owned = f'export OLDHAND_ROOT="/old"  {install.MARKER}'
         self.rc.write_text(owned + '\nkeep\n' + owned, encoding="utf-8")
         self.assertEqual(self.invoke("--uninstall"), 0)
         self.assertEqual(self.rc.read_bytes(), b'keep\n')
@@ -191,11 +191,11 @@ class ProfileReinstallTests(InstallTestCase):
     def test_reinstall_updates_owned_assignment_in_place(self):
         for eol in ("\n", "\r\n"):
             with self.subTest(eol=repr(eol)):
-                content = f"top{eol}export LORE_ROOT=\"/old\"  {install.MARKER}{eol}bottom"
+                content = f"top{eol}export OLDHAND_ROOT=\"/old\"  {install.MARKER}{eol}bottom"
                 self.rc.write_bytes(content.encode())
                 self.assertEqual(self.invoke(self.archive, "--shell-rc"), 0)
                 result = self.rc.read_bytes()
-                self.assertEqual(result.count(b"export LORE_ROOT="), 1)
+                self.assertEqual(result.count(b"export OLDHAND_ROOT="), 1)
                 self.assertNotIn(b"/old", result)
                 self.assertIn(str(self.archive).encode(), result)
                 self.assertIn(install.MARKER.encode(), result)
@@ -204,7 +204,7 @@ class ProfileReinstallTests(InstallTestCase):
                 self.assertIn(eol.encode(), result)
 
     def test_reinstall_without_shell_rc_leaves_profile_alone(self):
-        content = f'export LORE_ROOT="/old"  {install.MARKER}\n'.encode()
+        content = f'export OLDHAND_ROOT="/old"  {install.MARKER}\n'.encode()
         self.rc.write_bytes(content)
         self.assertEqual(self.invoke(self.archive), 0)
         self.assertEqual(self.rc.read_bytes(), content)
@@ -218,17 +218,17 @@ class ProfileReinstallTests(InstallTestCase):
         (other / "memory").mkdir(parents=True)
         self.assertEqual(self.invoke(other, "--shell-rc"), 0)
         result = self.rc.read_bytes()
-        self.assertEqual(result.count(b"export LORE_ROOT="), 1)
+        self.assertEqual(result.count(b"export OLDHAND_ROOT="), 1)
         self.assertIn(str(other.resolve()).encode(), result)
 
     def test_reinstall_appends_owned_line_beside_unowned_ones(self):
-        content = f'export LORE_ROOT="/user/archive"\nkeep  {install.MARKER}\n'.encode()
+        content = f'export OLDHAND_ROOT="/user/archive"\nkeep  {install.MARKER}\n'.encode()
         self.rc.write_bytes(content)
         self.assertEqual(self.invoke(self.archive, "--shell-rc"), 0)
         result = self.rc.read_bytes()
-        self.assertIn(b'export LORE_ROOT="/user/archive"', result)
+        self.assertIn(b'export OLDHAND_ROOT="/user/archive"', result)
         self.assertIn(b"keep  " + install.MARKER.encode(), result)
-        self.assertEqual(result.count(b"export LORE_ROOT="), 2)
+        self.assertEqual(result.count(b"export OLDHAND_ROOT="), 2)
 
 
 class FishProfileTests(InstallTestCase):
@@ -242,14 +242,14 @@ class FishProfileTests(InstallTestCase):
         (archive / "memory").mkdir(parents=True)
         self.assertEqual(self.invoke(archive, "--shell-rc"), 0)
         first = self.rc.read_text(encoding="utf-8")
-        expected = f"set -gx LORE_ROOT {install.fish_quote(str(archive.resolve()))}"
+        expected = f"set -gx OLDHAND_ROOT {install.fish_quote(str(archive.resolve()))}"
         self.assertIn(expected, first)
-        self.assertNotIn("export LORE_ROOT=", first)
+        self.assertNotIn("export OLDHAND_ROOT=", first)
 
         self.assertEqual(self.invoke(archive, "--shell-rc"), 0)
         self.assertEqual(self.rc.read_text(encoding="utf-8"), first)
         self.assertEqual(self.invoke("--uninstall"), 0)
-        self.assertNotIn("LORE_ROOT", self.rc.read_text(encoding="utf-8"))
+        self.assertNotIn("OLDHAND_ROOT", self.rc.read_text(encoding="utf-8"))
 
     def test_fish_reinstall_replaces_the_previous_owned_line(self):
         first = self.home / "first"
@@ -259,7 +259,7 @@ class FishProfileTests(InstallTestCase):
         self.assertEqual(self.invoke(first, "--shell-rc"), 0)
         self.assertEqual(self.invoke(second, "--shell-rc"), 0)
         result = self.rc.read_text(encoding="utf-8")
-        self.assertEqual(result.count("set -gx LORE_ROOT "), 1)
+        self.assertEqual(result.count("set -gx OLDHAND_ROOT "), 1)
         self.assertNotIn(str(first.resolve()), result)
         self.assertIn(str(second.resolve()), result)
 
@@ -272,25 +272,27 @@ class QuotingTests(InstallTestCase):
                 body = target.read_text()
                 if windows:
                     self.assertIn(f'"{install.sys.executable}"', body)
-                    self.assertIn(f'"{install.LORE_PY}"', body)
+                    self.assertIn(f'"{install.SRC_DIR}"', body)
+                    self.assertIn("-m oldhand.cli", body)
                 else:
                     argv = shlex.split(body.splitlines()[-1])
-                    self.assertEqual(argv[0], "exec")
-                    self.assertEqual(argv[1], install.sys.executable)
-                    self.assertEqual(argv[2], str(install.LORE_PY))
-                    self.assertEqual(argv[3], "$@")
+                    self.assertEqual(argv[0], f"PYTHONPATH={install.SRC_DIR}")
+                    self.assertEqual(argv[1], "exec")
+                    self.assertEqual(argv[2], install.sys.executable)
+                    self.assertEqual(argv[3:5], ["-m", "oldhand.cli"])
+                    self.assertEqual(argv[5], "$@")
 
-    def test_launcher_script_path_with_special_characters(self):
+    def test_launcher_source_path_with_special_characters(self):
         spaces = self.home / "pro gram files"
         spaces.mkdir()
-        script = spaces / "lo re.py"
-        with mock.patch.object(install, "LORE_PY", script):
+        source = spaces / "sr c"
+        with mock.patch.object(install, "SRC_DIR", source):
             target = install.write_launcher(self.bin_dir)
             body = target.read_text()
-            self.assertIn(install.sh_quote(script), body)
+            self.assertIn(install.sh_quote(source), body)
             argv = shlex.split(body.splitlines()[-1])
-            self.assertEqual(len(argv), 4)
-            self.assertEqual(argv[2], str(script))
+            self.assertEqual(len(argv), 6)
+            self.assertEqual(argv[0], f"PYTHONPATH={source}")
 
     def test_launcher_executable_with_quote_characters(self):
         tricky = str(self.home / "we'ird\"py" / "python")
@@ -299,8 +301,8 @@ class QuotingTests(InstallTestCase):
             body = target.read_text()
             self.assertIn(install.sh_quote(tricky), body)
             argv = shlex.split(body.splitlines()[-1])
-            self.assertEqual(len(argv), 4)
-            self.assertEqual(argv[1], tricky)
+            self.assertEqual(len(argv), 6)
+            self.assertEqual(argv[2], tricky)
 
     @POSIX_ONLY
     def test_launcher_handles_backslash_newline_and_glob_chars(self):
@@ -310,7 +312,7 @@ class QuotingTests(InstallTestCase):
             body = target.read_text()
             self.assertIn(install.sh_quote(tricky), body)
             argv = shlex.split(body.splitlines()[-1])
-            self.assertEqual(argv[1], tricky)
+            self.assertEqual(argv[2], tricky)
 
     @POSIX_ONLY
     def test_profile_roundtrip_with_combined_quotes_spaces_and_newlines(self):
@@ -335,9 +337,9 @@ class QuotingTests(InstallTestCase):
                 self.assertEqual(self.invoke(archive, "--shell-rc"), 0)
                 text = self.rc.read_text()
                 self.assertIn(
-                    f"export LORE_ROOT={install.sh_quote(str(archive.resolve()))}", text)
-                self.assertNotIn(f"export LORE_ROOT={archive.resolve()}", text)
-                self.assertEqual(text.count("export LORE_ROOT="), 1)
+                    f"export OLDHAND_ROOT={install.sh_quote(str(archive.resolve()))}", text)
+                self.assertNotIn(f"export OLDHAND_ROOT={archive.resolve()}", text)
+                self.assertEqual(text.count("export OLDHAND_ROOT="), 1)
 
     @POSIX_ONLY
     def test_profile_line_parses_back_with_shlex(self):
@@ -347,9 +349,9 @@ class QuotingTests(InstallTestCase):
                 (archive / "memory").mkdir(parents=True)
                 self.assertEqual(self.invoke(archive, "--shell-rc"), 0)
                 line = [l for l in self.rc.read_text().splitlines()
-                        if "export LORE_ROOT=" in l][-1]
+                        if "export OLDHAND_ROOT=" in l][-1]
                 key, value = shlex.split(line)[1].split("=", 1)
-                self.assertEqual(key, "LORE_ROOT")
+                self.assertEqual(key, "OLDHAND_ROOT")
                 self.assertEqual(value, str(archive.resolve()))
 
 
@@ -359,12 +361,12 @@ class WindowsEnvironmentTests(InstallTestCase):
         with mock.patch.object(install, "IS_WINDOWS", True), \
                 mock.patch.object(install.subprocess, "run", return_value=failed):
             self.assertEqual(self.invoke(self.archive), 1)
-        self.assertTrue((self.bin_dir / "lore.cmd").exists())
-        self.assertIn("Could not set LORE_ROOT", self.stderr.getvalue())
+        self.assertTrue((self.bin_dir / "oldhand.cmd").exists())
+        self.assertIn("Could not set OLDHAND_ROOT", self.stderr.getvalue())
         self.assertNotIn("(user environment)", self.stdout.getvalue())
 
     def test_failed_reg_delete_fails_uninstall_without_claiming_success(self):
-        target = self.bin_dir / "lore.cmd"
+        target = self.bin_dir / "oldhand.cmd"
         with mock.patch.object(install, "IS_WINDOWS", True):
             install.write_launcher(self.bin_dir)
         failed = subprocess.CompletedProcess([], 1, "", "access denied")
@@ -372,8 +374,8 @@ class WindowsEnvironmentTests(InstallTestCase):
                 mock.patch.object(install.subprocess, "run", return_value=failed):
             self.assertEqual(self.invoke("--uninstall"), 1)
         self.assertFalse(target.exists())
-        self.assertIn("Could not remove LORE_ROOT", self.stderr.getvalue())
-        self.assertNotIn("LORE_ROOT (user environment)", self.stdout.getvalue())
+        self.assertIn("Could not remove OLDHAND_ROOT", self.stderr.getvalue())
+        self.assertNotIn("OLDHAND_ROOT (user environment)", self.stdout.getvalue())
 
 
 if __name__ == "__main__":

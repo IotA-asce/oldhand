@@ -1,8 +1,8 @@
-# Lore Open-Source Launch Readiness Implementation Plan
+# Oldhand Open-Source Launch Readiness Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Turn Lore from a strong private research repository into a safely publishable, installable, independently verified beta for coding-agent users.
+**Goal:** Turn Oldhand from a strong private research repository into a safely publishable, installable, independently verified beta for coding-agent users.
 
 **Architecture:** Keep Markdown as canonical data and SQLite as disposable derived state. First settle the public identity, then move the CLI behind an installable `src/` package with compatibility wrappers, add tested harness adapters and an optional MCP extra, and build trust through deterministic examples, CI, reproducible evidence, governance, and release artifacts. Replay remains supported but moves out of the core onboarding path into an explicitly experimental advanced guide.
 
@@ -16,21 +16,21 @@ Do not make the repository public until all P0 gates are green:
 
 1. Canonical product, repository, distribution, import-package, and executable names are decided and checked.
 2. Every branch and commit has been scanned; all examples are certified synthetic; any detected credential is revoked before history cleanup.
-3. A clean machine can run `pipx install <distribution>`, `lore init`, and one harness setup command.
+3. A clean machine can run `pipx install <distribution>`, `oldhand init`, and one harness setup command.
 4. Required CI is green on Python 3.10–3.13 across Ubuntu, macOS, and Windows.
 5. Community files, deterministic demo, changelog, signed/tagged beta release, wheel, and sdist exist.
 6. At least three external beta users have completed the core workflow; installation blockers are closed.
 
-The current evolutionary worktree is dirty on `feat/evolve-lore-ten-generations`. Finish or preserve that work before executing this plan; do not mix launch-preparation commits into it.
+The current evolutionary worktree is dirty on `feat/evolve-oldhand-ten-generations`. Finish or preserve that work before executing this plan; do not mix launch-preparation commits into it.
 
 ## Verified baseline (2026-09-18)
 
 - The public-facing code and README say `0.5.0`; the newest Git tag is `v0.4.3`, and GitHub has no Releases.
 - The reviewed `main` had 144 test methods; the in-progress evolution worktree currently contains 170. Neither count is independently trusted until CI runs it from the release commit.
-- `tools/lore/lore.py` is now 3,772 lines; `experience.py` is already a separate 779-line module.
+- `src/oldhand/cli.py` is now 3,772 lines; `experience.py` is already a separate 779-line module.
 - There is no `pyproject.toml`, `.github/` workflow, package entry point, `examples/`, or required community file other than MIT `LICENSE`.
 - The repository is private, with no topics, homepage, Discussions, or public demo. The existing README has many maintained diagrams, but no recorded end-to-end product demonstration.
-- The current POSIX quickstart does not persist `LORE_ROOT` without `--shell-rc`; fish profile output is syntactically wrong; native Windows behavior is not proven by CI.
+- The current POSIX quickstart does not persist `OLDHAND_ROOT` without `--shell-rc`; fish profile output is syntactically wrong; native Windows behavior is not proven by CI.
 - The existing one-archive measurements are useful field evidence, not a reproducible general benchmark.
 
 ## Phase 0 — decide what is being launched
@@ -44,10 +44,10 @@ The current evolutionary worktree is dirty on `feat/evolve-lore-ten-generations`
 **Steps:**
 
 1. Build an availability matrix for the proposed public name, repository slug, normalized PyPI distribution, console command, import package, Homebrew formula, domain, and major social handles.
-2. Record the known collisions: `lore`, `lore-memory`, and `lore-cli` are occupied on PyPI; “Lore agent memory” also overlaps directly with another SQLite/FTS5/MCP product.
-3. Choose either a full rename or a qualified identity such as “Lore for Coding Agents.” Do not assume any candidate is available until the matrix is checked on execution day.
+2. Record the known collisions: `oldhand`, `oldhand-memory`, and `oldhand-cli` are occupied on PyPI; “Oldhand agent memory” also overlaps directly with another SQLite/FTS5/MCP product.
+3. Choose either a full rename or a qualified identity such as “Oldhand for Coding Agents.” Do not assume any candidate is available until the matrix is checked on execution day.
 4. Run a basic trademark/confusion review with qualified counsel if this will become a commercial identity; document that the repository check is not legal clearance.
-5. Decide separately: display name, GitHub slug, PyPI distribution, Python import, and executable. The executable may remain `lore` only if the collision tradeoff is explicitly accepted; otherwise provide a time-bounded compatibility alias.
+5. Decide separately: display name, GitHub slug, PyPI distribution, Python import, and executable. The executable may remain `oldhand` only if the collision tradeoff is explicitly accepted; otherwise provide a time-bounded compatibility alias.
 6. Commit: `docs: record public identity decision`.
 
 **Acceptance:** `docs/brand-decision.md` has one approved row, the rationale, owner, date, collision evidence, redirect/alias plan, and no unchecked launch-critical registry.
@@ -61,11 +61,11 @@ The current evolutionary worktree is dirty on `feat/evolve-lore-ten-generations`
 **Steps:**
 
 1. Set the primary category to: “Git-tracked institutional memory for coding agents: reviewed constraints, decisions, failed approaches, and operational hazards stored as readable Markdown and retrieved locally.”
-2. Preserve the line: “Your code remembers what survived. Lore remembers why.”
-3. Add the competitive boundary: Claude-Mem remembers agent activity; Beads tracks remaining work; Lore preserves reviewed engineering learning and rationale. Describe Mem0 and Letta as broader state/memory platforms without making unverifiable superiority claims.
+2. Preserve the line: “Your code remembers what survived. Oldhand remembers why.”
+3. Add the competitive boundary: Claude-Mem remembers agent activity; Beads tracks remaining work; Oldhand preserves reviewed engineering learning and rationale. Describe Mem0 and Letta as broader state/memory platforms without making unverifiable superiority claims.
 4. Declare non-goals: automatic transcript capture, general task tracking, hosted/vector memory, autonomous self-modification, and code indexing.
 5. Define the initial customer profile: developers using Claude Code, Codex, Cursor, or OpenCode on repositories where operational constraints and failed approaches recur.
-6. Commit: `docs: define Lore market position`.
+6. Commit: `docs: define Oldhand market position`.
 
 **Acceptance:** a stranger can identify user, problem, mechanism, difference, and non-goals in under 30 seconds.
 
@@ -112,14 +112,14 @@ The current evolutionary worktree is dirty on `feat/evolve-lore-ten-generations`
 ### Task 5: Correct the current installer and support claims
 
 **Files:**
-- Modify: `tools/install.py`, `tools/test_install.py`, `tools/test_e2e.py`, `README.md`, `INSTALL.md`
+- Modify: `tools/install.py`, `tests/test_install.py`, `tests/test_e2e.py`, `README.md`, `INSTALL.md`
 
 **Steps:**
 
-1. Add failing tests proving the documented POSIX quickstart persists or explicitly exports `LORE_ROOT`; today the installer merely prints the export unless `--shell-rc` is supplied.
+1. Add failing tests proving the documented POSIX quickstart persists or explicitly exports `OLDHAND_ROOT`; today the installer merely prints the export unless `--shell-rc` is supplied.
 2. Add shell-specific profile rendering/parsing: POSIX shells use `export`; fish uses `set -gx`. Test install, repeat install, and uninstall without touching surrounding lines.
 3. Check Windows `setx`/`reg` return codes and add native-Windows smoke coverage for paths containing spaces and non-ASCII characters.
-4. Make installer changes transactional: a failed dependency check, environment update, launcher write, or `lore stats` probe must restore the pre-install state.
+4. Make installer changes transactional: a failed dependency check, environment update, launcher write, or `oldhand stats` probe must restore the pre-install state.
 5. Add an explicit SQLite FTS5 capability check with an actionable error rather than claiming every bundled SQLite is sufficient.
 6. Correct `INSTALL.md` and the README immediately; make pipx the primary path once Task 6 lands and label this script developer/legacy installation.
 7. Commit: `fix: make installer claims and rollback reliable`.
@@ -131,18 +131,18 @@ The current evolutionary worktree is dirty on `feat/evolve-lore-ten-generations`
 **Files:**
 - Create: `pyproject.toml`
 - Create: `src/<import_package>/__init__.py`, `__main__.py`, `cli.py`, `experience.py`, `schema.sql`
-- Modify: `tools/lore/lore.py`, `tools/lore/experience.py`, tests, `tools/verify.py`
+- Modify: `src/oldhand/cli.py`, `src/oldhand/experience.py`, tests, `tools/verify.py`
 
 **Steps:**
 
-1. Write failing tests that install a wheel into a temporary virtual environment and assert `lore --help`, `lore selftest`, `python -m <import_package> --help`, and resource loading all work outside the checkout.
-2. Add PEP 517/621 metadata with an explicit build backend, the approved distribution name, `requires-python = ">=3.10"`, `PyYAML`, MIT license, classifiers, URLs, and `[project.scripts] lore = "<import_package>.cli:main"` (or the approved command).
-3. Move runtime code/resources under `src/`; leave thin `tools/lore/*.py` compatibility wrappers for one release so old clone-based commands do not break silently.
+1. Write failing tests that install a wheel into a temporary virtual environment and assert `oldhand --help`, `oldhand selftest`, `python -m <import_package> --help`, and resource loading all work outside the checkout.
+2. Add PEP 517/621 metadata with an explicit build backend, the approved distribution name, `requires-python = ">=3.10"`, `PyYAML`, MIT license, classifiers, URLs, and `[project.scripts] oldhand = "<import_package>.cli:main"` (or the approved command).
+3. Move runtime code/resources under `src/`; leave thin `src/oldhand/*.py` compatibility wrappers for one release so old clone-based commands do not break silently.
 4. Remove the duplicate runtime version string: expose one `__version__` used by CLI, metrics, README release tooling, and package metadata.
 5. Build with `python -m build`; inspect wheel contents; run `python -m twine check dist/*`.
 6. Test `pipx install dist/*.whl` in an isolated environment and exercise init/search/uninstall.
 7. Run `python3 -B tools/verify.py --clean-checkout`.
-8. Commit: `feat: package Lore as an installable CLI`.
+8. Commit: `feat: package Oldhand as an installable CLI`.
 
 **Acceptance:** wheel and sdist are reproducible from a clean checkout; neither requires the source tree at runtime; pipx installation produces the documented command on Linux, macOS, and Windows.
 
@@ -179,9 +179,9 @@ The current evolutionary worktree is dirty on `feat/evolve-lore-ten-generations`
 **Steps:**
 
 1. Specify the exact file each harness owns, the generated block, merge behavior, dry run, backup, idempotency, and uninstall path.
-2. Write fixture-based tests for `lore setup claude|codex|cursor|opencode --dry-run`, first install, repeated install, user-customized surrounding content, malformed config, and rollback after write failure.
+2. Write fixture-based tests for `oldhand setup claude|codex|cursor|opencode --dry-run`, first install, repeated install, user-customized surrounding content, malformed config, and rollback after write failure.
 3. Implement setup as scoped, marked-block edits; never replace an entire user configuration file. Refuse ambiguous or unsupported formats with recovery instructions.
-4. Add `lore setup <harness> --check` and `--remove`.
+4. Add `oldhand setup <harness> --check` and `--remove`.
 5. Validate generated configurations against each harness’s current documentation immediately before release.
 6. Commit one adapter at a time: `feat: add <harness> setup adapter`.
 
@@ -238,8 +238,8 @@ The current evolutionary worktree is dirty on `feat/evolve-lore-ten-generations`
 
 1. Freeze and license a synthetic corpus and relevance judgments before running interventions.
 2. Include difficult vocabulary mismatches, stale/superseded records, section matches, identifier expansions, and genuine no-answer queries.
-3. Compare a declared whole-record FTS baseline with Lore’s indexed/ranked variants and ablations.
-4. Report recall@1/3/5, MRR, zero-result rate, returned-token budget, p50/p95 latency, corpus/query counts, platform, Python/Lore version, and commit.
+3. Compare a declared whole-record FTS baseline with Oldhand’s indexed/ranked variants and ablations.
+4. Report recall@1/3/5, MRR, zero-result rate, returned-token budget, p50/p95 latency, corpus/query counts, platform, Python/Oldhand version, and commit.
 5. Keep negative results and limitations in the generated report; distinguish this benchmark from the existing single-archive field snapshot and biased regression eval.
 6. Make `python benchmarks/run.py --verify benchmarks/results/v1.json` fail when checked-in claims drift beyond a declared tolerance.
 7. Commit: `bench: add reproducible synthetic retrieval benchmark`.
@@ -255,7 +255,7 @@ The current evolutionary worktree is dirty on `feat/evolve-lore-ten-generations`
 **Steps:**
 
 1. Drive the recording from `examples/run_demo.py`; do not hand-type a path that can drift from the tested scenario.
-2. Show exactly five beats: repeated wrong assumption, record the constraint, start a fresh shell/session, search Lore, avoid the mistake and open the Markdown.
+2. Show exactly five beats: repeated wrong assumption, record the constraint, start a fresh shell/session, search Oldhand, avoid the mistake and open the Markdown.
 3. Keep it 45–60 seconds, readable at README width, captioned or accompanied by a transcript, and optimized for repository size.
 4. Regenerate in CI or document a checksum-backed reproducible command; verify the link on GitHub and PyPI rendering.
 5. Commit: `docs: add terminal product demonstration`.
@@ -267,13 +267,13 @@ The current evolutionary worktree is dirty on `feat/evolve-lore-ten-generations`
 **Files:**
 - Modify: `README.md`
 - Create: `docs/advanced-replay.md`, `docs/evidence.md`
-- Modify: `INSTALL.md`, `METRICS.md`, `tools/lore/CLI_SPEC.md`, repository map
+- Modify: `INSTALL.md`, `METRICS.md`, `docs/CLI_SPEC.md`, repository map
 
 **Steps:**
 
 1. Use this order: one-sentence problem; demo; one-command pipx install; three differences; realistic before/after; evidence; integrations; advanced replay teaser; documentation links.
-2. Open with the review’s scar-tissue framing and keep “Your code remembers what survived. Lore remembers why.”
-3. Put `lore search "why can't we simplify this config loader?"` in the first workflow example.
+2. Open with the review’s scar-tissue framing and keep “Your code remembers what survived. Oldhand remembers why.”
+3. Put `oldhand search "why can't we simplify this config loader?"` in the first workflow example.
 4. Move the full Dream-RSI/replay explanation and commands to `docs/advanced-replay.md`; label it experimental, offline, deterministic, prefix-only, and never autonomously promoted.
 5. Add a real CI badge only after the workflow is green. Avoid hard-coded test counts unless generated at release time.
 6. Audit every command, path, metric, version, diagram, safety promise, and limitation against a clean installed wheel. Correct the currently inaccurate repository tree rather than creating empty paths to satisfy it.
@@ -411,7 +411,7 @@ The current evolutionary worktree is dirty on `feat/evolve-lore-ten-generations`
 | Narrow institutional-memory positioning; competitor differentiation; keep the slogan | Task 2, Task 13 |
 | Replay is advanced rather than a second primary product | Tasks 2, 10, 13 |
 | PyPI/search/name collision and trademark/availability decision | Task 1 |
-| pipx install, `lore init`, easy setup | Tasks 5, 6, 8 |
+| pipx install, `oldhand init`, easy setup | Tasks 5, 6, 8 |
 | CI on Python 3.10–3.13 and Ubuntu/macOS/Windows; real badge | Task 14 |
 | Tag, release, notes, changelog, reproducible artifacts, beta label | Tasks 15–16 |
 | CONTRIBUTING, SECURITY, CHANGELOG, issue templates, code of conduct | Task 15 |
@@ -445,11 +445,11 @@ python examples/run_demo.py --verify
 Then install the built wheel—not the source tree—with pipx on Ubuntu, macOS, and Windows and verify:
 
 ```bash
-lore --version
-lore init <temporary-path>
-lore setup <harness> --dry-run
-lore search "why can't we simplify this config loader?"
-lore selftest
+oldhand --version
+oldhand init <temporary-path>
+oldhand setup <harness> --dry-run
+oldhand search "why can't we simplify this config loader?"
+oldhand selftest
 ```
 
 No visibility change or launch post occurs until the named owner signs every gate with links to the passing run, artifact hashes, audit report, beta summary, and release.

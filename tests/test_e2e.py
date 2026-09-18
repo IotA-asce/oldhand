@@ -10,9 +10,9 @@ import unittest
 
 import yaml
 
-REPO = Path(__file__).resolve().parent
-LORE_PY = REPO / "lore" / "lore.py"
-INSTALL_PY = REPO / "install.py"
+REPO = Path(__file__).resolve().parents[1]
+CLI = ["-m", "oldhand.cli"]
+INSTALL_PY = REPO / "tools" / "install.py"
 
 
 class E2ETestCase(unittest.TestCase):
@@ -22,7 +22,7 @@ class E2ETestCase(unittest.TestCase):
         self.root = Path(temporary.name).resolve()
         self.archive = self.root / "archive"
         (self.archive / "memory").mkdir(parents=True)
-        self.env = {k: v for k, v in os.environ.items() if k != "LORE_ROOT"}
+        self.env = {k: v for k, v in os.environ.items() if k != "OLDHAND_ROOT"}
         self.env["HOME"] = str(self.root / "home")
         Path(self.env["HOME"]).mkdir()
         self.env["PATH"] = "/usr/bin:/bin"
@@ -30,9 +30,9 @@ class E2ETestCase(unittest.TestCase):
         self.env["USERPROFILE"] = self.env["HOME"]
         self.env["PYTHONDONTWRITEBYTECODE"] = "1"
 
-    def lore(self, *args):
+    def oldhand(self, *args):
         return subprocess.run(
-            [sys.executable, "-B", str(LORE_PY), "--root", str(self.archive), *args],
+            [sys.executable, "-B", *CLI, "--root", str(self.archive), *args],
             capture_output=True, text=True, env=self.env)
 
     def record(self, name, **changes):
@@ -55,20 +55,20 @@ class CoreCliTests(E2ETestCase):
         self.record("good")
         bad_version = self.record("badver", schema_version="v1")
         bad_relation = self.record("badrel", relations={"supersedes": 123})
-        result = self.lore("validate")
+        result = self.oldhand("validate")
         self.assertEqual(result.returncode, 1)
         for path in (bad_version, bad_relation):
             self.assertIn(path.name, result.stdout)
-        result = self.lore("rebuild")
+        result = self.oldhand("rebuild")
         self.assertEqual(result.returncode, 0)
-        result = self.lore("search", "database")
+        result = self.oldhand("search", "database")
         self.assertIn("good", result.stdout)
         self.assertNotIn("badver", result.stdout)
         self.assertNotIn("badrel", result.stdout)
 
     def test_validate_json_is_machine_readable(self):
         self.record("good")
-        result = self.lore("validate", "--json")
+        result = self.oldhand("validate", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertTrue(payload["valid"])
@@ -76,55 +76,55 @@ class CoreCliTests(E2ETestCase):
 
     def test_unicode_query_finds_record(self):
         self.record("good")
-        self.lore("rebuild")
-        result = self.lore("search", "认证")
+        self.oldhand("rebuild")
+        result = self.oldhand("search", "认证")
         self.assertIn("id: good", result.stdout)
 
     def test_same_second_edit_and_rename_are_reindexed(self):
         path = self.record("good")
-        self.lore("rebuild")
+        self.oldhand("rebuild")
         text = path.read_text(encoding="utf-8")
         path.write_text(text.replace("database retries", "index pool exhaustion"),
                         encoding="utf-8")
         os.utime(path, (1000000, 1000000))
-        result = self.lore("search", "exhaustion")
+        result = self.oldhand("search", "exhaustion")
         self.assertIn("id: good", result.stdout)
         renamed = path.with_name("renamed.md")
         renamed.write_text(text.replace("id: good", "id: renamed"), encoding="utf-8")
         os.utime(renamed, (1000000, 1000000))
         path.unlink()
-        result = self.lore("search", "认证")
+        result = self.oldhand("search", "认证")
         self.assertIn("id: renamed", result.stdout)
 
     def test_wiped_index_metadata_self_repairs(self):
         self.record("good")
-        self.lore("rebuild")
-        db = self.archive / ".lore" / "lore.db"
+        self.oldhand("rebuild")
+        db = self.archive / ".oldhand" / "oldhand.db"
         with contextlib.closing(sqlite3.connect(db)) as con:
             con.execute("DROP TABLE index_meta")
             con.commit()
-        result = self.lore("search", "认证")
+        result = self.oldhand("search", "认证")
         self.assertEqual(result.returncode, 0)
         self.assertIn("id: good", result.stdout)
 
     def test_no_staging_file_left_after_rebuild(self):
         self.record("good")
-        self.lore("rebuild")
-        self.assertTrue((self.archive / ".lore" / "lore.db").exists())
-        self.assertEqual(list((self.archive / ".lore").glob("*.building*")), [])
+        self.oldhand("rebuild")
+        self.assertTrue((self.archive / ".oldhand" / "oldhand.db").exists())
+        self.assertEqual(list((self.archive / ".oldhand").glob("*.building*")), [])
 
     def test_metrics_full_survives_without_current_records(self):
         self.record("gone", status="superseded")
-        result = self.lore("metrics", "--full")
+        result = self.oldhand("metrics", "--full")
         self.assertEqual(result.returncode, 0)
         self.assertNotIn("Traceback", result.stderr)
         self.assertIn("N/A", result.stdout)
 
     def test_daily_metrics_include_each_completed_command(self):
         self.record("good")
-        first = self.lore("search", "database")
+        first = self.oldhand("search", "database")
         self.assertEqual(first.returncode, 0, first.stderr)
-        second = self.lore("search", "gateway")
+        second = self.oldhand("search", "gateway")
         self.assertEqual(second.returncode, 0, second.stderr)
         lines = (self.archive / "metrics" / "daily.jsonl").read_text().splitlines()
         self.assertEqual(len(lines), 1)
@@ -132,7 +132,7 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(snapshot["retrieval"]["searches"], 2)
 
     def test_new_record_topics_round_trip(self):
-        result = self.lore("new", "--title", "Hostile topics", "--type", "lesson",
+        result = self.oldhand("new", "--title", "Hostile topics", "--type", "lesson",
                            "--importance", "normal",
                            "--topics", "on, null, api: gateway, *backend")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -146,7 +146,7 @@ class CoreCliTests(E2ETestCase):
     def test_init_command_creates_archive(self):
         target = self.root / "new-archive"
         result = subprocess.run(
-            [sys.executable, "-B", str(LORE_PY), "init", str(target), "--json"],
+            [sys.executable, "-B", *CLI, "init", str(target), "--json"],
             capture_output=True, text=True, env=self.env)
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
@@ -154,7 +154,7 @@ class CoreCliTests(E2ETestCase):
         self.assertTrue((target / "memory" / "README.md").exists())
 
     def test_run_start_creates_structured_trace(self):
-        result = self.lore("run-start", "--id", "planner-run", "--task", "Tune planner",
+        result = self.oldhand("run-start", "--id", "planner-run", "--task", "Tune planner",
                            "--evaluator", "bench-v2", "--workers", "3", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
@@ -162,61 +162,61 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual((trace["id"], trace["max_workers"]), ("planner-run", 3))
 
     def test_attempt_add_records_parent_and_proposal(self):
-        self.lore("run-start", "--id", "run", "--task", "Tune",
+        self.oldhand("run-start", "--id", "run", "--task", "Tune",
                   "--evaluator", "bench")
-        result = self.lore("attempt-add", "run", "--id", "branch-a",
+        result = self.oldhand("attempt-add", "run", "--id", "branch-a",
                            "--parent", "root", "--proposal", "Try an index", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         node = json.loads(result.stdout)["node"]
         self.assertEqual((node["id"], node["parent_id"]), ("branch-a", "root"))
 
     def test_attempt_evaluate_records_evidence(self):
-        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
-        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+        self.oldhand("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.oldhand("attempt-add", "run", "--id", "a", "--parent", "root",
                   "--proposal", "Try it")
-        result = self.lore("attempt-evaluate", "run", "a", "--score", "8.5",
+        result = self.oldhand("attempt-evaluate", "run", "a", "--score", "8.5",
                            "--correct", "--outcome", "success", "--cost", "2", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         evaluation = json.loads(result.stdout)["evaluation"]
         self.assertEqual((evaluation["score"], evaluation["cost"]), (8.5, 2))
 
     def test_run_finish_and_validate(self):
-        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
-        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+        self.oldhand("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.oldhand("attempt-add", "run", "--id", "a", "--parent", "root",
                   "--proposal", "Try it")
-        self.lore("attempt-evaluate", "run", "a", "--score", "8", "--correct",
+        self.oldhand("attempt-evaluate", "run", "a", "--score", "8", "--correct",
                   "--outcome", "success")
-        finished = self.lore("run-finish", "run", "--json")
+        finished = self.oldhand("run-finish", "run", "--json")
         self.assertEqual(finished.returncode, 0, finished.stderr)
         self.assertTrue(json.loads(finished.stdout)["completed"])
-        checked = self.lore("run-validate", "--json")
+        checked = self.oldhand("run-validate", "--json")
         self.assertEqual(checked.returncode, 0, checked.stderr)
         self.assertTrue(json.loads(checked.stdout)["valid"])
 
     def test_runs_and_run_show_json(self):
-        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
-        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+        self.oldhand("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.oldhand("attempt-add", "run", "--id", "a", "--parent", "root",
                   "--proposal", "Try it")
-        self.lore("attempt-evaluate", "run", "a", "--score", "8", "--correct",
+        self.oldhand("attempt-evaluate", "run", "a", "--score", "8", "--correct",
                   "--outcome", "success")
-        catalog = self.lore("runs", "--status", "active", "--json")
+        catalog = self.oldhand("runs", "--status", "active", "--json")
         self.assertEqual(json.loads(catalog.stdout)["runs"][0]["id"], "run")
-        detail = self.lore("run-show", "run", "--json")
+        detail = self.oldhand("run-show", "run", "--json")
         self.assertEqual(json.loads(detail.stdout)["tree"][0]["id"], "a")
 
     def test_replay_command_reveals_prefix(self):
-        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.oldhand("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
         for node, parent, score in (("a", "root", "5"), ("a2", "a", "8")):
-            self.lore("attempt-add", "run", "--id", node, "--parent", parent,
+            self.oldhand("attempt-add", "run", "--id", node, "--parent", parent,
                       "--proposal", node)
-            self.lore("attempt-evaluate", "run", node, "--score", score, "--correct",
+            self.oldhand("attempt-evaluate", "run", node, "--score", score, "--correct",
                       "--outcome", "success")
-        self.lore("run-finish", "run")
-        result = self.lore("replay", "run", "--policy", "depth", "--budget", "2", "--json")
+        self.oldhand("run-finish", "run")
+        result = self.oldhand("replay", "run", "--policy", "depth", "--budget", "2", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["revealed"], ["a", "a2"])
 
-        scored = self.lore("replay", "run", "--policy", "depth", "--budget", "2",
+        scored = self.oldhand("replay", "run", "--policy", "depth", "--budget", "2",
                            "--workers", "2", "--beta-cost", "1",
                            "--beta-parallel", "2", "--json")
         payload = json.loads(scored.stdout)
@@ -225,14 +225,14 @@ class CoreCliTests(E2ETestCase):
 
     def test_policy_compare_uses_holdout_runs(self):
         for run_id in ("run1", "run2"):
-            self.lore("run-start", "--id", run_id, "--task", "Tune",
+            self.oldhand("run-start", "--id", run_id, "--task", "Tune",
                       "--evaluator", "bench")
-            self.lore("attempt-add", run_id, "--id", "a", "--parent", "root",
+            self.oldhand("attempt-add", run_id, "--id", "a", "--parent", "root",
                       "--proposal", "a")
-            self.lore("attempt-evaluate", run_id, "a", "--score", "5", "--correct",
+            self.oldhand("attempt-evaluate", run_id, "a", "--score", "5", "--correct",
                       "--outcome", "success")
-            self.lore("run-finish", run_id)
-        result = self.lore("policy-compare", "depth", "--incumbent", "breadth",
+            self.oldhand("run-finish", run_id)
+        result = self.oldhand("policy-compare", "depth", "--incumbent", "breadth",
                            "--budget", "1", "--holdout", "1",
                            "--evaluator", "bench", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -244,7 +244,7 @@ class CoreCliTests(E2ETestCase):
         self.record("guard", type="constraint", importance="critical",
                     risk="critical", durability="invariant")
         self.record("direction", type="decision")
-        result = self.lore("explore-context", "database retries", "--workers", "2",
+        result = self.oldhand("explore-context", "database retries", "--workers", "2",
                            "--history-branches", "1", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
@@ -253,13 +253,13 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(payload["branches"][1]["shared_guardrail_ids"], ["guard"])
 
     def test_run_distill_publishes_canonical_memory(self):
-        self.lore("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
-        self.lore("attempt-add", "run", "--id", "a", "--parent", "root",
+        self.oldhand("run-start", "--id", "run", "--task", "Tune", "--evaluator", "bench")
+        self.oldhand("attempt-add", "run", "--id", "a", "--parent", "root",
                   "--proposal", "Use an indexed lookup", "--artifact-ref", "git:abc")
-        self.lore("attempt-evaluate", "run", "a", "--score", "9", "--correct",
+        self.oldhand("attempt-evaluate", "run", "a", "--score", "9", "--correct",
                   "--outcome", "success", "--diagnostics-ref", "results/a.json")
-        self.lore("run-finish", "run")
-        result = self.lore("run-distill", "run", "a", "--id", "indexed-lookup",
+        self.oldhand("run-finish", "run")
+        result = self.oldhand("run-distill", "run", "a", "--id", "indexed-lookup",
                            "--title", "Use indexed lookup", "--type", "lesson",
                            "--importance", "normal", "--topics", "database,performance",
                            "--json")
@@ -271,7 +271,7 @@ class CoreCliTests(E2ETestCase):
         self.assertIn("experience/runs/run.json", text)
 
     def test_new_json_output(self):
-        result = self.lore("new", "--title", "JSON record", "--type", "lesson",
+        result = self.oldhand("new", "--title", "JSON record", "--type", "lesson",
                            "--importance", "normal", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
@@ -279,13 +279,13 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(payload["id"], "lore_json_record")
 
     def test_new_explicit_id(self):
-        result = self.lore("new", "--id", "stable.record-id", "--title", "Stable id",
+        result = self.oldhand("new", "--id", "stable.record-id", "--title", "Stable id",
                            "--type", "lesson", "--importance", "normal", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["id"], "stable.record-id")
 
     def test_new_dry_run_json_writes_nothing(self):
-        result = self.lore("new", "--title", "Preview record", "--type", "lesson",
+        result = self.oldhand("new", "--title", "Preview record", "--type", "lesson",
                            "--importance", "normal", "--dry-run", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
@@ -297,7 +297,7 @@ class CoreCliTests(E2ETestCase):
     def test_relate_command_updates_canonical_record(self):
         source = self.record("source")
         self.record("target")
-        result = self.lore("relate", "source", "depends_on", "target")
+        result = self.oldhand("relate", "source", "depends_on", "target")
         self.assertEqual(result.returncode, 0, result.stderr)
         meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
         self.assertEqual(meta["relations"], {"depends_on": ["target"]})
@@ -305,7 +305,7 @@ class CoreCliTests(E2ETestCase):
     def test_supersede_command_updates_old_and_new_records(self):
         old = self.record("old")
         new = self.record("new")
-        result = self.lore("supersede", "old", "--by", "new")
+        result = self.oldhand("supersede", "old", "--by", "new")
         self.assertEqual(result.returncode, 0, result.stderr)
         old_meta = yaml.safe_load(old.read_text(encoding="utf-8").split("---\n")[1])
         new_meta = yaml.safe_load(new.read_text(encoding="utf-8").split("---\n")[1])
@@ -314,18 +314,18 @@ class CoreCliTests(E2ETestCase):
 
     def test_status_command_updates_record(self):
         path = self.record("record")
-        result = self.lore("status", "record", "resolved")
+        result = self.oldhand("status", "record", "resolved")
         self.assertEqual(result.returncode, 0, result.stderr)
         meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
         self.assertEqual(meta["status"], "resolved")
 
-        result = self.lore("status", "record", "superseded")
+        result = self.oldhand("status", "record", "superseded")
         self.assertEqual(result.returncode, 2)
         self.assertIn("invalid choice", result.stderr)
 
     def test_search_json_output(self):
         self.record("good")
-        result = self.lore("search", "database", "--json")
+        result = self.oldhand("search", "database", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["count"], 1)
@@ -333,7 +333,7 @@ class CoreCliTests(E2ETestCase):
 
     def test_show_json_output(self):
         self.record("good")
-        result = self.lore("show", "good", "--json")
+        result = self.oldhand("show", "good", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["id"], "good")
@@ -342,19 +342,19 @@ class CoreCliTests(E2ETestCase):
 
     def test_list_json_and_positive_limit(self):
         self.record("good")
-        result = self.lore("list", "--json", "--type", "lesson", "--topic", "testing")
+        result = self.oldhand("list", "--json", "--type", "lesson", "--topic", "testing")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["records"][0]["id"], "good")
 
-        result = self.lore("list", "--limit", "0")
+        result = self.oldhand("list", "--limit", "0")
         self.assertEqual(result.returncode, 2)
         self.assertIn("positive integer", result.stderr)
 
     def test_list_selects_retired_status(self):
         self.record("old", status="deprecated")
-        result = self.lore("list", "--status", "deprecated", "--json")
+        result = self.oldhand("list", "--status", "deprecated", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual([record["id"] for record in payload["records"]], ["old"])
@@ -362,7 +362,7 @@ class CoreCliTests(E2ETestCase):
     def test_list_selects_importance(self):
         self.record("normal", importance="normal")
         self.record("critical", importance="critical")
-        result = self.lore("list", "--importance", "critical", "--json")
+        result = self.oldhand("list", "--importance", "critical", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual([item["id"] for item in payload["records"]], ["critical"])
@@ -370,7 +370,7 @@ class CoreCliTests(E2ETestCase):
     def test_backlinks_json(self):
         self.record("source", relations={"depends_on": ["target"]})
         self.record("target")
-        result = self.lore("backlinks", "target", "--json")
+        result = self.oldhand("backlinks", "target", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["incoming"][0]["id"], "source")
@@ -378,21 +378,21 @@ class CoreCliTests(E2ETestCase):
     def test_rename_command_updates_backlinks(self):
         self.record("source", relations={"related_to": ["old"]})
         self.record("old")
-        result = self.lore("rename", "old", "renamed")
+        result = self.oldhand("rename", "old", "renamed")
         self.assertEqual(result.returncode, 0, result.stderr)
-        graph = self.lore("backlinks", "renamed", "--json")
+        graph = self.oldhand("backlinks", "renamed", "--json")
         self.assertEqual(json.loads(graph.stdout)["incoming"][0]["id"], "source")
 
     def test_topic_command_curates_topics(self):
         path = self.record("record")
-        result = self.lore("topic", "record", "--add", "api-gateway")
+        result = self.oldhand("topic", "record", "--add", "api-gateway")
         self.assertEqual(result.returncode, 0, result.stderr)
         meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
         self.assertIn("api-gateway", meta["topics"])
 
     def test_classify_command_updates_metadata(self):
         path = self.record("record")
-        result = self.lore("classify", "record", "--importance", "critical",
+        result = self.oldhand("classify", "record", "--importance", "critical",
                            "--scope", "workspace")
         self.assertEqual(result.returncode, 0, result.stderr)
         meta = yaml.safe_load(path.read_text(encoding="utf-8").split("---\n")[1])
@@ -401,10 +401,10 @@ class CoreCliTests(E2ETestCase):
     def test_compact_command_retires_sources(self):
         self.record("target")
         source = self.record("source")
-        preview = self.lore("compact", "--into", "target", "source", "--dry-run", "--json")
+        preview = self.oldhand("compact", "--into", "target", "source", "--dry-run", "--json")
         self.assertEqual(preview.returncode, 0, preview.stderr)
         self.assertTrue(json.loads(preview.stdout)["dry_run"])
-        result = self.lore("compact", "--into", "target", "source")
+        result = self.oldhand("compact", "--into", "target", "source")
         self.assertEqual(result.returncode, 0, result.stderr)
         meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
         self.assertEqual(meta["status"], "superseded")
@@ -426,15 +426,16 @@ class InstallerTests(E2ETestCase):
     def test_install_launcher_and_profile_then_clean_uninstall(self):
         result = self.install(str(self.archive), "--shell-rc")
         self.assertEqual(result.returncode, 0, result.stderr)
-        launcher = self.bin_dir / "lore"
+        launcher = self.bin_dir / "oldhand"
         self.assertTrue(launcher.exists())
         text = launcher.read_text(encoding="utf-8")
         self.assertTrue(text.startswith("#!/bin/sh"))
         self.assertIn("exec ", text)
-        self.assertIn("'" + str(LORE_PY) + "'", text)
+        self.assertIn("-m oldhand.cli", text)
+        self.assertIn("PYTHONPATH=", text)
         profile = self.rc.read_text(encoding="utf-8")
-        self.assertIn("export LORE_ROOT=", profile)
-        self.assertIn("# added by lore tools/install.py", profile)
+        self.assertIn("export OLDHAND_ROOT=", profile)
+        self.assertIn("# added by oldhand tools/install.py", profile)
         self.assertIn("'" + str(self.archive) + "'", profile)
         result = subprocess.run(
             ["/bin/sh", "-c", '. "$1"; exec "$2" stats', "sh",
@@ -445,18 +446,18 @@ class InstallerTests(E2ETestCase):
         result = self.install(str(self.archive), "--shell-rc", "--uninstall")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(launcher.exists())
-        self.assertNotIn("LORE_ROOT", self.rc.read_text(encoding="utf-8"))
+        self.assertNotIn("OLDHAND_ROOT", self.rc.read_text(encoding="utf-8"))
 
     def test_unrelated_launcher_and_profile_lines_are_preserved(self):
         self.bin_dir.mkdir(parents=True)
-        unrelated = self.bin_dir / "lore"
+        unrelated = self.bin_dir / "oldhand"
         unrelated.write_text("#!/bin/sh\necho other\n", encoding="utf-8")
         result = self.install(str(self.archive))
         self.assertEqual(result.returncode, 1)
         self.assertIn("Refusing", result.stderr)
         self.assertEqual(unrelated.read_text(encoding="utf-8"), "#!/bin/sh\necho other\n")
         unrelated.unlink()
-        launcher = self.bin_dir / "lore"
+        launcher = self.bin_dir / "oldhand"
         self.assertEqual(self.install(str(self.archive), "--shell-rc").returncode, 0)
         self.rc.write_text(
             self.rc.read_text(encoding="utf-8") + "# my stuff\nalias ll='ls -la'\n",
@@ -465,7 +466,7 @@ class InstallerTests(E2ETestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(launcher.exists())
         profile = self.rc.read_text(encoding="utf-8")
-        self.assertNotIn("LORE_ROOT", profile)
+        self.assertNotIn("OLDHAND_ROOT", profile)
         self.assertIn("# my stuff", profile)
         self.assertIn("alias ll", profile)
 

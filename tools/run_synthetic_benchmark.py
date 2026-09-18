@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Lore's small, fictional retrieval-regression benchmark.
+"""Run Oldhand's small, fictional retrieval-regression benchmark.
 
 The checked-in result is intentionally a fixture baseline, not a quality claim.
 """
@@ -11,6 +11,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import os
 import subprocess
 import sys
 import tempfile
@@ -21,7 +22,19 @@ BENCHMARK = ROOT / "benchmarks" / "synthetic"
 FIXTURE = BENCHMARK / "fixture"
 QUERIES = BENCHMARK / "queries.json"
 RESULTS = BENCHMARK / "results.json"
-LORE = ROOT / "tools" / "lore" / "lore.py"
+SRC_DIR = ROOT / "src"
+CLI = ["-m", "oldhand.cli"]
+
+def _cli_env() -> dict:
+    """Environment that can import the package straight from the checkout.
+
+    Lets these scripts run from a plain clone with nothing installed, while
+    still preferring an installed `oldhand` if one is already importable.
+    """
+    existing = os.environ.get("PYTHONPATH")
+    parts = [str(SRC_DIR)] + ([existing] if existing else [])
+    return dict(os.environ, PYTHONPATH=os.pathsep.join(parts))
+
 K_VALUES = (1, 3, 5)
 
 
@@ -43,19 +56,19 @@ def fixture_digest() -> str:
 
 def run_lore(archive: Path, *args: str, json_output: bool = True) -> dict | None:
     completed = subprocess.run(
-        [sys.executable, "-B", str(LORE), "--root", str(archive), *args],
-        cwd=ROOT, capture_output=True, text=True, check=False,
+        [sys.executable, "-B", *CLI, "--root", str(archive), *args],
+        cwd=ROOT, capture_output=True, text=True, check=False, env=_cli_env(),
     )
     if completed.returncode:
         raise RuntimeError(
-            f"lore {' '.join(args)} exited {completed.returncode}: {completed.stderr.strip()}"
+            f"oldhand {' '.join(args)} exited {completed.returncode}: {completed.stderr.strip()}"
         )
     if not json_output:
         return None
     try:
         return json.loads(completed.stdout)
     except json.JSONDecodeError as error:
-        raise RuntimeError(f"lore did not emit JSON: {completed.stdout!r}") from error
+        raise RuntimeError(f"oldhand did not emit JSON: {completed.stdout!r}") from error
 
 
 def score_query(result_ids: list[str], relevant_ids: set[str]) -> tuple[dict[str, float], float]:
@@ -71,7 +84,7 @@ def score_query(result_ids: list[str], relevant_ids: set[str]) -> tuple[dict[str
 def run_benchmark() -> dict:
     specification = json.loads(QUERIES.read_text(encoding="utf-8"))
     queries = specification["queries"]
-    with tempfile.TemporaryDirectory(prefix="lore-synthetic-benchmark-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="oldhand-synthetic-benchmark-") as temporary:
         archive = Path(temporary) / "archive"
         shutil.copytree(FIXTURE, archive)
         run_lore(archive, "rebuild", json_output=False)

@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Extend Lore with ten additive discovery, automation, relationship, and lifecycle improvements, then rebuild the README as a visual guide to the complete workflow.
+**Goal:** Extend Oldhand with ten additive discovery, automation, relationship, and lifecycle improvements, then rebuild the README as a visual guide to the complete workflow.
 
 **Architecture:** Keep Markdown/YAML records canonical and SQLite derived. Read-only improvements query the current index; write improvements locate canonical records by id, update frontmatter and `updated_at`, validate the complete archive before publishing, and rebuild the index only after a successful mutation. Ranking constants, the database schema, and record schema remain unchanged.
 
@@ -12,7 +12,7 @@
 
 ### Iteration 1: Filter search by status
 
-**Files:** `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/lore/CLI_SPEC.md`
+**Files:** `src/oldhand/cli.py`, `tests/test_cli.py`, `docs/CLI_SPEC.md`
 
 1. Add a failing test with current and resolved matching records.
 2. Add `--status` to `search`; apply it before ranking and expose it in JSON filters.
@@ -21,7 +21,7 @@
 
 ### Iteration 2: Filter list by status
 
-**Files:** `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/test_e2e.py`, `tools/lore/CLI_SPEC.md`
+**Files:** `src/oldhand/cli.py`, `tests/test_cli.py`, `tests/test_e2e.py`, `docs/CLI_SPEC.md`
 
 1. Add failing unit and CLI tests for exact status selection.
 2. Add `--status` to `list`; an explicit retired status overrides the active-only default.
@@ -30,7 +30,7 @@
 
 ### Iteration 3: Browse topics
 
-**Files:** `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/lore/CLI_SPEC.md`
+**Files:** `src/oldhand/cli.py`, `tests/test_cli.py`, `docs/CLI_SPEC.md`
 
 1. Add a failing test for topic counts, collection filtering, limits, and JSON.
 2. Add `topics [--collection] [--limit] [--json]`, ordered by record count then name.
@@ -39,7 +39,7 @@
 
 ### Iteration 4: Browse collections
 
-**Files:** `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/lore/CLI_SPEC.md`
+**Files:** `src/oldhand/cli.py`, `tests/test_cli.py`, `docs/CLI_SPEC.md`
 
 1. Add a failing test for collection record/topic counts and JSON.
 2. Add `collections [--json]`, ordered by collection name.
@@ -48,7 +48,7 @@
 
 ### Iteration 5: Create records with JSON output
 
-**Files:** `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/test_e2e.py`, `tools/lore/CLI_SPEC.md`
+**Files:** `src/oldhand/cli.py`, `tests/test_cli.py`, `tests/test_e2e.py`, `docs/CLI_SPEC.md`
 
 1. Add a failing test for `new --json`.
 2. Emit a single object with id, path, collection, and creation state while preserving human output by default.
@@ -57,7 +57,7 @@
 
 ### Iteration 6: Preview record creation
 
-**Files:** `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/test_e2e.py`, `tools/lore/CLI_SPEC.md`
+**Files:** `src/oldhand/cli.py`, `tests/test_cli.py`, `tests/test_e2e.py`, `docs/CLI_SPEC.md`
 
 1. Add a failing test proving `new --dry-run` writes no file.
 2. Render the exact proposed record to stdout; support a JSON envelope when combined with `--json`.
@@ -66,7 +66,7 @@
 
 ### Iteration 7: Add record relationships
 
-**Files:** `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/test_e2e.py`, `tools/lore/CLI_SPEC.md`
+**Files:** `src/oldhand/cli.py`, `tests/test_cli.py`, `tests/test_e2e.py`, `docs/CLI_SPEC.md`
 
 1. Add failing tests for valid, duplicate, unknown, and self relationships.
 2. Add a canonical-record mutation helper and `relate SOURCE TYPE TARGET`.
@@ -75,7 +75,7 @@
 
 ### Iteration 8: Remove record relationships
 
-**Files:** `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/lore/CLI_SPEC.md`
+**Files:** `src/oldhand/cli.py`, `tests/test_cli.py`, `docs/CLI_SPEC.md`
 
 1. Add failing tests for existing and missing relations.
 2. Add `unrelate SOURCE TYPE TARGET`, pruning empty relation lists.
@@ -84,7 +84,7 @@
 
 ### Iteration 9: Supersede records atomically
 
-**Files:** `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/test_e2e.py`, `tools/lore/CLI_SPEC.md`, `START_HERE.md`
+**Files:** `src/oldhand/cli.py`, `tests/test_cli.py`, `tests/test_e2e.py`, `docs/CLI_SPEC.md`, `START_HERE.md`
 
 1. Add failing tests for `supersede OLD --by NEW`, including rollback on invalid ids.
 2. Set the old status to `superseded` and add `NEW supersedes OLD` in one validated transaction across two Markdown files.
@@ -93,7 +93,7 @@
 
 ### Iteration 10: Change record status safely
 
-**Files:** `tools/lore/lore.py`, `tools/lore/test_lore.py`, `tools/test_e2e.py`, `tools/lore/CLI_SPEC.md`, `START_HERE.md`
+**Files:** `src/oldhand/cli.py`, `tests/test_cli.py`, `tests/test_e2e.py`, `docs/CLI_SPEC.md`, `START_HERE.md`
 
 1. Add failing tests for current, resolved, deprecated, and historical transitions.
 2. Add `status ID STATUS`; reserve `superseded` for the atomic command.
@@ -108,7 +108,7 @@
 2. Add an accessible lifecycle diagram with an editable draw.io source; reuse the architecture and measured-result charts.
 3. Document all ten iterations, mutation safety, JSON behavior, and remaining limitations.
 4. Validate local links and diagram XML.
-5. Commit `docs: rebuild README for the complete Lore lifecycle`.
+5. Commit `docs: rebuild README for the complete Oldhand lifecycle`.
 
 ### Delivery
 

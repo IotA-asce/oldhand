@@ -76,7 +76,7 @@ token. The words "total" and "cost" **do not match it**:
 "cost"       -> no match
 ```
 
-Lore indexes identifiers by their parts as well as whole, which handles most
+Oldhand indexes identifiers by their parts as well as whole, which handles most
 of this. Help it anyway: the first time an identifier appears in a summary,
 say what it is in words too. `totalCost`, the stored purchase total.
 
@@ -113,7 +113,7 @@ does not open the record, and it reads exactly like a confident right answer.
 + `/dashboard/api/v1` prefix; only the PROD dashboards dead-end.
 ```
 
-`lore conflicts` finds these. Fixing them is manual, because only the author
+`oldhand conflicts` finds these. Fixing them is manual, because only the author
 knows which sentence still holds.
 
 ## 7. Importance is a budget, not a compliment
@@ -154,7 +154,7 @@ should produce no record.
 ## Checking your own writing
 
 ```bash
-lore doctor
+oldhand doctor
 ```
 
 - **findability** queries every record by its own title. A record that cannot
@@ -165,7 +165,7 @@ lore doctor
   not already carry.
 
 ```bash
-lore conflicts
+oldhand conflicts
 ```
 
 - summaries that no longer match their own corrected bodies

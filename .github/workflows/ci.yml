@@ -31,7 +31,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: python -m pip install -r tools/lore/requirements.txt
+        run: python -m pip install -e .
 
       - name: Verify repository
         run: python -B tools/verify.py
@@ -58,7 +58,46 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: python -m pip install -r tools/lore/requirements.txt
+        run: python -m pip install -e .
 
       - name: Verify repository (informational only)
         run: python -B tools/verify.py
+
+  # Proves the distribution actually builds and that a clean environment can
+  # install it and run the console script. This is the claim the README makes.
+  package:
+    name: build and install from a clean environment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build wheel and sdist
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+
+      - name: Install the wheel into a clean virtual environment
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/python -m pip install dist/*.whl
+
+      - name: Run the installed console script
+        run: |
+          /tmp/clean/bin/oldhand --version
+          /tmp/clean/bin/oldhand init /tmp/demo-archive
+          /tmp/clean/bin/oldhand --root /tmp/demo-archive stats
+
+      - name: Record artifact checksums
+        run: shasum -a 256 dist/*
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: oldhand-dist
+          path: dist/*

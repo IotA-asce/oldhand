@@ -1,4 +1,4 @@
-"""Regression tests for the self-contained synthetic Lore demonstration."""
+"""Regression tests for the self-contained synthetic Oldhand demonstration."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 import unittest
 
 
-EXAMPLES = Path(__file__).resolve().parent
+EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 DEMO = EXAMPLES / "run_demo.py"
 SAMPLE = EXAMPLES / "sample-project"
 
@@ -32,7 +32,7 @@ class SyntheticDemoTests(unittest.TestCase):
         self.assertIn("<missing: staging must declare it explicitly>", completed.stdout)
         self.assertIn("Retrieved: synthetic_environment_config_replaces_defaults", completed.stdout)
         self.assertIn("Evidence: verified", completed.stdout)
-        self.assertFalse((SAMPLE / ".lore").exists())
+        self.assertFalse((SAMPLE / ".oldhand").exists())
 
     def test_sample_is_explicitly_synthetic(self):
         notice = (SAMPLE / "SYNTHETIC_EXAMPLE.md").read_text(encoding="utf-8")

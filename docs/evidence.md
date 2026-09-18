@@ -1,6 +1,6 @@
 # Evidence and evaluation
 
-Lore makes a narrow promise: it keeps reviewed engineering knowledge in
+Oldhand makes a narrow promise: it keeps reviewed engineering knowledge in
 readable, local files and helps a person or agent find it again. This page
 separates what has been observed, what has been experimentally changed, and
 what can be reproduced. They answer different questions and must not be
@@ -43,7 +43,7 @@ advisory.
 They are useful causal evidence for their stated setup. They are still not a
 general-purpose leaderboard: the queries, records, and author knowledge came
 from a single archive. The retrieval evaluation set is explicitly a regression
-harness, not an unbiased benchmark; see the [CLI specification](../tools/lore/CLI_SPEC.md#eval)
+harness, not an unbiased benchmark; see the [CLI specification](../docs/CLI_SPEC.md#eval)
 for its limits.
 
 ## 3. Reproducible synthetic benchmark: regression evidence
@@ -60,7 +60,7 @@ python -B tools/run_synthetic_benchmark.py --verify
 Its checked-in result artifact is
 [`benchmarks/synthetic/results.json`](../benchmarks/synthetic/results.json). Treat that
 artifact as a regression baseline: it documents the corpus version, command,
-and resulting metrics for a particular Lore revision. A change that moves a
+and resulting metrics for a particular Oldhand revision. A change that moves a
 baseline should explain why; it is not automatically a product improvement.
 
 The synthetic benchmark is deliberately small and constructed. It can detect
@@ -85,6 +85,6 @@ fictional; see its [synthetic-data notice](../examples/sample-project/SYNTHETIC_
   reviewable by someone outside the original archive.
 
 Independent archives are the missing evidence. The privacy-preserving
-`lore metrics --export` workflow is designed to make opt-in aggregate sharing
+`oldhand metrics --export` workflow is designed to make opt-in aggregate sharing
 possible without sharing record text, queries, titles, paths, or identifiers.
 It is not telemetry and sends nothing anywhere by itself.

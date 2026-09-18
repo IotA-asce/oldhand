@@ -1,6 +1,6 @@
-# Lore synthetic retrieval benchmark
+# Oldhand synthetic retrieval benchmark
 
-This is a tiny, deterministic regression fixture for Lore's local retrieval.
+This is a tiny, deterministic regression fixture for Oldhand's local retrieval.
 It contains six fictional engineering-memory records and six hand-written
 queries with binary relevance judgments. All fixture data is CC0 and explicitly
 fictional; see [LICENSE.md](LICENSE.md).
@@ -12,8 +12,8 @@ python -B tools/run_synthetic_benchmark.py
 python -B tools/run_synthetic_benchmark.py --verify
 ```
 
-The runner copies the fixture to a temporary archive, rebuilds Lore's derived
-SQLite index, calls `lore search --json` for each query, and emits canonical
+The runner copies the fixture to a temporary archive, rebuilds Oldhand's derived
+SQLite index, calls `oldhand search --json` for each query, and emits canonical
 JSON. `--verify` compares the fresh result with `results.json`; it is suitable
 for CI. Regenerate an intentional baseline after review with `--write`.
 

@@ -5,7 +5,7 @@ collections, migrated from two existing memory systems. Each entry cost
 something to learn. They are recorded because most of them are not obvious
 beforehand and several are actively counter-intuitive.
 
-If you are adopting Lore, the first four will save you the most time.
+If you are adopting Oldhand, the first four will save you the most time.
 
 ---
 
@@ -43,12 +43,12 @@ zero with no metadata at all. And the damage is not limited to inflated
 archives: with only **four** critical records out of 293, seven other records
 were being beaten by one of those four on unrelated queries.
 
-Lore now caps every metadata boost below the text-relevance range and warns
+Oldhand now caps every metadata boost below the text-relevance range and warns
 above 10% critical. The discipline still has to come from the writer.
 
 ## 3. Automate detection, never resolution
 
-An early version of `lore conflicts` auto-retired records whose text announced
+An early version of `oldhand conflicts` auto-retired records whose text announced
 they were stale. It seemed obviously safe: the record had already decided, the
 metadata had simply not caught up.
 
@@ -85,7 +85,7 @@ A hand-written eval set is biased twice over: toward the collections someone
 cared about, and toward the records they remembered existed. Optimising it
 alone tunes the system to the query list.
 
-Lore therefore has two:
+Oldhand therefore has two:
 
 - **eval** : hand-written questions with known answers. Question-shaped, biased.
 - **findability** : every record queried by its own title. Unbiased, complete,
@@ -162,7 +162,7 @@ quietly describe last week.
 
 ## 11. Instrumentation that measures itself is worse than none
 
-`lore doctor` issues one search per record and `lore eval` one per query.
+`oldhand doctor` issues one search per record and `oldhand eval` one per query.
 Both were writing to the retrieval log. A single doctor run would have added
 293 entries to an archive with a handful of real searches, so usage statistics
 would have looked rich and described nothing but tooling.
@@ -176,7 +176,7 @@ Every health check here was falsified by planting a case it should catch and
 confirming it does, then removing it and confirming the count returns. A clean
 report from an unfalsified check is not evidence.
 
-The same discipline applies to the privacy guarantee on `lore metrics`:
+The same discipline applies to the privacy guarantee on `oldhand metrics`:
 rather than documenting that exports contain no content, the export audits
 itself and refuses to write if any string value is not a version, a date, a
 platform name or a schema value.

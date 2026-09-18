@@ -3,7 +3,7 @@ from pathlib import Path
 import unittest
 
 
-SOURCE = Path(__file__).with_name("run_synthetic_benchmark.py")
+SOURCE = Path(__file__).resolve().parents[1] / "tools" / "run_synthetic_benchmark.py"
 spec = importlib.util.spec_from_file_location("synthetic_benchmark", SOURCE)
 benchmark = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(benchmark)

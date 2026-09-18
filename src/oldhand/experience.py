@@ -1,4 +1,4 @@
-"""Canonical discovery traces and offline replay support for Lore."""
+"""Canonical discovery traces and offline replay support for Oldhand."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an improvement to Lore
+about: Suggest an improvement to Oldhand
 title: "feature: "
 labels: enhancement
 assignees: ""

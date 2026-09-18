@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Lore: durable engineering memory for coding agents.
+Oldhand: durable engineering memory for coding agents.
 
 Canonical knowledge lives in Markdown under memory/.
 SQLite is derived and can be rebuilt at any time.
@@ -32,7 +32,7 @@ from typing import Any
 LORE_DIR = Path(__file__).resolve().parent
 if str(LORE_DIR) not in sys.path:
     sys.path.insert(0, str(LORE_DIR))
-import experience
+from . import experience
 
 try:
     import yaml
@@ -42,7 +42,7 @@ except ImportError:
 
 # Bumped when indexing or scoring changes in a way that moves retrieval, so
 # metrics from different archives can be compared like with like.
-LORE_VERSION = "0.5.0"
+from . import __version__ as OLDHAND_VERSION
 
 ENTRY_TYPES = {
     "topic_summary", "decision", "constraint", "fix",
@@ -50,7 +50,7 @@ ENTRY_TYPES = {
     "feature",
 }
 # Keep in step with the entry_type CHECK in schema.sql and with TYPE_DIRS
-# below. Asserted by `lore selftest`, because the two lists drifting apart
+# below. Asserted by `oldhand selftest`, because the two lists drifting apart
 # rejects every record of the new type while the schema happily accepts it.
 STATUSES = {"current", "resolved", "superseded", "deprecated", "historical"}
 IMPORTANCE = {"critical", "high", "normal", "low"}
@@ -64,7 +64,7 @@ RELATION_TYPES = {"supersedes", "depends_on", "related_to", "caused_by", "contra
 RETIRED_STATUSES = {"superseded", "deprecated"}
 DIRECT_STATUSES = STATUSES - {"superseded"}
 
-# Directory each entry type is filed under by `lore new`.
+# Directory each entry type is filed under by `oldhand new`.
 TYPE_DIRS = {
     "topic_summary": "topics",
     "decision": "decisions",
@@ -98,7 +98,7 @@ TYPE_DIRS = {
 # Evidence carries weight because `verified` versus `inferred` is the one
 # metadata distinction that is checkable at write time rather than guessed.
 #
-# The importance ladder is deliberately shallow. `lore doctor` measures how
+# The importance ladder is deliberately shallow. `oldhand doctor` measures how
 # many records are returned first for a query made of their own title; with
 # critical at 12, seven records were losing to one of only FOUR critical
 # records, at 3.4% of the archive. Dropping it to 4 raised findability from
@@ -116,7 +116,7 @@ DURABILITY_BOOST = {"invariant": 6, "long_lived": 3, "situational": 1, "temporar
 STATUS_BOOST = {"current": 6, "resolved": 3, "historical": 1, "superseded": -30, "deprecated": -30}
 EVIDENCE_BOOST = {"verified": 5, "documented": 3, "observed": 1, "inferred": 0}
 
-# Invariant guarded by `lore selftest`: metadata can never outvote text.
+# Invariant guarded by `oldhand selftest`: metadata can never outvote text.
 MAX_METADATA_BOOST = (
     max(IMPORTANCE_BOOST.values()) + max(RISK_BOOST.values())
     + max(DURABILITY_BOOST.values()) + max(STATUS_BOOST.values())
@@ -175,7 +175,7 @@ RELEVANCE_POOL = 500
 
 # Directories never searched for collections.
 PRUNE_DIRS = {
-    ".git", ".hg", ".svn", ".lore", "node_modules", "__pycache__",
+    ".git", ".hg", ".svn", ".oldhand", "node_modules", "__pycache__",
     ".venv", "venv", "env", "dist", "build", "bin", "obj", "target",
     "packages", "vendor",
 }
@@ -191,13 +191,13 @@ RECORD_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 # markers are the ownership boundary: setup may change only text between them,
 # and undo may remove only that text.  Do not broaden this into a hook, MCP
 # configuration, user-level setting, or automatic command invocation.
-SETUP_START = "<!-- lore:setup:start -->"
-SETUP_END = "<!-- lore:setup:end -->"
+SETUP_START = "<!-- oldhand:setup:start -->"
+SETUP_END = "<!-- oldhand:setup:end -->"
 SETUP_GUIDANCE = (
-    "## Lore memory\n\n"
+    "## Oldhand memory\n\n"
     "Before changing an area with uncertain constraints, decisions, failed "
-    "approaches, or operational hazards, search the local Lore archive with "
-    "task-specific terms (for example, `lore search \"config loader\"`). "
+    "approaches, or operational hazards, search the local Oldhand archive with "
+    "task-specific terms (for example, `oldhand search \"config loader\"`). "
     "Treat returned records as evidence to inspect, not as unquestionable commands.\n"
 )
 
@@ -209,14 +209,17 @@ SETUP_GUIDANCE = (
 def workspace_root(explicit: str | None) -> Path:
     """Resolve the workspace root.
 
-    Precedence: --root, then LORE_ROOT, then the *topmost* marker-bearing
+    Precedence: --root, then OLDHAND_ROOT, then the *topmost* marker-bearing
     ancestor of the current directory. Taking the topmost rather than the
     nearest marker means running from inside a repository still searches the
     whole workspace; use --root to deliberately narrow the scope.
+
+    LORE_ROOT is still honoured so archives created before the rename keep
+    working; OLDHAND_ROOT wins when both are set.
     """
     if explicit:
         return Path(explicit).resolve()
-    env = os.environ.get("LORE_ROOT")
+    env = os.environ.get("OLDHAND_ROOT") or os.environ.get("LORE_ROOT")
     if env:
         return Path(env).resolve()
 
@@ -297,7 +300,7 @@ def collection_id(root: Path, collection_root: Path) -> str:
 
 
 def db_path(root: Path) -> Path:
-    return root / ".lore" / "lore.db"
+    return root / ".oldhand" / "oldhand.db"
 
 
 def schema_path() -> Path:
@@ -767,7 +770,7 @@ def rebuild(root: Path, strict: bool = False, quiet: bool = False) -> int:
 
         for key, value in (
             ("schema", "1"),
-            ("lore_version", LORE_VERSION),
+            ("oldhand_version", OLDHAND_VERSION),
             ("skipped_count", str(len(errors))),
             ("indexed_count", str(len(records))),
             ("fingerprint", source_fingerprint),
@@ -796,7 +799,7 @@ def rebuild(root: Path, strict: bool = False, quiet: bool = False) -> int:
         print(f"Skipped {len(errors)} invalid record(s); they are NOT searchable:", file=sys.stderr)
         for e in errors:
             print(f"  - {e}", file=sys.stderr)
-        print("Run `lore validate` to gate on these.", file=sys.stderr)
+        print("Run `oldhand validate` to gate on these.", file=sys.stderr)
     if warnings and not quiet:
         for w in warnings:
             print(f"warning: {w}", file=sys.stderr)
@@ -827,7 +830,7 @@ def generate_index(root: Path, con: sqlite3.Connection, cid: str, collection_roo
     out = [
         "# Memory Index",
         "",
-        "> Generated by `lore rebuild`. Do not edit manually.",
+        "> Generated by `oldhand rebuild`. Do not edit manually.",
         "",
         "## Topics",
         "",
@@ -856,8 +859,8 @@ def generate_index(root: Path, con: sqlite3.Connection, cid: str, collection_roo
         "Search first; read full records selectively:",
         "",
         "```bash",
-        'python tools/lore/lore.py search "<query>"',
-        "python tools/lore/lore.py show <record-id>",
+        'python tools/oldhand/oldhand.py search "<query>"',
+        "python tools/oldhand/oldhand.py show <record-id>",
         "```",
         "",
     ]
@@ -883,15 +886,15 @@ def ensure_db(root: Path) -> sqlite3.Connection:
     con = connect(root)
     stored = read_meta(con, "fingerprint")
     schema = read_meta(con, "schema")
-    lore_version = read_meta(con, "lore_version")
+    built_by = read_meta(con, "oldhand_version") or read_meta(con, "lore_version")
     current = archive_fingerprint(root)
-    if schema != "1" or lore_version != LORE_VERSION or not stored or stored != current:
+    if schema != "1" or built_by != OLDHAND_VERSION or not stored or stored != current:
         con.close()
         if stored and stored != current:
             print("note: memory Markdown changed since the last build; reindexing.",
                   file=sys.stderr)
-        elif lore_version and lore_version != LORE_VERSION:
-            print(f"note: index was built by lore {lore_version}; reindexing.",
+        elif built_by and built_by != OLDHAND_VERSION:
+            print(f"note: index was built by oldhand {built_by}; reindexing.",
                   file=sys.stderr)
         rebuild(root, strict=False, quiet=True)
         return connect(root)
@@ -907,7 +910,7 @@ def read_meta(con: sqlite3.Connection, key: str, default: str = "") -> str:
 
 
 def log_retrieval(root: Path, action: str, query: str, returned: list[str]) -> None:
-    """Append one line per retrieval to .lore/retrieval.jsonl.
+    """Append one line per retrieval to .oldhand/retrieval.jsonl.
 
     Without this there is no way to answer the questions the migration plan
     says to measure: which records are ever returned, which returned records
@@ -915,7 +918,7 @@ def log_retrieval(root: Path, action: str, query: str, returned: list[str]) -> N
     characteristic failure is accumulating records nothing ever retrieves, and
     that failure is invisible unless retrieval is recorded.
 
-    Local, derived, gitignored with the rest of `.lore/`, and never allowed
+    Local, derived, gitignored with the rest of `.oldhand/`, and never allowed
     to break a search: any failure here is silently ignored.
     """
     try:
@@ -925,7 +928,7 @@ def log_retrieval(root: Path, action: str, query: str, returned: list[str]) -> N
             "query": query,
             "returned": returned,
         }, ensure_ascii=False)
-        path = root / ".lore" / "retrieval.jsonl"
+        path = root / ".oldhand" / "retrieval.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as fh:
             fh.write(line + chr(10))
@@ -944,7 +947,7 @@ def warn_index_state(root: Path, con: sqlite3.Connection) -> None:
     if skipped not in ("", "0"):
         print(
             f"note: {skipped} record(s) were excluded from this index because they are "
-            f"invalid. Run `lore validate` to see them.",
+            f"invalid. Run `oldhand validate` to see them.",
             file=sys.stderr,
         )
 
@@ -971,7 +974,7 @@ def search(root: Path, query: str, history: bool, limit: int, scope: str | None,
 
     The retrieval log answers which records real work retrieves. `doctor` and
     `eval` issue hundreds of searches between them, and recording those would
-    bury genuine traffic under tooling and make `lore usage` measure itself.
+    bury genuine traffic under tooling and make `oldhand usage` measure itself.
     """
     con = ensure_db(root)
     try:
@@ -1533,7 +1536,7 @@ def list_collections(root: Path, json_output: bool = False) -> int:
 
 
 def usage(root: Path) -> int:
-    """Report what retrieval actually did, from .lore/retrieval.jsonl.
+    """Report what retrieval actually did, from .oldhand/retrieval.jsonl.
 
     The question that decides whether an archive is earning its keep is not
     how many records it holds, it is how many of them anything has ever
@@ -1541,9 +1544,9 @@ def usage(root: Path) -> int:
     every ranking afterwards, and has never once been useful. Without this
     command the log is write-only and that question stays unanswerable.
     """
-    log = root / ".lore" / "retrieval.jsonl"
+    log = root / ".oldhand" / "retrieval.jsonl"
     if not log.exists():
-        print("No retrieval log yet. It is written by `lore search` and `lore show`.")
+        print("No retrieval log yet. It is written by `oldhand search` and `oldhand show`.")
         return 0
 
     searches = 0
@@ -1631,10 +1634,10 @@ def _eval_path(root: Path) -> Path:
 
 
 def _eval_runs_dir(root: Path) -> Path:
-    """Saved eval runs live beside the queries, not under .lore/.
+    """Saved eval runs live beside the queries, not under .oldhand/.
 
     A baseline is a measurement record, not derived state. Keeping it in
-    .lore/ meant any rebuild or reset destroyed the thing you were measuring
+    .oldhand/ meant any rebuild or reset destroyed the thing you were measuring
     against, which defeats the point of saving it. This directory is meant to
     be kept, and committed if the archive is.
     """
@@ -1786,7 +1789,7 @@ def evaluate(root: Path, save: str | None, against: str | None) -> int:
         out.write_text(json.dumps(
             {"saved_at": datetime.now().astimezone().replace(microsecond=0).isoformat(),
              "scores": scores, "results": results}, indent=2), encoding="utf-8")
-        print(f"\nSaved as '{save}'. Compare later with: lore eval --against {save}")
+        print(f"\nSaved as '{save}'. Compare later with: oldhand eval --against {save}")
 
     return 1 if (prior and regressions) else 0
 
@@ -1973,7 +1976,7 @@ def obsidian(root: Path) -> int:
     critical = [r for r in rows if r["importance"] == "critical"]
     retired = [r for r in rows if r["status"] in RETIRED_STATUSES]
 
-    home = ["# Lore", "",
+    home = ["# Oldhand", "",
             f"{len(rows)} records across {len(by_coll_count)} collection(s).", "",
             "## Collections", ""]
     for coll, n in sorted(by_coll_count.items()):
@@ -1993,7 +1996,7 @@ def obsidian(root: Path) -> int:
         for r in retired:
             home.append(f"- [[{note_name(str(r['path']))}|{r['title']}]]")
     home += ["", "---", "",
-             "Generated by `lore obsidian`. Edits here are overwritten.",
+             "Generated by `oldhand obsidian`. Edits here are overwritten.",
              "Canonical records live under each collection's `memory/`."]
     (root / "HOME.md").write_text("\n".join(home), encoding="utf-8", newline="\n")
 
@@ -2003,7 +2006,7 @@ def obsidian(root: Path) -> int:
     print(f"  {root}")
     print("Then open HOME.md. Graph view will show topic hubs as cluster centres.")
     print()
-    print("Generated notes sit outside memory/, so lore never indexes them.")
+    print("Generated notes sit outside memory/, so oldhand never indexes them.")
     return 0
 
 
@@ -2282,7 +2285,7 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
         con.close()
 
     m = {
-        "lore_version": LORE_VERSION,
+        "oldhand_version": OLDHAND_VERSION,
         "schema": 1,
         "captured_at": datetime.now().astimezone().replace(microsecond=0).isoformat(),
         "python": platform.python_version(),
@@ -2305,7 +2308,7 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
     }
 
     # Retrieval: aggregates only. Query text is never read into the snapshot.
-    log = root / ".lore" / "retrieval.jsonl"
+    log = root / ".oldhand" / "retrieval.jsonl"
     searches = shows = empty = 0
     returned: dict[str, int] = {}
     opened: set[str] = set()
@@ -2395,7 +2398,8 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
 
 
 METRICS_EXPORT_KEYS = {
-    "lore_version", "metrics_schema", "exported_at", "contains", "days",
+    "oldhand_version", "lore_version", "metrics_schema", "exported_at",
+    "contains", "days",
     "history", "latest", "schema", "captured_at", "python", "platform",
     "archive", "retrieval", "findability", "eval", "records", "collections",
     "collection_sizes", "index_rows", "index_rows_per_record", "relations",
@@ -2412,7 +2416,7 @@ def _audit_export(bundle: dict) -> list[str]:
     """Paths whose keys or string values are not provably content-free.
 
     Allowed: versions, ISO timestamps, the platform name, schema enum values
-    (which come from Lore, not from the archive) and the disclosure note.
+    (which come from Oldhand, not from the archive) and the disclosure note.
     Everything else in a metrics bundle should be a number.
     """
     import platform
@@ -2435,7 +2439,8 @@ def _audit_export(bundle: dict) -> list[str]:
             offenders.append(f"{path} = <non-finite number>")
         elif isinstance(value, str):
             leaf = path.rsplit(".", 1)[-1]
-            if leaf in ("lore_version", "python") and re.fullmatch(r"[\d.]+", value):
+            if leaf in ("oldhand_version", "lore_version", "python") and re.fullmatch(
+                    r"\d+(?:\.\d+)*(?:(?:a|b|rc)\d+)?(?:\.post\d+)?(?:\.dev\d+)?", value):
                 return
             if leaf in ("captured_at", "exported_at") and re.fullmatch(
                     r"[\d]{4}-[\d]{2}-[\d]{2}[T\d:+\-.]*", value):
@@ -2460,8 +2465,12 @@ def _is_metrics_snapshot(value: Any) -> bool:
     """Return whether a value has the complete schema-1 snapshot envelope."""
     if not isinstance(value, dict) or value.get("schema") != 1:
         return False
+    # `lore_version` is the pre-rename spelling. Accept it so metrics history
+    # recorded before the rename is not retroactively treated as malformed.
+    if not isinstance(value.get("oldhand_version") or value.get("lore_version"), str):
+        return False
     if not all(isinstance(value.get(key), str)
-               for key in ("lore_version", "captured_at", "python", "platform")):
+               for key in ("captured_at", "python", "platform")):
         return False
     try:
         _metrics_time(value["captured_at"])
@@ -2603,7 +2612,7 @@ def metrics(root: Path, full: bool, export: str | None) -> int:
                   file=sys.stderr)
         latest = collect_metrics(root, full=full)
         bundle = {
-            "lore_version": LORE_VERSION,
+            "oldhand_version": OLDHAND_VERSION,
             "metrics_schema": 1,
             "exported_at": datetime.now().astimezone().replace(microsecond=0).isoformat(),
             "contains": "counts, rates and scores only: no titles, ids, paths, "
@@ -2621,7 +2630,7 @@ def metrics(root: Path, full: bool, export: str | None) -> int:
             print("these could carry archive content:", file=sys.stderr)
             for o in offenders[:20]:
                 print(f"  {o}", file=sys.stderr)
-            print("\nThis is a bug in Lore, not in your archive. Please report it.",
+            print("\nThis is a bug in Oldhand, not in your archive. Please report it.",
                   file=sys.stderr)
             return 1
 
@@ -2639,12 +2648,12 @@ def metrics(root: Path, full: bool, export: str | None) -> int:
         print("Read it before you send it. It is plain JSON and deliberately")
         print("short: every value is a count, a rate or a score. If you find")
         print("anything in there that identifies your work, that is a bug in")
-        print("Lore and worth reporting on its own.")
+        print("Oldhand and worth reporting on its own.")
         return 0
 
     m = collect_metrics(root, full=full)
     a, r = m["archive"], m["retrieval"]
-    print(f"lore {m['lore_version']}   {m['captured_at']}")
+    print(f"oldhand {m['oldhand_version']}   {m['captured_at']}")
     print()
     print(f"  records            {a['records']} across {a['collections']} collection(s)")
     print(f"  index rows         {a['index_rows']} ({a['index_rows_per_record']} per record)")
@@ -2824,9 +2833,9 @@ def init_archive(root: Path, json_output: bool = False) -> int:
     memory.mkdir(parents=True)
     (memory / "README.md").write_text(
         "# Memory\n\n"
-        "Canonical Lore records live below this directory. Create one with:\n\n"
+        "Canonical Oldhand records live below this directory. Create one with:\n\n"
         "```bash\n"
-        "lore new --title \"...\" --type lesson --importance normal\n"
+        "oldhand new --title \"...\" --type lesson --importance normal\n"
         "```\n",
         encoding="utf-8",
     )
@@ -2837,8 +2846,8 @@ def init_archive(root: Path, json_output: bool = False) -> int:
             "memory": str(memory), "records": 0,
         }, ensure_ascii=False, indent=2))
     else:
-        print(f"Initialized Lore archive at {root}")
-        print("Next: lore new --title \"...\" --type lesson --importance normal")
+        print(f"Initialized Oldhand archive at {root}")
+        print("Next: oldhand new --title \"...\" --type lesson --importance normal")
     return 0
 
 
@@ -2849,11 +2858,11 @@ def init_archive(root: Path, json_output: bool = False) -> int:
 def _setup_target(root: Path, harness: str) -> tuple[Path, str, bool]:
     """Return target, file prefix, and whether an existing file is required."""
     if harness == "claude":
-        return root / ".claude" / "rules" / "lore.md", "", False
+        return root / ".claude" / "rules" / "oldhand.md", "", False
     if harness == "cursor":
-        return (root / ".cursor" / "rules" / "lore.mdc",
+        return (root / ".cursor" / "rules" / "oldhand.mdc",
                 "---\n"
-                "description: Consult local Lore records for prior engineering constraints and decisions.\n"
+                "description: Consult local Oldhand records for prior engineering constraints and decisions.\n"
                 "---\n\n", False)
     # The research established no isolated project target for either of these
     # harnesses.  Never invent one or create a shared instruction file.
@@ -2880,7 +2889,7 @@ def _owned_setup_range(content: str) -> tuple[int, int] | None:
     if not starts and not ends:
         return None
     if len(starts) != 1 or len(ends) != 1 or ends[0] < starts[0]:
-        raise ValueError("malformed Lore setup ownership markers")
+        raise ValueError("malformed Oldhand setup ownership markers")
     end = ends[0] + len(SETUP_END)
     if end < len(content) and content[end:end + 1] == "\n":
         end += 1
@@ -2913,7 +2922,7 @@ def setup_harness(root: Path, harness: str, apply: bool = False,
         return 1
     if requires_existing and not exists:
         print(f"{harness} uses a repository AGENTS.md. None exists at {root}; "
-              "Lore will not create one. Add the Lore guidance manually or create "
+              "Oldhand will not create one. Add the Oldhand guidance manually or create "
               "AGENTS.md for your own project instructions first.", file=sys.stderr)
         return 1
     try:
@@ -2930,10 +2939,10 @@ def setup_harness(root: Path, harness: str, apply: bool = False,
     rendered = prefix + _setup_block()
     if undo:
         if owned is None:
-            print(f"No Lore-owned setup content found in {target}.")
+            print(f"No Oldhand-owned setup content found in {target}.")
             return 0
         after = before[:owned[0]] + before[owned[1]:]
-        # A dedicated file that remains exactly Lore's generated shell is also
+        # A dedicated file that remains exactly Oldhand's generated shell is also
         # wholly owned, so it can be removed. Never delete a file that includes
         # any user content.
         delete_target = (not requires_existing and before == rendered)
@@ -2944,8 +2953,8 @@ def setup_harness(root: Path, harness: str, apply: bool = False,
             after = before[:owned[0]] + _setup_block() + before[owned[1]:]
         elif exists and not requires_existing and before.strip():
             print(f"Refusing to overwrite existing dedicated setup file: {target}. "
-                  "Add Lore's marked block manually or use --undo only for content "
-                  "owned by Lore.", file=sys.stderr)
+                  "Add Oldhand's marked block manually or use --undo only for content "
+                  "owned by Oldhand.", file=sys.stderr)
             return 1
         elif exists:
             after = before + ("" if not before or before.endswith("\n") else "\n") + _setup_block()
@@ -2954,7 +2963,7 @@ def setup_harness(root: Path, harness: str, apply: bool = False,
         delete_target = False
 
     if after == before:
-        print(f"Lore setup for {harness} is already up to date: {target}")
+        print(f"Oldhand setup for {harness} is already up to date: {target}")
         return 0
     _setup_diff(target.relative_to(root), before, after)
     if not apply:
@@ -2963,13 +2972,13 @@ def setup_harness(root: Path, harness: str, apply: bool = False,
     try:
         if delete_target:
             target.unlink()
-            print(f"Removed Lore-owned setup file: {target}")
+            print(f"Removed Oldhand-owned setup file: {target}")
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             if not _safe_setup_path(root, target):
                 return 1
             _atomic_write(target, after.encode("utf-8"))
-            print(f"Applied Lore setup for {harness}: {target}")
+            print(f"Applied Oldhand setup for {harness}: {target}")
     except OSError as error:
         print(f"Could not write setup target {target}: {error}", file=sys.stderr)
         return 1
@@ -2979,7 +2988,7 @@ def setup_harness(root: Path, harness: str, apply: bool = False,
 def _records_for_mutation(root: Path) -> dict[str, dict[str, Any]] | None:
     records, errors, _ = validate_records(root)
     if errors:
-        print("Refusing to modify an invalid archive. Run `lore validate`:", file=sys.stderr)
+        print("Refusing to modify an invalid archive. Run `oldhand validate`:", file=sys.stderr)
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         return None
@@ -3217,7 +3226,7 @@ def relate(root: Path, source_id: str, relation_type: str, target_id: str) -> in
         records[target_id]["meta"].get("status")
     ) not in RETIRED_STATUSES:
         print(
-            f"Cannot supersede active record '{target_id}'; use `lore supersede`.",
+            f"Cannot supersede active record '{target_id}'; use `oldhand supersede`.",
             file=sys.stderr,
         )
         return 1
@@ -3320,7 +3329,7 @@ def supersede_record(root: Path, old_id: str, new_id: str) -> int:
 def set_record_status(root: Path, record_id: str, status: str) -> int:
     if status not in DIRECT_STATUSES:
         print(
-            "Status 'superseded' requires `lore supersede OLD --by NEW`.",
+            "Status 'superseded' requires `oldhand supersede OLD --by NEW`.",
             file=sys.stderr,
         )
         return 1
@@ -3489,7 +3498,7 @@ relations: {{}}
         print(f"Created {display_path(root, path)}")
         print(f"id: {rid}")
         print("Fill in Summary, Knowledge, Verification and References,")
-        print("then run: lore rebuild")
+        print("then run: oldhand rebuild")
     return 0
 
 
@@ -3552,7 +3561,7 @@ def _force_utf8_output() -> None:
 
     On Windows, piping output switches stdout to the legacy ANSI code page
     (cp1252 here), and printing a character outside it raises
-    UnicodeEncodeError mid-command. `lore conflicts` died halfway through its
+    UnicodeEncodeError mid-command. `oldhand conflicts` died halfway through its
     report on a single `→` in a record title, having already printed a
     header that made the truncated output look like a complete, short result.
 
@@ -3577,14 +3586,14 @@ def positive_int(value: str) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        prog="lore",
-        description="Lore: durable engineering memory for coding agents.")
+        prog="oldhand",
+        description="Oldhand: durable engineering memory for coding agents.")
     parser.add_argument("-V", "--version", action="version",
-                        version=f"%(prog)s {LORE_VERSION}")
+                        version=f"%(prog)s {OLDHAND_VERSION}")
     parser.add_argument("--root", help="workspace root (auto-detected, or set LORE_ROOT)")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_init = sub.add_parser("init", help="initialize a new Lore archive")
+    p_init = sub.add_parser("init", help="initialize a new Oldhand archive")
     p_init.add_argument("path")
     p_init.add_argument("--json", dest="json_output", action="store_true",
                         help="emit one machine-readable JSON document")
@@ -3593,7 +3602,7 @@ def main() -> int:
     p_setup.add_argument("--apply", action="store_true",
                          help="write the displayed project-local change")
     p_setup.add_argument("--undo", action="store_true",
-                         help="remove only Lore-owned setup content (requires --apply to write)")
+                         help="remove only Oldhand-owned setup content (requires --apply to write)")
 
     p_rebuild = sub.add_parser("rebuild")
     p_rebuild.add_argument("--strict", action="store_true",

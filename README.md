@@ -1,41 +1,45 @@
 <div align="center">
 
-# Lore
+# Oldhand
 
-### Your code remembers what survived. Lore remembers why.
+### Your code remembers what survived. Oldhand remembers why.
 
-**A local-first memory and experience layer for coding agents.**
+**Git-tracked institutional memory for coding agents.**
 
-[![version](https://img.shields.io/badge/version-0.5.0-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/lore)
+Reviewed constraints, decisions, failed approaches and operational hazards,
+stored as readable Markdown and retrieved locally.
+
+[![CI](https://github.com/IotA-asce/oldhand/actions/workflows/ci.yml/badge.svg)](https://github.com/IotA-asce/oldhand/actions/workflows/ci.yml)
+[![version](https://img.shields.io/badge/version-0.6.0b1-bc8cff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/oldhand/releases)
 [![license](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square&labelColor=0d1117)](LICENSE)
-[![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](tools/lore/requirements.txt)
-[![network](https://img.shields.io/badge/network-none-39c5cf?style=flat-square&labelColor=0d1117)](#what-lore-promises)
+[![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](requirements.txt)
+[![network](https://img.shields.io/badge/network-none-39c5cf?style=flat-square&labelColor=0d1117)](#what-oldhand-promises)
 [![source](https://img.shields.io/badge/source-Markdown-f0883e?style=flat-square&labelColor=0d1117)](#two-kinds-of-memory)
 
 *Keep the scar tissue. Preserve the reasoning. Replay the search.*
 
 </div>
 
-![Markdown knowledge and replayable experience flow through Lore into the next engineering task](docs/img/architecture.svg)
+![Markdown knowledge and replayable experience flow through Oldhand into the next engineering task](docs/img/architecture.svg)
 
 An engineering session leaves behind more than a diff. It leaves the constraint
 that nearly broke production, the approach that failed for a non-obvious reason,
 and the tiny piece of context that made the final solution possible. Most tools
-preserve the result. Lore preserves the expensive part of getting there.
+preserve the result. Oldhand preserves the expensive part of getting there.
 
 ```bash
-lore search "why did the consumer test pass without running"
-lore show a-green-test-that-never-ran
+oldhand search "why did the consumer test pass without running"
+oldhand show a-green-test-that-never-ran
 ```
 
-Lore stores durable knowledge as ordinary Markdown, indexes it locally with
+Oldhand stores durable knowledge as ordinary Markdown, indexes it locally with
 SQLite FTS5, and records structured discovery runs that can be replayed without
-rerunning an agent or evaluator. Delete `.lore/`; the source survives.
+rerunning an agent or evaluator. Delete `.oldhand/`; the source survives.
 
 > The point is not to remember everything. It is to stop paying twice for what
 > mattered.
 
-## Why Lore exists
+## Why Oldhand exists
 
 Agents work inside bounded sessions. When the window closes, the most valuable
 context is often the least likely to appear in code: rationale, rejected paths,
@@ -46,51 +50,47 @@ operational hazards, and exceptions to the obvious rule.
 | What changed? | Git, CI, tickets |
 | How does it work now? | Current documentation |
 | What am I doing right now? | Temporary task state |
-| **What is dangerous or expensive to rediscover?** | **Lore** |
+| **What is dangerous or expensive to rediscover?** | **Oldhand** |
 
-Routine work should leave no Lore record. If code, tests, Git, or current docs
-already preserve a fact cheaply, they will usually keep it current better. Lore
+Routine work should leave no Oldhand record. If code, tests, Git, or current docs
+already preserve a fact cheaply, they will usually keep it current better. Oldhand
 is for the knowledge that would otherwise disappear between sessions.
 
-## Start in five minutes
-
-Lore needs Python 3.10+, SQLite (included with Python), and PyYAML.
+## Install
 
 ```bash
-git clone https://github.com/IotA-asce/lore.git
-cd lore
-python3 -m pip install -r tools/lore/requirements.txt
-python3 tools/lore/lore.py init ~/knowledge
-python3 tools/install.py ~/knowledge --shell-rc
+pipx install oldhand      # or: pip install oldhand
+oldhand init ~/knowledge
+export OLDHAND_ROOT=~/knowledge
 ```
 
-`--shell-rc` persists `LORE_ROOT` in a recognized Zsh, Bash, or Fish profile.
-Omit it if you want to add the printed profile line yourself. Open a new
-terminal, look around, and make the first memory:
+Python 3.10+ on Linux or macOS. No account, server, API key, model, or
+network connection. Windows is not supported yet; see
+[INSTALL.md](INSTALL.md).
+
+Point your agent at the archive, then make the first memory:
 
 ```bash
-lore stats
-lore collections
-lore topics
+oldhand setup claude          # also: codex, cursor, opencode
 
-lore new \
+oldhand new \
   --id config-replacement-semantics \
   --title "Config files replace instead of merge" \
   --type constraint \
   --importance high \
   --topics "configuration,deployment"
 
-lore search "why did one new setting remove the old ones"
+oldhand search "why did one new setting remove the old ones"
 ```
 
-`lore init PATH` refuses to overwrite an existing `memory/` directory. Lore
-needs no administrator access, server, account, or network connection. See
-[INSTALL.md](INSTALL.md) for PATH setup, manual installation, and
-uninstalling.
+`oldhand setup` prints the change it would make and writes nothing without
+`--apply`. `oldhand init PATH` refuses to overwrite an existing `memory/`
+directory. See [INSTALL.md](INSTALL.md) for a from-source install, shell
+profile setup, and uninstalling.
 
 ## Two kinds of memory
 
-Lore separates what happened from what deserves to endure.
+Oldhand separates what happened from what deserves to endure.
 
 ```text
 workspace/
@@ -100,14 +100,14 @@ workspace/
 │   └── lessons/
 ├── experience/runs/         immutable discovery trees
 │   └── planner-v1.json
-└── .lore/                   disposable local machinery
-    ├── lore.db
+└── .oldhand/                   disposable local machinery
+    ├── oldhand.db
     └── retrieval.jsonl
 ```
 
 **Durable memory** is the compact, reviewed truth future work should retrieve.
 **Experience** is the larger tree of proposals, evaluations, costs, and outcomes
-that lets Lore study *how* the answer was found. They meet only when a human
+that lets Oldhand study *how* the answer was found. They meet only when a human
 chooses to distill an evaluated result.
 
 ![A discovery task becomes a trace, is replayed under candidate policies, and can be distilled into durable memory](docs/img/replay-loop.svg)
@@ -117,7 +117,7 @@ The editable source is
 
 ## The everyday loop
 
-![Lore moves from discovery through retrieval, creation, curation, consolidation, and measurement](docs/img/curation.svg)
+![Oldhand moves from discovery through retrieval, creation, curation, consolidation, and measurement](docs/img/curation.svg)
 
 1. **Discover** the collections, topics, and lifecycle states already present.
 2. **Retrieve** ranked summaries before doing non-trivial work.
@@ -132,12 +132,12 @@ fast to search.
 ### Search before solving
 
 ```bash
-lore search "gateway retries"
-lore search "gateway retries" --type decision --importance high
-lore search "old authentication" --status superseded
-lore search "gateway retries" --topic "API Gateway" --json
-lore show gateway-retry-policy --json
-lore backlinks gateway-retry-policy
+oldhand search "gateway retries"
+oldhand search "gateway retries" --type decision --importance high
+oldhand search "old authentication" --status superseded
+oldhand search "gateway retries" --topic "API Gateway" --json
+oldhand show gateway-retry-policy --json
+oldhand backlinks gateway-retry-policy
 ```
 
 Search returns summaries first so an agent can decide what deserves context.
@@ -147,7 +147,7 @@ Type, topic, collection, status, and importance filters run before ranking.
 ### Write for the future question
 
 ```bash
-lore new \
+oldhand new \
   --id producer-partition-key \
   --title "Producer must set a partition key" \
   --type constraint \
@@ -157,7 +157,7 @@ lore new \
   --evidence verified \
   --topics "kafka,partitioning"
 
-lore new --title "Preview me" --type lesson --importance normal --dry-run
+oldhand new --title "Preview me" --type lesson --importance normal --dry-run
 ```
 
 The summary is the primary retrieval surface. Name the surprise, the consequence,
@@ -167,40 +167,40 @@ and the action. Do not write a diary entry. The measured guidance lives in
 ### Keep truth alive
 
 ```bash
-lore topic producer-partition-key --add reliability
-lore classify producer-partition-key --importance high --evidence verified
-lore rename producer-partition-key kafka-producer-partition-key
-lore relate checkout-timeout caused_by gateway-retry-policy
-lore supersede old-cache-model --by current-cache-model
+oldhand topic producer-partition-key --add reliability
+oldhand classify producer-partition-key --importance high --evidence verified
+oldhand rename producer-partition-key kafka-producer-partition-key
+oldhand relate checkout-timeout caused_by gateway-retry-policy
+oldhand supersede old-cache-model --by current-cache-model
 
-lore compact --into current-auth-model \
+oldhand compact --into current-auth-model \
   old-auth-model legacy-auth-notes --dry-run --json
 ```
 
-Compaction never invents a synthesis. Prepare the target record first; Lore then
+Compaction never invents a synthesis. Prepare the target record first; Oldhand then
 retires the sources and adds reverse `supersedes` edges atomically. Old truth is
 not deleted—it becomes history.
 
 ## Replay discovery, not just conclusions
 
-Lore 0.5.0 integrates the history-as-simulator insight from
+Oldhand 0.5.0 integrates the history-as-simulator insight from
 [Dream-RSI](https://arxiv.org/abs/2609.14858): a grounded search history can be
-reused to compare exploration policies offline. Lore adopts the practical idea,
+reused to compare exploration policies offline. Oldhand adopts the practical idea,
 not autonomous self-modification.
 
 ```bash
-lore run-start --id planner-v1 --task "Tune query planner" \
+oldhand run-start --id planner-v1 --task "Tune query planner" \
   --evaluator bench-v2 --policy breadth --workers 4
 
-lore attempt-add planner-v1 --id branch-a --parent root \
+oldhand attempt-add planner-v1 --id branch-a --parent root \
   --proposal "Replace nested scan with indexed lookup"
 
-lore attempt-evaluate planner-v1 branch-a --score 81.4 --correct \
+oldhand attempt-evaluate planner-v1 branch-a --score 81.4 --correct \
   --outcome success --cost 2 --diagnostics-ref results/branch-a.json
 
-lore run-finish planner-v1
-lore replay planner-v1 --policy depth --budget 20 --json
-lore policy-compare depth score-greedy --incumbent breadth \
+oldhand run-finish planner-v1
+oldhand replay planner-v1 --policy depth --budget 20 --json
+oldhand policy-compare depth score-greedy --incumbent breadth \
   --budget 20 --holdout 1 --evaluator bench-v2
 ```
 
@@ -213,7 +213,7 @@ For parallel discovery, share guardrails without forcing every worker down the
 same remembered path:
 
 ```bash
-lore explore-context "query planner selectivity" \
+oldhand explore-context "query planner selectivity" \
   --workers 4 --history-branches 1 --json
 ```
 
@@ -222,7 +222,7 @@ branches receive directional decisions and lessons; the others stay free to
 explore. After review, close the loop:
 
 ```bash
-lore run-distill planner-v1 branch-a \
+oldhand run-distill planner-v1 branch-a \
   --title "Indexed lookup avoids nested planner scans" \
   --type lesson --importance high \
   --topics "database,performance" --dry-run
@@ -234,7 +234,7 @@ checks. The human still decides what becomes memory.
 
 ## Proof, not vibes
 
-Lore’s published evidence comes from one real archive. That makes the numbers
+Oldhand’s published evidence comes from one real archive. That makes the numbers
 useful engineering evidence, not a universal benchmark. The disclosure-safe
 metrics format exists so independent archives can test whether these findings
 travel.
@@ -257,7 +257,7 @@ results.
 | Critical records | **4 / 293** · 1% | critical remains a scarce signal |
 
 Coverage and open rate describe behavior, not quality. A low open rate may mean
-excellent summaries—or weak user engagement. Lore reports the signal and avoids
+excellent summaries—or weak user engagement. Oldhand reports the signal and avoids
 inventing the story.
 
 ### Controlled interventions
@@ -286,7 +286,7 @@ critical to **17%** when half the archive carried that label.
 
 ![Recall declines as the share of critical records rises from zero to half the archive](docs/img/inflation.svg)
 
-That result shaped Lore’s two-pass ranking model: a bounded text-relevance pool
+That result shaped Oldhand’s two-pass ranking model: a bounded text-relevance pool
 plus an unbounded safety pass for truly critical knowledge. Text relevance can
 contribute 60 points; all metadata combined is capped at 44. Metadata breaks
 ties between plausible matches—it cannot make an unrelated record win.
@@ -337,13 +337,13 @@ and skipped so one bad note cannot take retrieval offline.
 
 Most agent-facing reads and writes support `--json`; previewable mutations
 support `--dry-run`. The complete contract is in
-[tools/lore/CLI_SPEC.md](tools/lore/CLI_SPEC.md), and `lore --help` is
+[docs/CLI_SPEC.md](docs/CLI_SPEC.md), and `oldhand --help` is
 authoritative.
 
-## What Lore promises
+## What Oldhand promises
 
 - **Local-first.** Indexing, retrieval, replay, and curation require no network.
-- **Portable.** Markdown and YAML remain readable without Lore.
+- **Portable.** Markdown and YAML remain readable without Oldhand.
 - **Disposable machinery.** SQLite can always be rebuilt from canonical files.
 - **Fail-open reads.** One malformed record does not take healthy memory offline.
 - **Fail-closed writes.** Mutations require a valid archive and validate the
@@ -366,7 +366,7 @@ validate archive → resolve ids → build proposed state → publish atomically
                                restore files              rebuild index
 ```
 
-Lore refuses to mutate an archive that is already invalid.
+Oldhand refuses to mutate an archive that is already invalid.
 
 ## Record anatomy
 
@@ -406,21 +406,21 @@ importance describes how costly it is to miss. They are not the same thing.
 
 ## Privacy and measurement
 
-Search and show events remain local in `.lore/retrieval.jsonl`. At most one
+Search and show events remain local in `.oldhand/retrieval.jsonl`. At most one
 daily health snapshot is appended to `metrics/daily.jsonl`.
 
 ```bash
-lore usage
-lore metrics --full
-lore metrics --export mine.json
+oldhand usage
+oldhand metrics --full
+oldhand metrics --export mine.json
 ```
 
 Exports contain aggregate counts, rates, percentiles, versions, timestamps,
-platform, and schema values. Lore audits every string and refuses to export
+platform, and schema values. Oldhand audits every string and refuses to export
 anything outside the disclosure allowlist. The exact contract is in
 [METRICS.md](METRICS.md).
 
-![Lore’s evidence program moves from one archive toward independent validation](docs/img/stages.svg)
+![Oldhand’s evidence program moves from one archive toward independent validation](docs/img/stages.svg)
 
 ## Repository map
 
@@ -428,9 +428,9 @@ anything outside the disclosure allowlist. The exact contract is in
 .
 ├── memory/                    example canonical archive
 ├── experience/runs/           replayable discovery trees
-├── tools/lore/lore.py         CLI, retrieval, and curation engine
-├── tools/lore/experience.py   experience schema and replay logic
-├── tools/lore/schema.sql      disposable SQLite schema
+├── src/oldhand/cli.py         CLI, retrieval, and curation engine
+├── src/oldhand/experience.py   experience schema and replay logic
+├── src/oldhand/schema.sql      disposable SQLite schema
 ├── tools/migrate/             import and reconciliation tools
 ├── agent/                     harness-neutral operating policies
 ├── docs/img/                  rendered README figures
@@ -443,7 +443,7 @@ anything outside the disclosure allowlist. The exact contract is in
 | [START_HERE.md](START_HERE.md) | the five-minute operating guide |
 | [WRITING_RECORDS.md](WRITING_RECORDS.md) | write records people can find |
 | [INSTALL.md](INSTALL.md) | install, configure PATH, and uninstall |
-| [MIGRATING_AN_ARCHIVE.md](MIGRATING_AN_ARCHIVE.md) | adopt Lore in phases |
+| [MIGRATING_AN_ARCHIVE.md](MIGRATING_AN_ARCHIVE.md) | adopt Oldhand in phases |
 | [RECONCILING_AN_EXISTING_ARCHIVE.md](RECONCILING_AN_EXISTING_ARCHIVE.md) | resolve imported contradictions |
 | [memory/SCHEMA.md](memory/SCHEMA.md) | canonical record schema |
 | [LESSONS.md](LESSONS.md) | the experiments and what they taught |
