@@ -90,9 +90,12 @@ class LauncherCollisionTests(InstallTestCase):
                                 self.skipTest("Windows symlink privilege is unavailable")
                             raise
                         before = source.read_bytes()
+                        # Windows stores an extended-length substitution path.
+                        # Preserve the OS representation, not POSIX spelling.
+                        original_target = target.readlink()
                         self.assertEqual(self.invoke(self.archive), 1)
                         self.assertTrue(target.is_symlink())
-                        self.assertEqual(target.readlink(), destination)
+                        self.assertEqual(target.readlink(), original_target)
                         self.assertEqual(source.read_bytes(), before)
                         self.assertFalse((self.home / "missing").exists())
                         target.unlink()
@@ -140,9 +143,10 @@ class LauncherUninstallTests(InstallTestCase):
                                 self.skipTest("Windows symlink privilege is unavailable")
                             raise
                         before = source.read_bytes()
+                        original_target = target.readlink()
                         self.assertEqual(self.invoke("--uninstall"), 0)
                         self.assertTrue(target.is_symlink())
-                        self.assertEqual(target.readlink(), destination)
+                        self.assertEqual(target.readlink(), original_target)
                         self.assertEqual(source.read_bytes(), before)
                         target.unlink()
 

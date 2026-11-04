@@ -1,59 +1,65 @@
 # Oldhand CLI
 
-A working harness-neutral implementation is available from this source checkout.
-Packaging is a tracked launch gate; until it is complete, use the documented
-`python src/oldhand/cli.py` commands rather than assuming a public package.
+Install Oldhand from PyPI or an editable checkout. The `oldhand` console command
+runs on Windows, macOS, and Linux. `python -m oldhand.cli` provides the same
+interface when the console script is not on PATH.
 
-## Install dependency
+## Install
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install --upgrade oldhand==0.6.0b3
 ```
+
+For source development, run `python -m pip install -e .` from the checkout.
+
+CLI output, including JSON and redirected output on Windows, is UTF-8. Python
+subprocess callers should pass `encoding="utf-8"` when decoding stdout and
+stderr; the Windows default code page may not represent memory content.
 
 ## Implemented commands
 
 ```bash
-python src/oldhand/cli.py --version
-python src/oldhand/cli.py init <path> [--json]
-python src/oldhand/cli.py setup <claude|codex|cursor|opencode> [--apply|--undo]
-python src/oldhand/cli.py validate [--json]
-python src/oldhand/cli.py rebuild [--strict]
-python src/oldhand/cli.py search "query"
-python src/oldhand/cli.py search --history "query"
-python src/oldhand/cli.py search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --importance <level> --limit N [--json]
-python src/oldhand/cli.py show <id> [--json]
-python src/oldhand/cli.py backlinks <id> [--json]
-python src/oldhand/cli.py list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--importance <level>] [--collection <name>] [--limit N] [--json]
-python src/oldhand/cli.py topics [--collection <name>] [--limit N] [--json]
-python src/oldhand/cli.py collections [--json]
-python src/oldhand/cli.py stats
-python src/oldhand/cli.py selftest
-python src/oldhand/cli.py usage
-python src/oldhand/cli.py new --title "..." --type <type> --importance <level> [...]
-python src/oldhand/cli.py relate <source-id> <relation-type> <target-id>
-python src/oldhand/cli.py unrelate <source-id> <relation-type> <target-id>
-python src/oldhand/cli.py supersede <old-id> --by <replacement-id>
-python src/oldhand/cli.py status <id> <current|resolved|deprecated|historical>
-python src/oldhand/cli.py rename <old-id> <new-id>
-python src/oldhand/cli.py topic <id> (--add <topic> | --remove <topic>)
-python src/oldhand/cli.py classify <id> [--importance ...] [--scope ...] [--risk ...] [--durability ...] [--evidence ...]
-python src/oldhand/cli.py compact --into <target-id> <source-id>... [--dry-run] [--json]
-python src/oldhand/cli.py run-start --task <text> --evaluator <name> [--id <id>] [--policy <name>] [--goal maximize|minimize] [--workers N] [--workspace-ref <ref>] [--json]
-python src/oldhand/cli.py attempt-add <run-id> --id <attempt-id> --parent <root|attempt-id> --proposal <text> [--artifact-ref <ref>] [--policy-version <name>] [--json]
-python src/oldhand/cli.py attempt-evaluate <run-id> <attempt-id> --score N (--correct|--incorrect) --outcome <success|failure|error> [--cost N] [--duration-ms N] [--diagnostics-ref <ref>] [--json]
-python src/oldhand/cli.py run-finish <run-id> [--json]
-python src/oldhand/cli.py run-validate [<run-id>] [--json]
-python src/oldhand/cli.py runs [--status active|completed] [--json]
-python src/oldhand/cli.py run-show <run-id> [--json]
-python src/oldhand/cli.py replay <run-id> --policy <breadth|depth|score-greedy> --budget N [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
-python src/oldhand/cli.py policy-compare <policy>... --budget N [--incumbent <policy>] [--holdout N] [--evaluator <name>] [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
-python src/oldhand/cli.py explore-context <query> --workers N [--history-branches N] [--per-branch N] [--json]
-python src/oldhand/cli.py run-distill <run-id> <attempt-id> --title <text> --type <type> --importance <level> --topics <csv> [--id <id>] [--dry-run] [--json]
-python src/oldhand/cli.py doctor [--limit N]
-python src/oldhand/cli.py conflicts
-python src/oldhand/cli.py eval [--save <name>] [--against <name>]
-python src/oldhand/cli.py metrics [--full] [--export <path>]
-python src/oldhand/cli.py obsidian
+oldhand --version
+oldhand init <path> [--json]
+oldhand setup <claude|codex|cursor|opencode> [--apply|--undo]
+oldhand validate [--json]
+oldhand rebuild [--strict]
+oldhand search "query"
+oldhand search --history "query"
+oldhand search "query" --collection <name> --scope <scope> --type <type> --topic <topic> --status <status> --importance <level> --limit N [--json]
+oldhand show <id> [--json]
+oldhand backlinks <id> [--json]
+oldhand list [--history] [--type <type>] [--topic <topic>] [--status <status>] [--importance <level>] [--collection <name>] [--limit N] [--json]
+oldhand topics [--collection <name>] [--limit N] [--json]
+oldhand collections [--json]
+oldhand stats
+oldhand selftest
+oldhand usage
+oldhand new --title "..." --type <type> --importance <level> [...]
+oldhand relate <source-id> <relation-type> <target-id>
+oldhand unrelate <source-id> <relation-type> <target-id>
+oldhand supersede <old-id> --by <replacement-id>
+oldhand status <id> <current|resolved|deprecated|historical>
+oldhand rename <old-id> <new-id>
+oldhand topic <id> (--add <topic> | --remove <topic>)
+oldhand classify <id> [--importance ...] [--scope ...] [--risk ...] [--durability ...] [--evidence ...]
+oldhand compact --into <target-id> <source-id>... [--dry-run] [--json]
+oldhand run-start --task <text> --evaluator <name> [--id <id>] [--policy <name>] [--goal maximize|minimize] [--workers N] [--workspace-ref <ref>] [--json]
+oldhand attempt-add <run-id> --id <attempt-id> --parent <root|attempt-id> --proposal <text> [--artifact-ref <ref>] [--policy-version <name>] [--json]
+oldhand attempt-evaluate <run-id> <attempt-id> --score N (--correct|--incorrect) --outcome <success|failure|error> [--cost N] [--duration-ms N] [--diagnostics-ref <ref>] [--json]
+oldhand run-finish <run-id> [--json]
+oldhand run-validate [<run-id>] [--json]
+oldhand runs [--status active|completed] [--json]
+oldhand run-show <run-id> [--json]
+oldhand replay <run-id> --policy <breadth|depth|score-greedy> --budget N [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
+oldhand policy-compare <policy>... --budget N [--incumbent <policy>] [--holdout N] [--evaluator <name>] [--workers N] [--beta-cost N] [--beta-parallel N] [--json]
+oldhand explore-context <query> --workers N [--history-branches N] [--per-branch N] [--json]
+oldhand run-distill <run-id> <attempt-id> --title <text> --type <type> --importance <level> --topics <csv> [--id <id>] [--dry-run] [--json]
+oldhand doctor [--limit N]
+oldhand conflicts
+oldhand eval [--save <name>] [--against <name>]
+oldhand metrics [--full] [--export <path>]
+oldhand obsidian
 ```
 
 Each has its own section below. `oldhand --help` is authoritative if this list
@@ -596,7 +602,7 @@ model should not be hand-writing: the `id`, both timestamps, the file location
 derived from the entry type, and the required section headings.
 
 ```bash
-python src/oldhand/cli.py new \
+oldhand new \
   --type constraint --importance critical \
   --risk critical --durability invariant --scope repository --evidence verified \
   --topics "kafka,partitioning" \
