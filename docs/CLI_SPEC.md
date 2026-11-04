@@ -523,8 +523,8 @@ writing. An invalid archive blocks explicit synchronization; automatic refresh
 failures warn without disabling the existing fail-open rebuild behavior.
 
 See [OBSIDIAN.md](OBSIDIAN.md) for the full workflow and legacy navigation-note
-handling. The native record-link behavior is unreleased; PyPI `0.6.0b1` has the
-older topic-hub generator.
+handling. Native record links are included in `0.6.0b2` and later; PyPI
+`0.6.0b1` has the older topic-hub generator.
 
 ## Eval
 

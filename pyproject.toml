@@ -35,6 +35,8 @@ oldhand = "oldhand.cli:main"
 [project.urls]
 Homepage = "https://github.com/IotA-asce/oldhand"
 Source = "https://github.com/IotA-asce/oldhand"
+Documentation = "https://github.com/IotA-asce/oldhand/blob/main/START_HERE.md"
+"Obsidian guide" = "https://github.com/IotA-asce/oldhand/blob/main/docs/OBSIDIAN.md"
 Changelog = "https://github.com/IotA-asce/oldhand/blob/main/CHANGELOG.md"
 Issues = "https://github.com/IotA-asce/oldhand/issues"
 

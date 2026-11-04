@@ -11,16 +11,16 @@ stored as readable Markdown and retrieved locally.
 
 [![CI](https://github.com/IotA-asce/oldhand/actions/workflows/ci.yml/badge.svg)](https://github.com/IotA-asce/oldhand/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/oldhand?style=flat-square&labelColor=0d1117&color=bc8cff)](https://pypi.org/project/oldhand/)
-[![license](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square&labelColor=0d1117)](LICENSE)
-[![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](requirements.txt)
-[![network](https://img.shields.io/badge/network-none-39c5cf?style=flat-square&labelColor=0d1117)](#what-oldhand-promises)
-[![source](https://img.shields.io/badge/source-Markdown-f0883e?style=flat-square&labelColor=0d1117)](#two-kinds-of-memory)
+[![license](https://img.shields.io/badge/license-MIT-3fb950?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/oldhand/blob/main/LICENSE)
+[![python](https://img.shields.io/badge/python-3.10%2B-58a6ff?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/oldhand/blob/main/requirements.txt)
+[![network](https://img.shields.io/badge/network-none-39c5cf?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/oldhand#what-oldhand-promises)
+[![source](https://img.shields.io/badge/source-Markdown-f0883e?style=flat-square&labelColor=0d1117)](https://github.com/IotA-asce/oldhand#two-kinds-of-memory)
 
 *Keep the scar tissue. Preserve the reasoning. Replay the search.*
 
 </div>
 
-![Markdown knowledge and replayable experience flow through Oldhand into the next engineering task](docs/img/architecture.svg)
+![Markdown knowledge and replayable experience flow through Oldhand into the next engineering task](https://raw.githubusercontent.com/IotA-asce/oldhand/main/docs/img/architecture.svg)
 
 An engineering session leaves behind more than a diff. It leaves the constraint
 that nearly broke production, the approach that failed for a non-obvious reason,
@@ -58,7 +58,7 @@ is for the knowledge that would otherwise disappear between sessions.
 
 ## See it work
 
-![A recorded terminal session: an agent asks why a config loader cannot be simplified, and the reviewed constraint comes back from the local archive](docs/img/oldhand-demo.gif)
+![A recorded terminal session: an agent asks why a config loader cannot be simplified, and the reviewed constraint comes back from the local archive](https://raw.githubusercontent.com/IotA-asce/oldhand/main/docs/img/oldhand-demo.gif)
 
 Everything above is real output from `examples/run_demo.py`, which runs
 offline against a synthetic project. The image is generated from that command,
@@ -72,17 +72,17 @@ python3 -B docs/make_demo_svg.py    # redraw the image from its output
 ## Install
 
 ```bash
-pipx install oldhand      # or: pip install oldhand
+pipx install oldhand==0.6.0b2      # or: pip install --upgrade --pre oldhand
 oldhand init ~/knowledge
 export OLDHAND_ROOT=~/knowledge
 ```
 
-> This is a **beta** (`0.6.0b1`), so `pip` needs `--pre` unless you pin the
+> This is a **beta** (`0.6.0b2`), so `pip` needs `--pre` unless you pin the
 > version. It has had no external users yet.
 
 Python 3.10+ on Linux or macOS. No account, server, API key, model, or
 network connection. Windows is not supported yet; see
-[INSTALL.md](INSTALL.md).
+[INSTALL.md](https://github.com/IotA-asce/oldhand/blob/main/INSTALL.md).
 
 Point your agent at the archive, then make the first memory:
 
@@ -101,7 +101,7 @@ oldhand search "why did one new setting remove the old ones"
 
 `oldhand setup` prints the change it would make and writes nothing without
 `--apply`. `oldhand init PATH` refuses to overwrite an existing `memory/`
-directory. See [INSTALL.md](INSTALL.md) for a from-source install, shell
+directory. See [INSTALL.md](https://github.com/IotA-asce/oldhand/blob/main/INSTALL.md) for a from-source install, shell
 profile setup, and uninstalling.
 
 ## Why not just log everything?
@@ -130,7 +130,7 @@ The distinction that matters in one line:
 
 ## The everyday loop
 
-![Oldhand moves from discovery through retrieval, creation, curation, consolidation, and measurement](docs/img/curation.svg)
+![Oldhand moves from discovery through retrieval, creation, curation, consolidation, and measurement](https://raw.githubusercontent.com/IotA-asce/oldhand/main/docs/img/curation.svg)
 
 1. **Discover** the collections, topics, and lifecycle states already present.
 2. **Retrieve** ranked summaries before doing non-trivial work.
@@ -175,7 +175,7 @@ oldhand new --title "Preview me" --type lesson --importance normal --dry-run
 
 The summary is the primary retrieval surface. Name the surprise, the consequence,
 and the action. Do not write a diary entry. The measured guidance lives in
-[WRITING_RECORDS.md](WRITING_RECORDS.md).
+[WRITING_RECORDS.md](https://github.com/IotA-asce/oldhand/blob/main/WRITING_RECORDS.md).
 
 ### Keep truth alive
 
@@ -211,8 +211,7 @@ index, including after authoring commands. Run `oldhand rebuild` after editing
 topics or relationships in Obsidian. Authored content and metadata stay intact;
 generated navigation is excluded from retrieval text.
 
-The native record links are available in the source checkout and will ship in
-the next PyPI release. See the [Obsidian guide](docs/OBSIDIAN.md) for setup,
+Native record links are included in `0.6.0b2` and later. See the [Obsidian guide](https://github.com/IotA-asce/oldhand/blob/main/docs/OBSIDIAN.md) for setup,
 ownership, and graph limitations.
 
 ## Proof, not vibes
@@ -256,7 +255,7 @@ The experiments in `LESSONS.md` isolate specific retrieval and curation changes.
 | Tune the ranker for three rounds | one collection’s recall@1 changed by **0** |
 | First-pass conflict detection | **4** genuine defects among **29** flags |
 
-![Retrieval before and after summary, identifier, and section-indexing improvements](docs/img/beforeafter.svg)
+![Retrieval before and after summary, identifier, and section-indexing improvements](https://raw.githubusercontent.com/IotA-asce/oldhand/main/docs/img/beforeafter.svg)
 
 The lesson was not “tune harder.” It was that the shape of the knowledge—good
 summaries, searchable identifiers, reachable sections—matters more than another
@@ -267,19 +266,19 @@ round of ranking arithmetic.
 In a controlled inflation test, recall@5 fell from **92%** with no records marked
 critical to **17%** when half the archive carried that label.
 
-![Recall declines as the share of critical records rises from zero to half the archive](docs/img/inflation.svg)
+![Recall declines as the share of critical records rises from zero to half the archive](https://raw.githubusercontent.com/IotA-asce/oldhand/main/docs/img/inflation.svg)
 
 That result shaped Oldhand’s two-pass ranking model: a bounded text-relevance pool
 plus an unbounded safety pass for truly critical knowledge. Text relevance can
 contribute 60 points; all metadata combined is capped at 44. Metadata breaks
 ties between plausible matches—it cannot make an unrelated record win.
 
-![Text relevance has a larger scoring budget than all metadata signals combined](docs/img/budget.svg)
+![Text relevance has a larger scoring budget than all metadata signals combined](https://raw.githubusercontent.com/IotA-asce/oldhand/main/docs/img/budget.svg)
 
 Health tools are intentionally advisory. The first conflict detector was right
 only four times in 29 flags; automatic “cleanup” would have damaged the archive.
 
-![Four genuine defects were found among 29 initial conflict flags](docs/img/precision.svg)
+![Four genuine defects were found among 29 initial conflict flags](https://raw.githubusercontent.com/IotA-asce/oldhand/main/docs/img/precision.svg)
 
 ## Integrations
 
@@ -318,10 +317,10 @@ workspace/
 that lets Oldhand study *how* the answer was found. They meet only when a human
 chooses to distill an evaluated result.
 
-![A discovery task becomes a trace, is replayed under candidate policies, and can be distilled into durable memory](docs/img/replay-loop.svg)
+![A discovery task becomes a trace, is replayed under candidate policies, and can be distilled into durable memory](https://raw.githubusercontent.com/IotA-asce/oldhand/main/docs/img/replay-loop.svg)
 
 The editable source is
-[docs/diagrams/replay-loop.drawio](docs/diagrams/replay-loop.drawio).
+[docs/diagrams/replay-loop.drawio](https://github.com/IotA-asce/oldhand/blob/main/docs/diagrams/replay-loop.drawio).
 
 ## Replay discovery, not just conclusions
 
@@ -413,7 +412,7 @@ and skipped so one bad note cannot take retrieval offline.
 
 Most agent-facing reads and writes support `--json`; previewable mutations
 support `--dry-run`. The complete contract is in
-[docs/CLI_SPEC.md](docs/CLI_SPEC.md), and `oldhand --help` is
+[docs/CLI_SPEC.md](https://github.com/IotA-asce/oldhand/blob/main/docs/CLI_SPEC.md), and `oldhand --help` is
 authoritative.
 
 ## Record anatomy
@@ -494,9 +493,9 @@ oldhand metrics --export mine.json
 Exports contain aggregate counts, rates, percentiles, versions, timestamps,
 platform, and schema values. Oldhand audits every string and refuses to export
 anything outside the disclosure allowlist. The exact contract is in
-[METRICS.md](docs/METRICS.md).
+[METRICS.md](https://github.com/IotA-asce/oldhand/blob/main/docs/METRICS.md).
 
-![Oldhand’s evidence program moves from one archive toward independent validation](docs/img/stages.svg)
+![Oldhand’s evidence program moves from one archive toward independent validation](https://raw.githubusercontent.com/IotA-asce/oldhand/main/docs/img/stages.svg)
 
 ## Honest limits
 
@@ -536,13 +535,13 @@ MIT licensed. Local by design. Made for the next mind that opens the repo.
 
 | Read next | Purpose |
 |---|---|
-| [START_HERE.md](START_HERE.md) | the five-minute operating guide |
-| [WRITING_RECORDS.md](WRITING_RECORDS.md) | write records people can find |
-| [INSTALL.md](INSTALL.md) | install, configure PATH, and uninstall |
-| [MIGRATING_AN_ARCHIVE.md](docs/MIGRATING_AN_ARCHIVE.md) | adopt Oldhand in phases |
-| [RECONCILING_AN_EXISTING_ARCHIVE.md](docs/RECONCILING_AN_EXISTING_ARCHIVE.md) | resolve imported contradictions |
-| [memory/SCHEMA.md](memory/SCHEMA.md) | canonical record schema |
-| [LESSONS.md](docs/LESSONS.md) | the experiments and what they taught |
+| [START_HERE.md](https://github.com/IotA-asce/oldhand/blob/main/START_HERE.md) | the five-minute operating guide |
+| [WRITING_RECORDS.md](https://github.com/IotA-asce/oldhand/blob/main/WRITING_RECORDS.md) | write records people can find |
+| [INSTALL.md](https://github.com/IotA-asce/oldhand/blob/main/INSTALL.md) | install, configure PATH, and uninstall |
+| [MIGRATING_AN_ARCHIVE.md](https://github.com/IotA-asce/oldhand/blob/main/docs/MIGRATING_AN_ARCHIVE.md) | adopt Oldhand in phases |
+| [RECONCILING_AN_EXISTING_ARCHIVE.md](https://github.com/IotA-asce/oldhand/blob/main/docs/RECONCILING_AN_EXISTING_ARCHIVE.md) | resolve imported contradictions |
+| [memory/SCHEMA.md](https://github.com/IotA-asce/oldhand/blob/main/memory/SCHEMA.md) | canonical record schema |
+| [LESSONS.md](https://github.com/IotA-asce/oldhand/blob/main/docs/LESSONS.md) | the experiments and what they taught |
 
 ## Development
 

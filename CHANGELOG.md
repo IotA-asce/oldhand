@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and Lore uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for
 released versions.
 
+## [0.6.0b2] - 2026-11-04
+
+### Added
+
+- Native Obsidian graph navigation on original memory notes with topic hubs,
+  typed relationship links, and automatic refreshes after opting in through
+  `oldhand obsidian`.
+- Safe graph-note ownership and cross-collection links, preserving authored
+  record content and excluding generated navigation from search ranking.
+- Direct documentation and Obsidian guide links in PyPI project metadata.
+
+### Fixed
+
+- README documentation, badge, image, and section links use absolute URLs so
+  they work on PyPI as well as GitHub. Documentation targets reflect the
+  current repository layout.
+- Installation and Obsidian guidance now describe the published beta feature.
+
 ## [0.6.0b1] - 2026-09-19
 
 First release under the name **Oldhand**, and the first installable one.
@@ -60,11 +78,6 @@ moved to `tests/`. Behaviour is unchanged; 187 tests pass on Python
 
 ### Added
 
-- Native Obsidian graph navigation on original memory notes: topic hubs,
-  direct typed-relationship links, and automatic refreshes after opting in
-  with `oldhand obsidian`. Generated links are excluded from retrieval text.
-- Safe graph-note ownership, cross-collection relative links, and preservation
-  of authored record content, metadata timestamps, and existing user notes.
 - Community, security, and contribution guidance for the public launch.
 - An evidence guide that keeps field observations, controlled interventions,
   and synthetic regression results separate.
@@ -116,4 +129,6 @@ from a README or source version string; the next public release will receive
 an explicit dated section only when its annotated tag and GitHub Release are
 published.
 
-[Unreleased]: https://github.com/IotA-asce/lore/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/IotA-asce/oldhand/compare/v0.6.0b2...HEAD
+[0.6.0b2]: https://github.com/IotA-asce/oldhand/compare/v0.6.0b1...v0.6.0b2
+[0.6.0b1]: https://github.com/IotA-asce/oldhand/releases/tag/v0.6.0b1
