@@ -194,6 +194,27 @@ Compaction never invents a synthesis. Prepare the target record first; Oldhand t
 retires the sources and adds reverse `supersedes` edges atomically. Old truth is
 not deleted—it becomes history.
 
+### Explore memory in Obsidian
+
+```bash
+oldhand --root /path/to/archive obsidian
+```
+
+Open that folder as a vault in Obsidian, then open **Graph view**. The graph
+connects your original, editable memory notes through topics and typed record
+relationships. Open a note's **local graph** to explore its neighbours. No
+Obsidian plugin is needed.
+
+The command adds a marked navigation section to each record and generates
+`HOME.md` and topic hubs. Once enabled, links refresh when Oldhand rebuilds its
+index, including after authoring commands. Run `oldhand rebuild` after editing
+topics or relationships in Obsidian. Authored content and metadata stay intact;
+generated navigation is excluded from retrieval text.
+
+The native record links are available in the source checkout and will ship in
+the next PyPI release. See the [Obsidian guide](docs/OBSIDIAN.md) for setup,
+ownership, and graph limitations.
+
 ## Proof, not vibes
 
 Oldhand’s published evidence comes from one real archive. That makes the numbers

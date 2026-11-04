@@ -3,9 +3,32 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any
 
 from .constants import FRONTMATTER_RE, HEADING_RE, RELATION_TYPES, SECTION_RE, yaml
+
+
+GRAPH_START = "<!-- oldhand:graph:start -->"
+GRAPH_END = "<!-- oldhand:graph:end -->"
+
+
+def graph_section_range(text: str) -> tuple[int, int] | None:
+    starts = list(re.finditer(r"(?m)^" + re.escape(GRAPH_START) + r"\r?$", text))
+    ends = list(re.finditer(r"(?m)^" + re.escape(GRAPH_END) + r"\r?$", text))
+    if not starts and not ends:
+        return None
+    if len(starts) != 1 or len(ends) != 1 or ends[0].start() < starts[0].end():
+        raise ValueError("malformed Oldhand graph ownership markers")
+    end = ends[0].end()
+    if text[end:end + 1] == "\n":
+        end += 1
+    return starts[0].start(), end
+
+
+def without_graph_section(text: str) -> str:
+    owned = graph_section_range(text)
+    return text if owned is None else text[:owned[0]] + text[owned[1]:]
 
 
 def parse_sections(body: str) -> dict[str, str]:
@@ -45,7 +68,9 @@ def parse_record(path: Path) -> dict[str, Any]:
     if not isinstance(meta, dict):
         raise ValueError("frontmatter must be a mapping")
 
-    body = text[m.end():].strip()
+    # Navigation is derived from metadata, not additional learned knowledge.
+    # Keep the original text for fingerprints, but do not rank generated links.
+    body = without_graph_section(text[m.end():]).strip()
     hm = HEADING_RE.search(body)
     title = hm.group(1).strip() if hm else str(meta.get("title") or path.stem)
     sections = parse_sections(body)

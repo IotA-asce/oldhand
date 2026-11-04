@@ -132,6 +132,14 @@ def rebuild(root: Path, strict: bool = False, quiet: bool = False) -> int:
     not take the rest of the archive offline. Use `validate` (or --strict) when
     a hard gate is wanted.
     """
+    # Refresh opted-in native links before taking the indexed snapshot. A
+    # navigation conflict must not take searchable memory offline.
+    from .obsidian import sync_graph
+    try:
+        sync_graph(root)
+    except (OSError, ValueError, UnicodeError) as error:
+        print(f"warning: Obsidian graph refresh failed: {error}. "
+              "Resolve it and run `oldhand obsidian` again.", file=sys.stderr)
     # Fingerprint the same source snapshot that validation is about to parse.
     # If a file changes during the build, the stored value intentionally stays
     # old so ensure_db() detects the mismatch and repairs it on the next read.

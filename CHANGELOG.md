@@ -60,6 +60,11 @@ moved to `tests/`. Behaviour is unchanged; 187 tests pass on Python
 
 ### Added
 
+- Native Obsidian graph navigation on original memory notes: topic hubs,
+  direct typed-relationship links, and automatic refreshes after opting in
+  with `oldhand obsidian`. Generated links are excluded from retrieval text.
+- Safe graph-note ownership, cross-collection relative links, and preservation
+  of authored record content, metadata timestamps, and existing user notes.
 - Community, security, and contribution guidance for the public launch.
 - An evidence guide that keeps field observations, controlled interventions,
   and synthetic regression results separate.

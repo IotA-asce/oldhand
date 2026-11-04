@@ -50,6 +50,49 @@ class E2ETestCase(unittest.TestCase):
         return path
 
 
+class ObsidianCliTests(E2ETestCase):
+    def test_obsidian_stays_current_through_authoring_commands(self):
+        from oldhand.records import parse_record
+        self.record("first")
+        self.record("target")
+        result = self.oldhand("obsidian")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("original", result.stdout)
+        result = self.oldhand("new", "--id", "new-note", "--title", "New note",
+                              "--type", "lesson", "--importance", "normal",
+                              "--topics", "new-topic", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        created = self.archive / json.loads(result.stdout)["path"]
+        self.assertIn("## Obsidian graph", created.read_text())
+        self.assertEqual(self.oldhand("relate", "first", "depends_on", "target").returncode, 0)
+        first = self.archive / "memory/first.md"
+        self.assertIn("[target](target.md)", first.read_text())
+        self.assertEqual(self.oldhand("rename", "target", "renamed").returncode, 0)
+        self.assertEqual(parse_record(first)["relations"], {"depends_on": ["renamed"]})
+        self.assertIn("[target](target.md)", first.read_text())
+        self.assertEqual(self.oldhand("topic", "first", "--add", "new-topic").returncode, 0)
+        self.assertIn("new-topic", first.read_text().split("## Obsidian graph")[1])
+        self.assertEqual(self.oldhand("unrelate", "first", "depends_on", "renamed").returncode, 0)
+        self.assertNotIn("[target](target.md)", first.read_text())
+        self.assertEqual(self.oldhand("supersede", "first", "--by", "renamed").returncode, 0)
+        self.assertIn("**supersedes**", (self.archive / "memory/target.md").read_text())
+        self.assertIn("superseded", (self.archive / "HOME.md").read_text())
+        result = self.oldhand("validate", "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(json.loads(result.stdout)["valid"])
+
+    def test_obsidian_rebuild_follows_manually_renamed_files(self):
+        source = self.record("source", relations={"related_to": ["target"]})
+        target = self.record("target")
+        self.assertEqual(self.oldhand("obsidian").returncode, 0)
+        renamed = target.rename(target.with_name("Target with spaces.md"))
+        result = self.oldhand("rebuild")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Target%20with%20spaces.md", source.read_text())
+        self.assertNotIn("](target.md)", source.read_text())
+        self.assertIn("## Obsidian graph", renamed.read_text())
+
+
 class CoreCliTests(E2ETestCase):
     def test_validation_rejects_and_rebuild_fails_open(self):
         self.record("good")

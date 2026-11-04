@@ -494,18 +494,37 @@ minute of reading, a wrong resolution costs knowledge, silently.
 
 ## Obsidian
 
-`oldhand obsidian` generates navigation notes for viewing the archive as an
-Obsidian vault. No conversion is involved: Markdown with YAML frontmatter is
-already Obsidian's native format, so the archive opens as a vault as it is,
-with every metadata field appearing as a native property.
+`oldhand obsidian` enables graph navigation on the archive's **original
+Markdown records**. Open the same archive root as a vault in Obsidian, then
+open Graph view or a record's local graph. No plugin, copied vault, or
+conversion is required. Frontmatter remains Oldhand's canonical metadata;
+Obsidian's properties UI does not support its nested `relations` mapping.
 
-What it adds is graph structure. Topics are frontmatter values rather than
-links, so Obsidian draws no edge for them; a hub note per topic turns a flat
-list into visible clusters and needs no plugin.
+Each valid record receives an owned section delimited by
+`<!-- oldhand:graph:start -->` and `<!-- oldhand:graph:end -->`. Relative,
+URL-encoded Markdown links connect it to topic hubs and outgoing relationship
+targets, including records with identical filenames in other collections.
+Relation types remain visible beside the links; Obsidian's native graph draws
+unlabelled edges. Retired records remain visible as history.
 
-Output goes to `HOME.md` and `_topics/` at the archive root, never into
-`memory/`. Oldhand only scans `*/memory/**`, so generated notes are invisible to
-the index and can never fail validation. Re-run it after any rebuild.
+The command also generates owned `HOME.md` and `_topics/*.md` navigation notes
+and stores enablement in `_topics/.oldhand.json`. This marker survives deletion
+of the derived `.oldhand/` SQLite directory. Enabled archives refresh before
+each index rebuild; CLI authoring commands keep the graph current. Manual
+edits to topics, relationships, or file locations need `oldhand rebuild` or
+another command that refreshes the index. No background watcher is installed.
+
+Only the owned section of a record is refreshed; its other bytes and metadata
+timestamps are preserved. Parsed retrieval content excludes generated sections
+so links do not distort ranking. Generated navigation notes are outside
+`memory/` and never indexed as records. User notes and Obsidian settings are
+preserved, and conflicting output files or symlink paths are refused before
+writing. An invalid archive blocks explicit synchronization; automatic refresh
+failures warn without disabling the existing fail-open rebuild behavior.
+
+See [OBSIDIAN.md](OBSIDIAN.md) for the full workflow and legacy navigation-note
+handling. The native record-link behavior is unreleased; PyPI `0.6.0b1` has the
+older topic-hub generator.
 
 ## Eval
 

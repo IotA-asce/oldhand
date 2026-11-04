@@ -301,7 +301,7 @@ def main() -> int:
                        help="include findability and eval (slower)")
     p_met.add_argument("--export", metavar="FILE",
                        help="write the shareable bundle to FILE")
-    sub.add_parser("obsidian", help="generate Obsidian navigation notes")
+    sub.add_parser("obsidian", help="enable and refresh native Obsidian graph links")
     p_con = sub.add_parser("conflicts", help="find records that contradict each other")
     p_con.add_argument("--threshold", type=float, default=0.35,
                        help="near-duplicate Jaccard threshold (default 0.35)")
