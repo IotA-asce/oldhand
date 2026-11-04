@@ -48,16 +48,18 @@ def fixture_digest() -> str:
         if path.is_file():
             digest.update(path.relative_to(FIXTURE).as_posix().encode("utf-8"))
             digest.update(b"\0")
-            digest.update(path.read_bytes())
+            # The fixture is UTF-8 text. Git's CRLF checkout must not change
+            # the corpus identity or appear to be a retrieval regression.
+            digest.update(path.read_text(encoding="utf-8").encode("utf-8"))
             digest.update(b"\0")
-    digest.update(QUERIES.read_bytes())
+    digest.update(QUERIES.read_text(encoding="utf-8").encode("utf-8"))
     return digest.hexdigest()
 
 
 def run_lore(archive: Path, *args: str, json_output: bool = True) -> dict | None:
     completed = subprocess.run(
         [sys.executable, "-B", *CLI, "--root", str(archive), *args],
-        cwd=ROOT, capture_output=True, text=True, check=False, env=_cli_env(),
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=False, env=_cli_env(),
     )
     if completed.returncode:
         raise RuntimeError(

@@ -43,6 +43,7 @@ def run_lore(workspace: Path, *arguments: str) -> str:
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         env=_cli_env(),
     )
     return completed.stdout

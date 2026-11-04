@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import yaml
 
@@ -25,15 +26,16 @@ class E2ETestCase(unittest.TestCase):
         self.env = {k: v for k, v in os.environ.items() if k != "OLDHAND_ROOT"}
         self.env["HOME"] = str(self.root / "home")
         Path(self.env["HOME"]).mkdir()
-        self.env["PATH"] = "/usr/bin:/bin"
-        self.env["SHELL"] = "/bin/zsh"
+        if os.name == "posix":
+            self.env["PATH"] = "/usr/bin:/bin"
+            self.env["SHELL"] = "/bin/zsh"
         self.env["USERPROFILE"] = self.env["HOME"]
         self.env["PYTHONDONTWRITEBYTECODE"] = "1"
 
     def oldhand(self, *args):
         return subprocess.run(
             [sys.executable, "-B", *CLI, "--root", str(self.archive), *args],
-            capture_output=True, text=True, env=self.env)
+            capture_output=True, text=True, encoding="utf-8", env=self.env)
 
     def record(self, name, **changes):
         meta = dict(schema_version=1, id=name, type="lesson", status="current",
@@ -63,20 +65,20 @@ class ObsidianCliTests(E2ETestCase):
                               "--topics", "new-topic", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         created = self.archive / json.loads(result.stdout)["path"]
-        self.assertIn("## Obsidian graph", created.read_text())
+        self.assertIn("## Obsidian graph", created.read_text(encoding="utf-8"))
         self.assertEqual(self.oldhand("relate", "first", "depends_on", "target").returncode, 0)
         first = self.archive / "memory/first.md"
-        self.assertIn("[target](target.md)", first.read_text())
+        self.assertIn("[target](target.md)", first.read_text(encoding="utf-8"))
         self.assertEqual(self.oldhand("rename", "target", "renamed").returncode, 0)
         self.assertEqual(parse_record(first)["relations"], {"depends_on": ["renamed"]})
-        self.assertIn("[target](target.md)", first.read_text())
+        self.assertIn("[target](target.md)", first.read_text(encoding="utf-8"))
         self.assertEqual(self.oldhand("topic", "first", "--add", "new-topic").returncode, 0)
-        self.assertIn("new-topic", first.read_text().split("## Obsidian graph")[1])
+        self.assertIn("new-topic", first.read_text(encoding="utf-8").split("## Obsidian graph")[1])
         self.assertEqual(self.oldhand("unrelate", "first", "depends_on", "renamed").returncode, 0)
-        self.assertNotIn("[target](target.md)", first.read_text())
+        self.assertNotIn("[target](target.md)", first.read_text(encoding="utf-8"))
         self.assertEqual(self.oldhand("supersede", "first", "--by", "renamed").returncode, 0)
-        self.assertIn("**supersedes**", (self.archive / "memory/target.md").read_text())
-        self.assertIn("superseded", (self.archive / "HOME.md").read_text())
+        self.assertIn("**supersedes**", (self.archive / "memory/target.md").read_text(encoding="utf-8"))
+        self.assertIn("superseded", (self.archive / "HOME.md").read_text(encoding="utf-8"))
         result = self.oldhand("validate", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(json.loads(result.stdout)["valid"])
@@ -88,9 +90,9 @@ class ObsidianCliTests(E2ETestCase):
         renamed = target.rename(target.with_name("Target with spaces.md"))
         result = self.oldhand("rebuild")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Target%20with%20spaces.md", source.read_text())
-        self.assertNotIn("](target.md)", source.read_text())
-        self.assertIn("## Obsidian graph", renamed.read_text())
+        self.assertIn("Target%20with%20spaces.md", source.read_text(encoding="utf-8"))
+        self.assertNotIn("](target.md)", source.read_text(encoding="utf-8"))
+        self.assertIn("## Obsidian graph", renamed.read_text(encoding="utf-8"))
 
 
 class CoreCliTests(E2ETestCase):
@@ -169,7 +171,7 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(first.returncode, 0, first.stderr)
         second = self.oldhand("search", "gateway")
         self.assertEqual(second.returncode, 0, second.stderr)
-        lines = (self.archive / "metrics" / "daily.jsonl").read_text().splitlines()
+        lines = (self.archive / "metrics" / "daily.jsonl").read_text(encoding="utf-8").splitlines()
         self.assertEqual(len(lines), 1)
         snapshot = json.loads(lines[0])
         self.assertEqual(snapshot["retrieval"]["searches"], 2)
@@ -451,6 +453,25 @@ class CoreCliTests(E2ETestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         meta = yaml.safe_load(source.read_text(encoding="utf-8").split("---\n")[1])
         self.assertEqual(meta["status"], "superseded")
+
+
+@unittest.skipUnless(os.name == "nt", "Native Windows command launcher integration")
+class WindowsLauncherTests(E2ETestCase):
+    def test_cmd_launcher_executes_unicode_json_and_can_be_reinstalled(self):
+        import install
+        self.record("good")
+        directory = self.root / "bin with spaces"
+        directory.mkdir()
+        with mock.patch.object(install, "IS_WINDOWS", True):
+            launcher = install.write_launcher(directory)
+            self.assertTrue(install.owns_launcher(launcher))
+            result = subprocess.run(
+                [str(launcher), "--root", str(self.archive), "show", "good", "--json"],
+                cwd=self.root, env=self.env, capture_output=True, encoding="utf-8", timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("认证", json.loads(result.stdout)["body"])
+            install.write_launcher(directory)
+            self.assertTrue(install.owns_launcher(launcher))
 
 
 @unittest.skipUnless(os.name == "posix", "POSIX launcher integration")

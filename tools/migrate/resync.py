@@ -118,10 +118,10 @@ def main() -> int:
           else f"records changed: {before} -> {after}")
 
     rebuild = subprocess.run([sys.executable, *CLI, "--root", str(archive), "rebuild"],
-                             capture_output=True, text=True, env=_cli_env())
+                             capture_output=True, text=True, encoding="utf-8", env=_cli_env())
     report("rebuild", rebuild)
     validate = subprocess.run([sys.executable, *CLI, "--root", str(archive), "validate"],
-                              capture_output=True, text=True, env=_cli_env())
+                              capture_output=True, text=True, encoding="utf-8", env=_cli_env())
     report("validate", validate)
 
     if failures:

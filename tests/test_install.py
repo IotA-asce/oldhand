@@ -24,7 +24,7 @@ class InstallTestCase(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.home = Path(temporary.name)
+        self.home = Path(temporary.name).resolve()
         self.bin_dir = self.home / ".local" / "bin"
         self.bin_dir.mkdir(parents=True)
         self.archive = self.home / "archive"
@@ -55,6 +55,15 @@ class InstallTestCase(unittest.TestCase):
 
 
 class LauncherCollisionTests(InstallTestCase):
+    def test_windows_launcher_has_single_crlf_and_scoped_assignment(self):
+        with mock.patch.object(install, "IS_WINDOWS", True):
+            launcher = install.write_launcher(self.bin_dir)
+            data = launcher.read_bytes()
+            self.assertNotIn(b"\r\r\n", data)
+            self.assertIn(b"setlocal DisableDelayedExpansion\r\n", data)
+            self.assertIn(b'set "PYTHONPATH=', data)
+            self.assertTrue(install.owns_launcher(launcher))
+
     def test_unrelated_launcher_is_preserved(self):
         for windows in (False, True):
             with self.subTest(windows=windows), mock.patch.object(install, "IS_WINDOWS", windows):
@@ -180,7 +189,7 @@ class ProfileUninstallTests(InstallTestCase):
 
     def test_multiple_owned_assignments_and_no_final_newline(self):
         owned = f'export OLDHAND_ROOT="/old"  {install.MARKER}'
-        self.rc.write_text(owned + '\nkeep\n' + owned, encoding="utf-8")
+        self.rc.write_bytes((owned + '\nkeep\n' + owned).encode("utf-8"))
         self.assertEqual(self.invoke("--uninstall"), 0)
         self.assertEqual(self.rc.read_bytes(), b'keep\n')
         self.assertEqual(self.invoke("--uninstall"), 0)
@@ -260,8 +269,8 @@ class FishProfileTests(InstallTestCase):
         self.assertEqual(self.invoke(second, "--shell-rc"), 0)
         result = self.rc.read_text(encoding="utf-8")
         self.assertEqual(result.count("set -gx OLDHAND_ROOT "), 1)
-        self.assertNotIn(str(first.resolve()), result)
-        self.assertIn(str(second.resolve()), result)
+        self.assertNotIn(install.fish_quote(str(first.resolve())), result)
+        self.assertIn(install.fish_quote(str(second.resolve())), result)
 
 
 class QuotingTests(InstallTestCase):
@@ -272,7 +281,7 @@ class QuotingTests(InstallTestCase):
                 body = target.read_text()
                 if windows:
                     self.assertIn(f'"{install.sys.executable}"', body)
-                    self.assertIn(f'"{install.SRC_DIR}"', body)
+                    self.assertIn(f'set "PYTHONPATH={install.SRC_DIR}"', body)
                     self.assertIn("-m oldhand.cli", body)
                 else:
                     argv = shlex.split(body.splitlines()[-1])

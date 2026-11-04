@@ -21,6 +21,7 @@ class SyntheticDemoTests(unittest.TestCase):
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             cwd=EXAMPLES.parent,
         )
         after = sorted(path.relative_to(SAMPLE) for path in SAMPLE.rglob("*"))

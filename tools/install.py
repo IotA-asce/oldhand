@@ -56,7 +56,7 @@ def pick_bin_dir() -> tuple[Path, bool]:
 def sh_quote(value) -> str:
     value = os.fspath(value)
     if IS_WINDOWS:
-        return f'"{value}"'
+        return '"' + value.replace("%", "%%") + '"'
     return "'" + value.replace("'", "'\\''") + "'"
 
 
@@ -90,9 +90,10 @@ def write_launcher(bin_dir: Path) -> Path:
     if IS_WINDOWS:
         target.write_text(
             launcher_header()
-            + f'set PYTHONPATH={sh_quote(SRC_DIR)}\r\n'
+            + 'setlocal DisableDelayedExpansion\r\n'
+            + f'set "PYTHONPATH={str(SRC_DIR).replace("%", "%%")}"\r\n'
             + f'{sh_quote(sys.executable)} -m oldhand.cli %*\r\n',
-            encoding="utf-8")
+            encoding="utf-8", newline="")
     else:
         target.write_text(
             launcher_header()
@@ -273,7 +274,7 @@ def main() -> int:
                                      if os.environ.get("PYTHONPATH") else [])))
     probe = subprocess.run([sys.executable, "-m", "oldhand.cli",
                             "--root", str(archive), "stats"],
-                           capture_output=True, text=True, env=env)
+                           capture_output=True, text=True, encoding="utf-8", env=env)
     if probe.returncode == 0:
         first = [l for l in probe.stdout.splitlines() if l.strip()][:3]
         print("verified:")
