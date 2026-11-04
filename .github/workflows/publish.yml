@@ -16,11 +16,10 @@ name: Publish to PyPI
 
 on:
   release:
-    # `published` alone is not enough: creating a pre-release emits
-    # `prereleased`, so a beta cut with `gh release create --prerelease`
-    # fires nothing and the upload silently never happens. `released` covers
-    # a pre-release later promoted to a full release.
-    types: [published, prereleased, released]
+    # `published` covers both stable releases and pre-releases. Subscribing
+    # to `prereleased` as well starts duplicate uploads for the same beta.
+    # https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#release
+    types: [published]
   workflow_dispatch:
 
 permissions:
