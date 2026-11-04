@@ -18,3 +18,16 @@
 6. Prepare the next beta, merge and push after all required checks pass, publish it through Trusted Publishing, and verify the published artifact and metadata. Preserve prior release tags.
 
 No Windows host is available locally. Native Windows claims require real hosted Windows jobs, not mocked platform flags. POSIX shell integration tests remain platform-scoped; native Windows integration receives its own coverage. No private archive is modified.
+
+First hosted run: native wheel/console/Unicode/Obsidian checks passed on all
+three platforms. The full Windows suite reduced to one failing demo test:
+the demo itself still emitted ANSI bytes to an explicitly UTF-8 reader.
+The test now forces cp1252 even on Unix to reproduce that failure, and the
+demo configures its output as UTF-8. Native launcher and all other Windows
+tests passed. Symlink ownership tests now run on Windows when the OS grants
+the necessary privilege; only the OS privilege error is a capability skip.
+
+The local 213-test suite and ranking selftest pass; the next candidate is
+0.6.0b3. Wheel/sdist pass `twine check`. Support documentation and metadata are
+prepared on the feature branch and must not be merged/released until the
+updated native CI matrix passes.

@@ -8,7 +8,7 @@ No Obsidian plugin, separate export, or account is required.
 
 Native record links are included in `0.6.0b2` and later. Install or upgrade in
 your preferred Python environment with `python -m pip install --upgrade --pre
-oldhand`, or use `pipx install oldhand==0.6.0b2` for an isolated CLI installation.
+oldhand`, or use `pipx install oldhand==0.6.0b3` for an isolated CLI installation.
 Version `0.6.0b1` has the older topic-hub-only command.
 
 1. Run `oldhand --root /path/to/archive obsidian` once. Use the directory that

@@ -72,16 +72,16 @@ python3 -B docs/make_demo_svg.py    # redraw the image from its output
 ## Install
 
 ```bash
-pipx install oldhand==0.6.0b2      # or: pip install --upgrade --pre oldhand
+pipx install oldhand==0.6.0b3      # or: pip install --upgrade --pre oldhand
 oldhand init ~/knowledge
 export OLDHAND_ROOT=~/knowledge
 ```
 
-> This is a **beta** (`0.6.0b2`), so `pip` needs `--pre` unless you pin the
+> This is a **beta** (`0.6.0b3`), so `pip` needs `--pre` unless you pin the
 > version. It has had no external users yet.
 
-Python 3.10+ on Linux or macOS. No account, server, API key, model, or
-network connection. Windows is not supported yet; see
+Python 3.10+ on Windows, macOS, and Linux. No account, server, API key, model,
+or network connection for core use. See
 [INSTALL.md](https://github.com/IotA-asce/oldhand/blob/main/INSTALL.md).
 
 Point your agent at the archive, then make the first memory:

@@ -1,5 +1,19 @@
 # Install
 
+Oldhand runs on Windows, macOS, and Linux with Python 3.10 or newer. Install the
+published package in your preferred Python environment:
+
+```bash
+python -m pip install --upgrade oldhand==0.6.0b3
+oldhand init ~/knowledge
+```
+
+On Windows, follow the PowerShell instructions below. For an isolated console
+installation, `pipx install oldhand==0.6.0b3` also works. Version `0.6.0b3` is
+the first release with required Windows CI and native wheel-install checks.
+
+## Optional source-checkout launcher
+
 Two things make the difference between a tool you reach for on a hunch and one
 you reach for when you are already sure: a short command, and not having to
 say where your archive is.
@@ -54,7 +68,7 @@ The installer is a convenience, not a dependency. Nothing in Oldhand requires it
 ```sh
 cat > ~/.local/bin/oldhand <<'EOF'
 #!/bin/sh
-exec python3 "$HOME/path/to/oldhand/src/oldhand/cli.py" "$@"
+PYTHONPATH="$HOME/path/to/oldhand/src" exec python3 -m oldhand.cli "$@"
 EOF
 chmod +x ~/.local/bin/oldhand
 echo 'export OLDHAND_ROOT="$HOME/path/to/your/archive"' >> ~/.zshrc   # or ~/.bashrc
@@ -73,35 +87,49 @@ set -gx OLDHAND_ROOT "$HOME/path/to/your/archive"
 When `SHELL` identifies Fish, `--shell-rc` writes the matching `set -gx`
 line to `~/.config/fish/config.fish`.
 
-### Windows (not supported yet)
+### Windows
 
-Windows is **not a supported platform** for this release. CI runs the full
-suite on Windows as an informational `windows-preview` job, and it currently
-fails: `show --json` returns no output under the end-to-end harness, and the
-installer's symlink handling is unverified. The instructions below are what
-we expect to work once those defects are fixed; treat them as unsupported.
+Native Windows is tested on Python 3.10–3.13, including the installed console
+entry point, Unicode paths and records, JSON output, and Obsidian navigation.
+WSL is not required. Install Python 3.10 or newer, then use PowerShell:
 
-```bat
-@echo off
-"C:\Path\To\python.exe" "C:\Path\To\oldhand\tools\oldhand\oldhand.py" %*
+```powershell
+py -3 -m pip install --user --upgrade oldhand==0.6.0b3
+py -3 -m oldhand.cli init "$env:USERPROFILE\knowledge"
+$env:OLDHAND_ROOT = "$env:USERPROFILE\knowledge"
+[Environment]::SetEnvironmentVariable("OLDHAND_ROOT", $env:OLDHAND_ROOT, "User")
+py -3 -m oldhand.cli selftest
+py -3 -m oldhand.cli stats
+py -3 -m oldhand.cli obsidian
 ```
 
-Save as `oldhand.cmd` in any directory on your PATH (`%USERPROFILE%\.local\bin`
-is a common one), then:
+The `py -3 -m oldhand.cli` form works without adding Python's Scripts directory
+to PATH. If that directory is already on PATH, use `oldhand` directly. A pipx
+installation provides the same short command after `pipx ensurepath` and a
+new terminal.
 
-```bat
-setx OLDHAND_ROOT "C:\Path\To\Your\Archive"
+For a source checkout, install its dependencies and run:
+
+```powershell
+py -3 -m pip install -r requirements.txt
+py -3 tools/install.py "$env:USERPROFILE\knowledge"
 ```
 
-`setx` writes to the user environment, not the machine one, and takes effect
-in new terminals only.
+This writes an owned `oldhand.cmd` launcher and sets `OLDHAND_ROOT` for your
+user account. If it reports that the launcher directory is missing from PATH,
+add that directory through Windows user environment settings, then open a new
+terminal. Reinstallation and removal preserve unrelated launchers. Symlinks
+are never overwritten; creating symlinks for your own files may require
+Windows Developer Mode or permission, but Oldhand does not require symlinks
+for ordinary use.
 
 ### Without either
 
 Every command works with explicit paths, which is what CI should use anyway:
 
 ```bash
-python src/oldhand/cli.py --root /path/to/archive search "..."
+python -m pip install -e .
+python -m oldhand.cli --root /path/to/archive search "..."
 ```
 
 `--root` beats `OLDHAND_ROOT`, which beats auto-detection by walking up from the

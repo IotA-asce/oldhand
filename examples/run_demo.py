@@ -55,6 +55,9 @@ def display_value(config: dict[str, object], key: str) -> str:
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     if not SOURCE_PROJECT.is_dir() or not (SRC_DIR / "oldhand" / "cli.py").is_file():
         raise RuntimeError("run_demo.py must run from Oldhand's checked-out examples directory")
 

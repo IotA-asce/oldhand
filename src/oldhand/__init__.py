@@ -5,6 +5,6 @@ index under the archive's dot-directory is derived state and can be deleted
 and rebuilt at any time.
 """
 
-__version__ = "0.6.0b2"
+__version__ = "0.6.0b3"
 
 __all__ = ["__version__"]

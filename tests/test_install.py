@@ -76,7 +76,6 @@ class LauncherCollisionTests(InstallTestCase):
                 self.assertIn("Refusing", self.stderr.getvalue())
                 self.run.assert_not_called()
 
-    @POSIX_ONLY
     def test_symlinks_are_preserved_even_when_owned_or_dangling(self):
         for windows in (False, True):
             with mock.patch.object(install, "IS_WINDOWS", windows):
@@ -84,7 +83,12 @@ class LauncherCollisionTests(InstallTestCase):
                 target = self.bin_dir / source.name
                 for destination in (source, self.home / "missing"):
                     with self.subTest(windows=windows, destination=destination):
-                        target.symlink_to(destination)
+                        try:
+                            target.symlink_to(destination)
+                        except OSError as error:
+                            if os.name == "nt" and getattr(error, "winerror", None) == 1314:
+                                self.skipTest("Windows symlink privilege is unavailable")
+                            raise
                         before = source.read_bytes()
                         self.assertEqual(self.invoke(self.archive), 1)
                         self.assertTrue(target.is_symlink())
@@ -122,7 +126,6 @@ class LauncherUninstallTests(InstallTestCase):
                         self.assertTrue(target.exists())
                         self.assertEqual(target.read_bytes(), content)
 
-    @POSIX_ONLY
     def test_uninstall_preserves_symlinks_and_their_targets(self):
         for windows in (False, True):
             with mock.patch.object(install, "IS_WINDOWS", windows):
@@ -130,7 +133,12 @@ class LauncherUninstallTests(InstallTestCase):
                 target = self.bin_dir / source.name
                 for destination in (source, self.home / "missing"):
                     with self.subTest(windows=windows, destination=destination):
-                        target.symlink_to(destination)
+                        try:
+                            target.symlink_to(destination)
+                        except OSError as error:
+                            if os.name == "nt" and getattr(error, "winerror", None) == 1314:
+                                self.skipTest("Windows symlink privilege is unavailable")
+                            raise
                         before = source.read_bytes()
                         self.assertEqual(self.invoke("--uninstall"), 0)
                         self.assertTrue(target.is_symlink())

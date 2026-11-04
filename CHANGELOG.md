@@ -1,10 +1,31 @@
 # Changelog
 
-All notable user-facing changes to Lore will be documented in this file.
+All notable user-facing changes to Oldhand will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
-and Lore uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for
+and Oldhand uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for
 released versions.
+
+## [0.6.0b3] - 2026-11-04
+
+### Added
+
+- Native Windows support, with required verification on Windows Python
+  3.10–3.13 alongside Linux and macOS.
+- Clean wheel-install checks on all three platforms, exercising the native
+  console entry point, Unicode paths and records, JSON output, search, and
+  Obsidian graph generation.
+- Windows PowerShell installation guidance and the Windows package classifier.
+
+### Fixed
+
+- Windows source launchers use correct CRLF line endings and quoted, scoped
+  environment assignments, allowing safe reinstallation and uninstallation.
+- CLI consumers and the demo explicitly exchange UTF-8 instead of assuming
+  the Windows ANSI code page matches stored memory text.
+- Synthetic benchmark identity is stable across LF and CRLF checkouts.
+- Tests cover native launcher execution and correct path quoting rather than
+  relying on Unix-only encoding, path, or line-ending assumptions.
 
 ## [0.6.0b2] - 2026-11-04
 
@@ -113,10 +134,9 @@ Before cutting the next public release:
   realistic adoption or retrieval-quality benchmark.
 - Replay evaluates already-recorded discovery traces and never executes an
   agent or predicts unseen outcomes.
-- Windows is not supported. The release CI matrix now measures it on an
-  informational `windows-preview` job, which fails: `show --json` produces no
-  stdout under the end-to-end harness, and installer symlink handling is
-  unverified. Linux and macOS are verified on Python 3.10-3.13.
+- Windows, Linux, and macOS are verified on Python 3.10–3.13. POSIX shell
+  integration tests are platform-scoped; Windows has native launcher and
+  package-install coverage.
 - Package-installation ergonomics must be verified from a clean environment
   before being claimed as supported.
 - Lore is local software, not an access-control, backup, secret-management, or
@@ -129,6 +149,7 @@ from a README or source version string; the next public release will receive
 an explicit dated section only when its annotated tag and GitHub Release are
 published.
 
-[Unreleased]: https://github.com/IotA-asce/oldhand/compare/v0.6.0b2...HEAD
+[Unreleased]: https://github.com/IotA-asce/oldhand/compare/v0.6.0b3...HEAD
+[0.6.0b3]: https://github.com/IotA-asce/oldhand/compare/v0.6.0b2...v0.6.0b3
 [0.6.0b2]: https://github.com/IotA-asce/oldhand/compare/v0.6.0b1...v0.6.0b2
 [0.6.0b1]: https://github.com/IotA-asce/oldhand/releases/tag/v0.6.0b1

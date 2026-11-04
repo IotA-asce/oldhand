@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import subprocess
 import sys
 import unittest
@@ -23,6 +24,7 @@ class SyntheticDemoTests(unittest.TestCase):
             text=True,
             encoding="utf-8",
             cwd=EXAMPLES.parent,
+            env=dict(os.environ, PYTHONIOENCODING="cp1252", PYTHONUTF8="0"),
         )
         after = sorted(path.relative_to(SAMPLE) for path in SAMPLE.rglob("*"))
 
