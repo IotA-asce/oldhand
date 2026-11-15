@@ -73,6 +73,14 @@ a small, project-local instruction that tells an agent to search Oldhand before
 changing an area with uncertain constraints. Pass `--apply` only after
 reviewing that diff. `--undo --apply` removes only Oldhand's marked content.
 
+The generated block stays under 25 lines including ownership markers. It covers
+task-specific search triggers, reading summaries before selectively opening
+records, inspecting evidence, and writing only knowledge worth remembering.
+Recording nothing is allowed; critical importance is rare. Detailed writing
+guidance stays on demand through `oldhand guide writing` and the other guide
+topics, rather than being inserted into every setup block. Applying setup again
+upgrades an older marked block while preserving surrounding user instructions.
+
 The command never creates hooks, MCP configuration, user-level configuration,
 credentials, or automatic command execution.
 

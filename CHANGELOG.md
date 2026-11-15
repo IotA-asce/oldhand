@@ -14,6 +14,12 @@ released versions.
   exclusion guidance, available from an installed package without an archive.
 - Installed-wheel create/find/retire walkthrough validation for the guide.
 
+### Changed
+
+- Compact project setup guidance now includes selective reading and writing,
+  rare importance labels, and on-demand guide commands. Existing marked blocks
+  upgrade through the same preview/apply/undo ownership contract.
+
 ## [0.6.0b3] - 2026-11-04
 
 ### Added
