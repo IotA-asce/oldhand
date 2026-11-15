@@ -34,6 +34,7 @@ from typing import Any
 
 from . import __version__ as OLDHAND_VERSION
 from . import experience
+from .guides import GUIDES, render_guide
 from pathlib import Path
 import argparse
 import sys
@@ -275,6 +276,9 @@ def main() -> int:
                         version=f"%(prog)s {OLDHAND_VERSION}")
     parser.add_argument("--root", help="workspace root (auto-detected, or set LORE_ROOT)")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    p_guide = sub.add_parser("guide", help="read offline writing guidance without an archive")
+    p_guide.add_argument("topic", nargs="?", choices=tuple(GUIDES))
 
     p_init = sub.add_parser("init", help="initialize a new Oldhand archive")
     p_init.add_argument("path")
@@ -525,6 +529,9 @@ def main() -> int:
 
     args = parser.parse_args()
     _force_utf8_output()
+    if args.command == "guide":
+        print(render_guide(args.topic))
+        return 0
     if args.command == "init":
         return init_archive(Path(args.path), args.json_output)
     root = workspace_root(args.root)

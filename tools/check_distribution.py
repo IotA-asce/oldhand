@@ -43,6 +43,9 @@ def main() -> int:
             return result.stdout
 
         print(run("--version").strip())
+        guide = run("guide", "lifecycle")
+        if "status guide-example historical" not in guide or archive.exists():
+            raise RuntimeError("Installed guide is missing or accessed the archive")
         run("init", str(archive))
         run("obsidian")
         note = json.loads(run("new", "--id", "unicode-note", "--title", "认证 memory",
@@ -59,7 +62,18 @@ def main() -> int:
             raise RuntimeError("Installed CLI did not generate native graph links")
         if not json.loads(run("validate", "--json"))["valid"]:
             raise RuntimeError("Installed CLI generated an invalid archive")
-        print("Installed wheel passed native console, Unicode paths/content, search, and Obsidian checks.")
+        run("new", "--id", "guide-example", "--title", "Fixture cache invalidation",
+            "--type", "lesson", "--importance", "normal", "--topics", "fixture-cache",
+            "--summary", "Fixture cache entries must be invalidated when their source changes.")
+        if "guide-example" not in run("search", "fixture cache"):
+            raise RuntimeError("Installed guide walkthrough could not find its record")
+        run("status", "guide-example", "historical")
+        shown = json.loads(run("show", "guide-example", "--json"))
+        if shown["status"] != "historical":
+            raise RuntimeError("Installed guide walkthrough did not retire its record")
+        if "guide-example" not in run("search", "--history", "fixture cache"):
+            raise RuntimeError("Installed guide walkthrough lost retired history")
+        print("Installed wheel passed offline guide, create/find/retire, native console, Unicode, and Obsidian checks.")
     return 0
 
 

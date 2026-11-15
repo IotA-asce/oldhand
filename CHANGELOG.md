@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and Oldhand uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for
 released versions.
 
+## [Unreleased]
+
+### Added
+
+- Offline `oldhand guide [topic]` writing, vocabulary, importance, lifecycle and
+  exclusion guidance, available from an installed package without an archive.
+- Installed-wheel create/find/retire walkthrough validation for the guide.
+
 ## [0.6.0b3] - 2026-11-04
 
 ### Added

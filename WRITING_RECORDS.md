@@ -1,5 +1,9 @@
 # Writing records people can find
 
+For offline help from the unreleased source build, run `oldhand guide writing`
+or `oldhand guide` to list vocabulary, importance, lifecycle and exclusion topics.
+The guide is shipped in the package and does not access an archive.
+
 Most of what makes an archive useful happens when a record is written, not
 when it is searched. A perfectly ranked search over badly written records
 returns badly written records.

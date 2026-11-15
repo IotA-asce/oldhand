@@ -20,6 +20,7 @@ stderr; the Windows default code page may not represent memory content.
 
 ```bash
 oldhand --version
+oldhand guide [writing|vocabulary|importance|lifecycle|exclusions]
 oldhand init <path> [--json]
 oldhand setup <claude|codex|cursor|opencode> [--apply|--undo]
 oldhand validate [--json]
@@ -651,3 +652,11 @@ mutation path. It accepts `current`, `resolved`, `deprecated`, and `historical`.
 `superseded` is intentionally excluded: that state is only valid together
 with a replacement's `supersedes` relationship, so use the atomic command.
 An idempotent status request succeeds without rewriting the file.
+
+## Offline writing guide
+
+In the unreleased source version, `oldhand guide` lists topics and `oldhand guide TOPIC`
+prints packaged guidance. It requires no source checkout, network, workspace or
+index and writes no archive metrics. Unknown topics exit 2 with valid choices.
+`oldhand guide lifecycle` includes a disposable create/find/retire walkthrough.
+This is the installed-guide slice of R1; compact setup instructions remain future work.
