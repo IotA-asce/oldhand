@@ -291,7 +291,7 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
 
     m = {
         "oldhand_version": OLDHAND_VERSION,
-        "schema": 1,
+        "schema": 2,
         "captured_at": datetime.now().astimezone().replace(microsecond=0).isoformat(),
         "python": platform.python_version(),
         "platform": platform.system(),
@@ -353,10 +353,12 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
         "shows": shows,
         "active_days": len(days - {""}),
         "searches_per_active_day": round(searches / max(1, len(days - {""})), 1),
-        "zero_result_rate": round(empty / searches, 3) if searches else None,
+        "zero_result_searches": empty,
+        "zero_result_rate": empty / searches if searches else None,
         "distinct_records_returned": len(returned),
-        "coverage": round(len(returned) / total, 3) if total else None,
-        "open_rate": round(len(opened & returned.keys()) / len(returned), 3)
+        "distinct_records_opened": len(opened & returned.keys()),
+        "coverage": len(returned) / total if total else None,
+        "open_rate": len(opened & returned.keys()) / len(returned)
         if returned else None,
     }
 
@@ -413,6 +415,7 @@ METRICS_EXPORT_KEYS = {
     "importance", "evidence", "scope", "risk", "durability", "searches",
     "shows", "active_days", "searches_per_active_day", "zero_result_rate",
     "distinct_records_returned", "coverage", "open_rate", "min", "p50", "p90",
+    "zero_result_searches", "distinct_records_opened",
     "max", "queries", "recall@1", "recall@3", "recall@5", "mrr",
 } | ENTRY_TYPES | STATUSES | IMPORTANCE | SCOPES | RISKS | DURABILITY | EVIDENCE
 
@@ -467,8 +470,8 @@ def _metrics_path(root: Path) -> Path:
 
 
 def _is_metrics_snapshot(value: Any) -> bool:
-    """Return whether a value has the complete schema-1 snapshot envelope."""
-    if not isinstance(value, dict) or value.get("schema") != 1:
+    """Accept legacy schema-1 and additive schema-2 snapshot envelopes."""
+    if not isinstance(value, dict) or value.get("schema") not in (1, 2):
         return False
     # `lore_version` is the pre-rename spelling. Accept it so metrics history
     # recorded before the rename is not retroactively treated as malformed.
@@ -495,6 +498,8 @@ def _is_metrics_snapshot(value: Any) -> bool:
         "searches", "shows", "active_days", "searches_per_active_day",
         "zero_result_rate", "distinct_records_returned", "coverage", "open_rate",
     }
+    if value["schema"] == 2:
+        retrieval_keys |= {"zero_result_searches", "distinct_records_opened"}
     def finite(item: Any) -> bool:
         if isinstance(item, float):
             return math.isfinite(item)
@@ -576,6 +581,14 @@ def record_daily_metrics(root: Path) -> None:
             traceback.print_exc()
 
 
+def _format_metrics_rate(rate: float | None) -> str:
+    if rate is None:
+        return "N/A"
+    if 0 < rate < 0.0001:
+        return "<0.01%"
+    return f"{rate:.2%}"
+
+
 def metrics(root: Path, full: bool, export: str | None) -> int:
     """Show today's metrics, or bundle the history for sharing."""
     if export:
@@ -618,7 +631,7 @@ def metrics(root: Path, full: bool, export: str | None) -> int:
         latest = collect_metrics(root, full=full)
         bundle = {
             "oldhand_version": OLDHAND_VERSION,
-            "metrics_schema": 1,
+            "metrics_schema": 2,
             "exported_at": datetime.now().astimezone().replace(microsecond=0).isoformat(),
             "contains": "counts, rates and scores only: no titles, ids, paths, "
                         "queries, topic names or collection names",
@@ -670,12 +683,17 @@ def metrics(root: Path, full: bool, export: str | None) -> int:
     print(f"  critical share     {crit}/{a['records']} "
           f"({crit / a['records']:.0%})" if a["records"] else "")
     print()
+    print("  retrieval totals   available retrieval log; no date filter")
     if r["searches"]:
         print(f"  searches           {r['searches']} over {r['active_days']} day(s) "
               f"({r['searches_per_active_day']}/day)")
-        print(f"  found nothing      {r['zero_result_rate']:.0%}")
-        print(f"  archive coverage   {r['coverage']:.0%} of records returned at least once")
-        print(f"  open rate          {r['open_rate']:.0%} of returned records were opened")
+        print(f"  found nothing      {_format_metrics_rate(r['zero_result_rate'])} "
+              f"({r['zero_result_searches']}/{r['searches']} searches)")
+        print(f"  archive coverage   {_format_metrics_rate(r['coverage'])} "
+              "of current records returned at least once")
+        print(f"  distinct open rate {_format_metrics_rate(r['open_rate'])} "
+              f"({r['distinct_records_opened']}/{r['distinct_records_returned']} "
+              "distinct returned records)")
     else:
         print("  searches           none yet")
     if "findability" in m:

@@ -1229,6 +1229,69 @@ class LoreTests(unittest.TestCase):
         self.assertFalse(list(self.root.glob("export.json.updating.*")))
         self.assertIn("Cannot write metrics export", self.errors.getvalue())
 
+    def test_metrics_tiny_empty_rate_and_distinct_open_counts(self):
+        self.record("returned")
+        oldhand.rebuild(self.root, quiet=True)
+        log = self.root / ".oldhand" / "retrieval.jsonl"
+        found = {"at": "2026-11-15T10:00:00+00:00", "action": "search",
+                 "query": "classified query", "returned": ["returned"]}
+        empty = {**found, "returned": []}
+        shown = {**found, "action": "show"}
+        log.write_text((json.dumps(found) + "\n") * 10000
+                       + json.dumps(empty) + "\n" + json.dumps(shown) + "\n")
+        snapshot = oldhand.collect_metrics(self.root)
+        retrieval = snapshot["retrieval"]
+        self.assertEqual(snapshot["schema"], 2)
+        self.assertEqual(retrieval["zero_result_searches"], 1)
+        self.assertAlmostEqual(retrieval["zero_result_rate"], 1 / 10001)
+        self.assertEqual(retrieval["distinct_records_opened"], 1)
+        self.assertEqual(retrieval["open_rate"], 1.0)
+        self.output.seek(0)
+        self.output.truncate()
+        self.assertEqual(oldhand.metrics(self.root, False, None), 0)
+        output = self.output.getvalue()
+        self.assertIn("available retrieval log", output)
+        self.assertIn("<0.01% (1/10001 searches)", output)
+        self.assertIn("1/1 distinct returned records", output)
+
+    def test_metrics_schema_two_keeps_legacy_history_and_privacy(self):
+        self.record("private-record")
+        oldhand.rebuild(self.root, quiet=True)
+        log = self.root / ".oldhand" / "retrieval.jsonl"
+        log.write_text(json.dumps({"at": "2026-11-15T10:00:00+00:00",
+                                  "action": "search", "query": "classified query",
+                                  "returned": ["private-record"]}) + "\n")
+        legacy = oldhand.collect_metrics(self.root)
+        legacy["schema"] = 1
+        legacy["retrieval"].pop("zero_result_searches", None)
+        legacy["retrieval"].pop("distinct_records_opened", None)
+        history = oldhand._metrics_path(self.root)
+        history.parent.mkdir(exist_ok=True)
+        original = (json.dumps(legacy) + "\n").encode()
+        history.write_bytes(original)
+        export = self.root / "share.json"
+        self.assertEqual(oldhand.metrics(self.root, False, str(export)), 0)
+        payload = json.loads(export.read_text())
+        self.assertEqual(payload["metrics_schema"], 2)
+        self.assertEqual(payload["history"], [legacy])
+        self.assertEqual(payload["latest"]["schema"], 2)
+        self.assertEqual(history.read_bytes(), original)
+        self.assertEqual(oldhand._audit_export(payload), [])
+        for secret in ("classified query", "private-record", str(self.root)):
+            self.assertNotIn(secret, export.read_text())
+
+    def test_metrics_empty_log_keeps_rates_unknown(self):
+        retrieval = oldhand.collect_metrics(self.root)["retrieval"]
+        self.assertEqual(retrieval["zero_result_searches"], 0)
+        self.assertEqual(retrieval["distinct_records_opened"], 0)
+        self.assertIsNone(retrieval["zero_result_rate"])
+        self.assertIsNone(retrieval["open_rate"])
+        log = self.root / ".oldhand" / "retrieval.jsonl"
+        log.write_text(json.dumps({"at": "2026-11-15T10:00:00+00:00",
+                                  "action": "search", "returned": []}) + "\n")
+        self.assertEqual(oldhand.metrics(self.root, False, None), 0)
+        self.assertIn("N/A (0/0 distinct returned records)", self.output.getvalue())
+
     def test_metrics_ignore_malformed_events_and_bound_open_rate(self):
         self.record("returned")
         self.record("shown-only")

@@ -441,6 +441,13 @@ ids, paths, summaries, query text, topic names or collection names. Topic and
 collection names are excluded specifically because they describe products and
 team structure more precisely than almost anything else in an archive.
 
+The unreleased source labels retrieval totals as the available log with no date
+filter. Distinct open rate uses distinct returned records as its denominator;
+empty-search and open-rate numerators are explicit. Small nonzero rates print
+`<0.01%` when needed, and JSON retains precision. New snapshots and exports use
+schema 2 while schema-1 history remains readable and unchanged. See
+`METRICS.md` for the additive contract and remaining R2 scope.
+
 This is enforced rather than promised: before writing, every string value in
 the bundle must be a version, an ISO timestamp, the platform name, a schema
 enum or the fixed disclosure note. Anything else and the export refuses to
@@ -667,4 +674,5 @@ In the unreleased source version, `oldhand guide` lists topics and `oldhand guid
 prints packaged guidance. It requires no source checkout, network, workspace or
 index and writes no archive metrics. Unknown topics exit 2 with valid choices.
 `oldhand guide lifecycle` includes a disposable create/find/retire walkthrough.
-This is the installed-guide slice of R1; compact setup instructions remain future work.
+Installed guides and compact setup guidance are available in source; independent
+fresh-user and native-platform observation remain separate acceptance evidence.

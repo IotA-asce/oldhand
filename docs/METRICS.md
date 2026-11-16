@@ -8,9 +8,10 @@ So Oldhand measures itself, in a form that is safe to hand to a stranger.
 
 ## What happens automatically
 
-Any `oldhand` command appends one snapshot per day to `metrics/daily.jsonl` and
+Archive commands record one snapshot per day in `metrics/daily.jsonl` and
 moves on. It is pure SQL and a line count, it costs nothing noticeable, and it
 never raises: if it fails, your command still works.
+Offline guides and setup previews do not need or create archive metrics.
 
 This is automatic on purpose. Daily metrics that depend on someone remembering
 to run a command are not daily metrics.
@@ -21,6 +22,8 @@ to run a command are not daily metrics.
 oldhand metrics          # today, at a glance
 oldhand metrics --full   # plus findability and eval, several hundred searches
 ```
+
+Historical example from 0.4.2 (the unreleased source clarifies these labels below):
 
 ```
 oldhand 0.4.2   2026-09-15T00:59:42+05:30
@@ -37,18 +40,24 @@ oldhand 0.4.2   2026-09-15T00:59:42+05:30
   open rate          22% of returned records were opened
 ```
 
-The four retrieval lines are the ones that decide whether the archive is
-working:
+Retrieval totals cover the **available retrieval log**, not an assumed complete
+lifetime or a selected observation window. They describe observed retrieval;
+they do not establish whether the archive improved task outcomes:
 
 - **searches per day** near zero means nothing reaches for it, and ranking
   quality is then irrelevant;
 - **found nothing** above roughly 15% means queries and records are using
   different vocabulary;
-- **coverage** is the share of records anything has ever returned. A record
-  nothing retrieves costs tokens to write, adds noise to every ranking
-  afterwards, and has never been useful;
-- **open rate** near zero means summaries are not earning the click, or are so
-  good that nobody needs the record. `oldhand usage` separates those.
+- **coverage** is the share of currently indexed records returned in the available
+  log. Missing retrieval evidence does not establish that a record is useless;
+- **distinct open rate** is the fraction of distinct returned records that also
+  have a show event in that log. It is not a per-search click-through rate and
+  does not prove that a particular result caused a later opening.
+
+The unreleased source prints exact empty-search and distinct-open numerators
+and denominators. Rates retain their precision in JSON; a nonzero rate smaller
+than 0.01% prints `<0.01%` instead of an exact zero. An unavailable denominator
+prints `N/A`, while no searches yields a null rate in the snapshot.
 
 Read coverage patiently. Early on it only means "nobody has asked yet", which
 is why `oldhand usage` withholds its never-retrieved verdict until 50 searches.
@@ -68,11 +77,24 @@ Counts, rates, percentiles and scores. Specifically:
 - archive shape: record and collection counts, collection **sizes**, index
   rows, token and summary-length percentiles, distributions across every
   schema dimension
-- retrieval: searches, shows, active days, zero-result rate, coverage, open
-  rate
+- retrieval: searches, shows, active days, empty-search count/rate, coverage,
+  distinct returned/opened record counts and distinct open rate
 - health: findability, thin summaries, invalid records
 - eval scores, if you keep an eval set
 - Oldhand version, Python version, operating system name
+
+### Export versions and remaining scope
+
+New snapshots use `schema: 2`, and new bundles use `metrics_schema: 2`. The
+additive retrieval fields are `zero_result_searches` and
+`distinct_records_opened`. Schema-1 daily snapshots, including the legacy
+`lore_version` spelling, remain readable and retain their original fields in
+exported history. Export does not rewrite old history to add missing counters.
+
+TODO for subsequent R2 slices: explicit observation-window filters, observable
+log bounds and valid/malformed row counts, and missing-snapshot coverage
+diagnostics. This slice does not claim complete log history or infer inactivity
+from missing snapshots.
 
 ### What it never contains
 

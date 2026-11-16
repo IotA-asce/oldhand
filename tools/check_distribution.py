@@ -73,6 +73,12 @@ def main() -> int:
             raise RuntimeError("Installed guide walkthrough did not retire its record")
         if "guide-example" not in run("search", "--history", "fixture cache"):
             raise RuntimeError("Installed guide walkthrough lost retired history")
+        exported = base / "metrics-export.json"
+        run("metrics", "--export", str(exported))
+        metrics = json.loads(exported.read_text(encoding="utf-8"))
+        if (metrics["metrics_schema"] != 2
+                or "zero_result_searches" not in metrics["latest"]["retrieval"]):
+            raise RuntimeError("Installed wheel did not export schema-2 rate counters")
         print("Installed wheel passed offline guide, create/find/retire, native console, Unicode, and Obsidian checks.")
     return 0
 

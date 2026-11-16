@@ -16,6 +16,9 @@ released versions.
 
 ### Changed
 
+- Metrics now label available-log totals and distinct-record open rates with
+  exact numerators; tiny nonzero rates retain precision. Additive schema-2
+  exports continue to read schema-1 history without rewriting it.
 - Compact project setup guidance now includes selective reading and writing,
   rare importance labels, and on-demand guide commands. Existing marked blocks
   upgrade through the same preview/apply/undo ownership contract.
