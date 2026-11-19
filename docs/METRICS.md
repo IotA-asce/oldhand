@@ -91,9 +91,20 @@ additive retrieval fields are `zero_result_searches` and
 `lore_version` spelling, remain readable and retain their original fields in
 exported history. Export does not rewrite old history to add missing counters.
 
-TODO for subsequent R2 slices: explicit observation-window filters, observable
-log bounds and valid/malformed row counts, and missing-snapshot coverage
-diagnostics. This slice does not claim complete log history or infer inactivity
+The additive provenance fields are `log_available`, `valid_events`,
+`malformed_events`, `blank_lines`, `first_event_date`, and `last_event_date`.
+Missing and present-but-empty logs are distinguished. Bounds are the earliest
+and latest accepted calendar-date prefixes, irrespective of file order; they
+are not timezone-normalized timestamps, a selected window, or lifetime bounds.
+Date-only legacy events remain accepted. A valid event has search/show action,
+a real ISO calendar-date prefix, and a list of string returned IDs. Blank lines
+are separate from malformed JSON, non-object rows, unsupported actions and
+invalid shapes/dates. Legacy rows with ignored extra fields are supported.
+No accepted events means null bounds, including an all-malformed log.
+The CLI prints these counts and bounds even when there were no searches.
+
+TODO for subsequent R2 slices: explicit observation-window filters and
+missing-snapshot coverage diagnostics. This slice does not claim complete log history or infer inactivity
 from missing snapshots.
 
 ### What it never contains
@@ -109,7 +120,7 @@ in an archive.
 
 Because it is enforced, not promised. Before writing, the export checks every
 string value in the bundle against a rule: it must be a version, an ISO
-timestamp, the platform name, a schema enum, or the fixed disclosure note.
+date or timestamp, the platform name, a schema enum, or the fixed disclosure note.
 Anything else and it refuses to write and names the offending field.
 
 On a 293-record archive the resulting bundle contained **eleven string

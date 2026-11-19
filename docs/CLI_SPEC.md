@@ -426,6 +426,13 @@ exist", which is the one wrong answer a memory system must never give.
 
 ## Metrics
 
+Available-log provenance includes existence, accepted/malformed/blank row counts
+and chronological first/last accepted calendar dates (null if none). Dates are
+recorded date prefixes, not timezone-normalized instants or lifetime coverage.
+Malformed dates/shapes are excluded visibly; date-only legacy events remain valid.
+These additive schema-2 fields preserve old history and the content-free export
+audit. Window filters and missing-snapshot coverage remain separate TODOs.
+
 Any command appends one snapshot per day to `metrics/daily.jsonl`: pure SQL
 and a line count, silent, and never able to fail a command. Automatic because
 daily metrics that need someone to remember are not daily metrics.
@@ -449,7 +456,7 @@ schema 2 while schema-1 history remains readable and unchanged. See
 `METRICS.md` for the additive contract and remaining R2 scope.
 
 This is enforced rather than promised: before writing, every string value in
-the bundle must be a version, an ISO timestamp, the platform name, a schema
+the bundle must be a version, an ISO date or timestamp, the platform name, a schema
 enum or the fixed disclosure note. Anything else and the export refuses to
 write and names the field. On a 293-record archive the bundle held eleven
 string values in total; everything else was numbers.

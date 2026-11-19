@@ -315,18 +315,23 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
     # Retrieval: aggregates only. Query text is never read into the snapshot.
     log = root / ".oldhand" / "retrieval.jsonl"
     searches = shows = empty = 0
+    valid_events = malformed_events = blank_lines = 0
+    log_available = log.exists()
     returned: dict[str, int] = {}
     opened: set[str] = set()
     days: set[str] = set()
-    if log.exists():
+    if log_available:
         for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
             if not line.strip():
+                blank_lines += 1
                 continue
             try:
                 rec = json.loads(line)
             except ValueError:
+                malformed_events += 1
                 continue
             if not isinstance(rec, dict):
+                malformed_events += 1
                 continue
             action = rec.get("action")
             at = rec.get("at")
@@ -336,7 +341,14 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
                     or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", at[:10])
                     or not isinstance(ids, list)
                     or any(not isinstance(item, str) for item in ids)):
+                malformed_events += 1
                 continue
+            try:
+                datetime.fromisoformat(at[:10])
+            except ValueError:
+                malformed_events += 1
+                continue
+            valid_events += 1
             days.add(at[:10])
             if action == "search":
                 searches += 1
@@ -349,6 +361,12 @@ def collect_metrics(root: Path, full: bool = False) -> dict:
                 shows += 1
                 opened.update(i for i in ids if i in record_ids)
     m["retrieval"] = {
+        "log_available": log_available,
+        "valid_events": valid_events,
+        "malformed_events": malformed_events,
+        "blank_lines": blank_lines,
+        "first_event_date": min(days) if days else None,
+        "last_event_date": max(days) if days else None,
         "searches": searches,
         "shows": shows,
         "active_days": len(days - {""}),
@@ -416,6 +434,8 @@ METRICS_EXPORT_KEYS = {
     "shows", "active_days", "searches_per_active_day", "zero_result_rate",
     "distinct_records_returned", "coverage", "open_rate", "min", "p50", "p90",
     "zero_result_searches", "distinct_records_opened",
+    "log_available", "valid_events", "malformed_events", "blank_lines",
+    "first_event_date", "last_event_date",
     "max", "queries", "recall@1", "recall@3", "recall@5", "mrr",
 } | ENTRY_TYPES | STATUSES | IMPORTANCE | SCOPES | RISKS | DURABILITY | EVIDENCE
 
@@ -423,7 +443,7 @@ METRICS_EXPORT_KEYS = {
 def _audit_export(bundle: dict) -> list[str]:
     """Paths whose keys or string values are not provably content-free.
 
-    Allowed: versions, ISO timestamps, the platform name, schema enum values
+    Allowed: versions, ISO dates/timestamps, the platform name, schema enum values
     (which come from Oldhand, not from the archive) and the disclosure note.
     Everything else in a metrics bundle should be a number.
     """
@@ -453,6 +473,14 @@ def _audit_export(bundle: dict) -> list[str]:
             if leaf in ("captured_at", "exported_at") and re.fullmatch(
                     r"[\d]{4}-[\d]{2}-[\d]{2}[T\d:+\-.]*", value):
                 return
+            if leaf in ("first_event_date", "last_event_date") and re.fullmatch(
+                    r"\d{4}-\d{2}-\d{2}", value):
+                try:
+                    datetime.fromisoformat(value)
+                except ValueError:
+                    pass
+                else:
+                    return
             if leaf == "platform" and value == platform.system():
                 return
             if leaf == "contains" and value.startswith("counts, rates and scores only"):
@@ -684,6 +712,12 @@ def metrics(root: Path, full: bool, export: str | None) -> int:
           f"({crit / a['records']:.0%})" if a["records"] else "")
     print()
     print("  retrieval totals   available retrieval log; no date filter")
+    print(f"  retrieval log      {'present' if r['log_available'] else 'missing'}; "
+          f"{r['valid_events']} valid, {r['malformed_events']} malformed, "
+          f"{r['blank_lines']} blank")
+    bounds = (f"{r['first_event_date']} to {r['last_event_date']}"
+              if r['first_event_date'] else "N/A")
+    print(f"  observed dates     {bounds} (accepted event dates; not lifetime coverage)")
     if r["searches"]:
         print(f"  searches           {r['searches']} over {r['active_days']} day(s) "
               f"({r['searches_per_active_day']}/day)")

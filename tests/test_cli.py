@@ -1229,6 +1229,85 @@ class LoreTests(unittest.TestCase):
         self.assertFalse(list(self.root.glob("export.json.updating.*")))
         self.assertIn("Cannot write metrics export", self.errors.getvalue())
 
+    def test_metrics_log_provenance_counts_rows_and_orders_dates(self):
+        self.record("returned")
+        oldhand.rebuild(self.root, quiet=True)
+        log = self.root / ".oldhand" / "retrieval.jsonl"
+        events = [
+            {"at": "2026-11-19T23:00:00+05:30", "action": "show",
+             "returned": ["returned"]},
+            {"at": "2026-11-15", "action": "search", "returned": []},
+            {"at": "2026-11-17T10:00:00Z", "action": "search",
+             "query": "private query", "returned": ["returned"]},
+            {"at": "2026-02-30", "action": "search", "returned": []},
+            {"at": "2026-11-18", "action": "search", "returned": [["bad"]]},
+            ["not an event"],
+        ]
+        log.write_text("\n".join(json.dumps(row) for row in events)
+                       + "\nnot-json\n\n  \n", encoding="utf-8")
+        r = oldhand.collect_metrics(self.root)["retrieval"]
+        self.assertTrue(r["log_available"])
+        self.assertEqual((r["valid_events"], r["malformed_events"], r["blank_lines"]),
+                         (3, 4, 2))
+        self.assertEqual((r["first_event_date"], r["last_event_date"]),
+                         ("2026-11-15", "2026-11-19"))
+        self.assertEqual((r["searches"], r["shows"], r["active_days"]), (2, 1, 3))
+        self.assertEqual(r["zero_result_rate"], 0.5)
+        self.assertEqual(r["open_rate"], 1.0)
+        oldhand.metrics(self.root, False, None)
+        self.assertIn("3 valid, 4 malformed, 2 blank", self.output.getvalue())
+        self.assertIn("2026-11-15 to 2026-11-19", self.output.getvalue())
+
+    def test_metrics_log_provenance_distinguishes_missing_and_empty(self):
+        self.record("safe")
+        oldhand.rebuild(self.root, quiet=True)
+        log = self.root / ".oldhand" / "retrieval.jsonl"
+        for content in (None, "", "bad-json\n"):
+            with self.subTest(content=content):
+                if content is not None:
+                    log.write_text(content, encoding="utf-8")
+                r = oldhand.collect_metrics(self.root)["retrieval"]
+                self.assertEqual(r["log_available"], content is not None)
+                self.assertEqual(r["valid_events"], 0)
+                self.assertEqual(r["malformed_events"], int(content == "bad-json\n"))
+                self.assertIsNone(r["first_event_date"])
+                self.assertIsNone(r["last_event_date"])
+                self.assertIsNone(r["zero_result_rate"])
+        self.output.seek(0)
+        self.output.truncate()
+        oldhand.metrics(self.root, False, None)
+        self.assertIn("observed dates     N/A", self.output.getvalue())
+        self.assertIn("0 valid, 1 malformed, 0 blank", self.output.getvalue())
+
+    def test_metrics_provenance_export_keeps_legacy_history_and_privacy(self):
+        self.record("private-record")
+        oldhand.rebuild(self.root, quiet=True)
+        log = self.root / ".oldhand" / "retrieval.jsonl"
+        log.write_text(json.dumps({"at": "2026-11-15", "action": "search",
+                                  "query": "private query", "returned": ["private-record"]})
+                       + "\nprivate malformed row\n", encoding="utf-8")
+        legacy = oldhand.collect_metrics(self.root)
+        legacy["schema"] = 1
+        for key in ("log_available", "valid_events", "malformed_events", "blank_lines",
+                    "first_event_date", "last_event_date", "zero_result_searches",
+                    "distinct_records_opened"):
+            legacy["retrieval"].pop(key, None)
+        history = oldhand._metrics_path(self.root)
+        history.parent.mkdir(exist_ok=True)
+        original = (json.dumps(legacy) + "\n").encode()
+        history.write_bytes(original)
+        export = self.root / "share.json"
+        self.assertEqual(oldhand.metrics(self.root, False, str(export)), 0)
+        bundle = json.loads(export.read_text())
+        self.assertEqual(bundle["history"], [legacy])
+        self.assertEqual(history.read_bytes(), original)
+        self.assertEqual(bundle["latest"]["retrieval"]["first_event_date"], "2026-11-15")
+        self.assertEqual(oldhand._audit_export(bundle), [])
+        for secret in ("private query", "private-record", "private malformed row", str(self.root)):
+            self.assertNotIn(secret, export.read_text())
+        bundle["latest"]["retrieval"]["first_event_date"] = "private date label"
+        self.assertTrue(oldhand._audit_export(bundle))
+
     def test_metrics_tiny_empty_rate_and_distinct_open_counts(self):
         self.record("returned")
         oldhand.rebuild(self.root, quiet=True)

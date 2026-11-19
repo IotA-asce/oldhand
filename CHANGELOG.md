@@ -10,6 +10,9 @@ released versions.
 
 ### Added
 
+- Metrics log existence, valid/malformed/blank row counts and observed date bounds,
+  including empty and malformed-only logs, with content-free additive exports.
+
 - Offline `oldhand guide [topic]` writing, vocabulary, importance, lifecycle and
   exclusion guidance, available from an installed package without an archive.
 - Installed-wheel create/find/retire walkthrough validation for the guide.

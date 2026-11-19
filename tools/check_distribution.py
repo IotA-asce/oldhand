@@ -73,13 +73,27 @@ def main() -> int:
             raise RuntimeError("Installed guide walkthrough did not retire its record")
         if "guide-example" not in run("search", "--history", "fixture cache"):
             raise RuntimeError("Installed guide walkthrough lost retired history")
+        log = archive / ".oldhand" / "retrieval.jsonl"
+        log.write_text(json.dumps({"at": "2026-11-15", "action": "search",
+                                   "query": "private fixture query", "returned": []})
+                       + "\nmalformed fixture row\n\n", encoding="utf-8")
         exported = base / "metrics-export.json"
         run("metrics", "--export", str(exported))
         metrics = json.loads(exported.read_text(encoding="utf-8"))
         if (metrics["metrics_schema"] != 2
                 or "zero_result_searches" not in metrics["latest"]["retrieval"]):
             raise RuntimeError("Installed wheel did not export schema-2 rate counters")
-        print("Installed wheel passed offline guide, create/find/retire, native console, Unicode, and Obsidian checks.")
+        retrieval = metrics["latest"]["retrieval"]
+        if (not retrieval["log_available"]
+                or (retrieval["valid_events"], retrieval["malformed_events"],
+                    retrieval["blank_lines"]) != (1, 1, 1)
+                or retrieval["first_event_date"] != "2026-11-15"
+                or retrieval["last_event_date"] != "2026-11-15"):
+            raise RuntimeError("Installed wheel exported incorrect log provenance")
+        if "private fixture query" in exported.read_text(encoding="utf-8"):
+            raise RuntimeError("Installed metrics export leaked query content")
+        print("Installed wheel passed offline guide, create/find/retire, native console, "
+              "Unicode, Obsidian, and metrics provenance checks.")
     return 0
 
 
